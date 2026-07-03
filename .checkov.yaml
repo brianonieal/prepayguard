@@ -1,0 +1,45 @@
+# checkov configuration (DEC-9). The reason checkov is here at all: it catches
+# S3 Object Lock misconfiguration — the exact mistake that would silently fail
+# graded commitment 4. Lock/versioning/encryption checks therefore stay ON;
+# nothing in this file may skip them.
+#
+# Skip policy: every skip carries a justification. Fixing beats skipping;
+# skips exist only where the control contradicts course scope or misfires.
+
+framework:
+  - terraform
+
+directory:
+  - .
+
+# Show failures compactly; full output lands in CI artifacts (v0.6.0).
+compact: true
+quiet: true
+
+skip-check:
+  # Audit bucket, course-scope boundaries (grounding review, 2026-07-03):
+  - CKV_AWS_144 # S3 cross-region replication: a second Object-Lock bucket doubles storage for a single-region graded prototype; recorded as residual risk for the handoff package instead.
+  - CKV_AWS_18  # S3 access logging: server-access-log bucket adds cost/complexity beyond course scope; API access logging + CloudTrail cover the caller-audit story. Residual-risk entry.
+  - CKV_AWS_93  # False positive here: the audit bucket policy's wildcard-principal statements are conditional Denies (TLS floor, lock-mode floor) — not an owner lockout. Verified during the v0.1.0 grounding review.
+
+  # Lambda checks that contradict this design (v0.1.0 checkov triage, 2026-07-03):
+  - CKV_AWS_272 # Code signing applies only to zip-package Lambdas; all four components are container images (DEC-2). Image integrity is ECR immutable tags + scan-on-push + Grype in CI (DEC-8).
+  - CKV_AWS_116 # dead_letter_config covers ASYNC invocations. B/C/D failure routing is the SQS redrive->DLQ design (DEC-3, commitment 2); A is synchronous (errors return to caller). An async DLQ would be dead config.
+  - CKV_AWS_115 # Function-level reserved concurrency would carve the account pool and fight the event-source scaling_config.maximum_concurrency, which is the designed commitment-3 lever.
+  - CKV_AWS_117 # No VPC exists in this design: functions call AWS APIs only. A VPC adds NAT cost + cold-start penalty (DEC-2 risk) for zero attack-surface reduction here.
+  - CKV_AWS_173 # Lambda env vars hold queue URLs/bucket names — identifiers, not secrets. The only secret lives in Secrets Manager (DEC-7). Default at-rest encryption applies.
+  - CKV_AWS_158 # CloudWatch log groups: default AWS-managed encryption; payloads are excluded from logs by handler design (v0.2.0+). Per-group CMKs = key sprawl without a threat model.
+
+  # API Gateway checks not matching an IAM-authed system-to-system endpoint:
+  - CKV_AWS_120 # Response caching on a payment INTAKE endpoint is actively wrong: mutations must reach the idempotency check (commitment 1), never a cache.
+  - CKV2_AWS_51 # Client-certificate auth is for API GW -> backend mTLS topologies. Caller auth here is SigV4/AWS_IAM + resource policy (DEC-5).
+  - CKV2_AWS_29 # WAF on an IAM-authed, resource-policy-scoped (single role) endpoint adds cost without a matching threat at course scope. Residual-risk entry for the handoff package.
+  - CKV2_AWS_4  # Execution logging needs the account-level API GW CloudWatch role singleton. ACCESS logging (caller identity audit) is enabled; execution logging is re-evaluated at v0.2.0.
+  - CKV2_AWS_53 # Request validation needs the payment JSON schema, which is defined WITH the intake handler at v0.2.0. An empty validator now would satisfy the rule without validating anything. Explicit v0.2.0 task.
+
+  # Secrets Manager (webhook URL, DEC-7):
+  - CKV2_AWS_57 # Automatic rotation doesn't apply: a webhook URL is not an expiring credential and has no rotation Lambda semantics. Compromise response = regenerate at provider + put-secret-value. DEC-7 risk note covers the fallback alarm.
+  - CKV_AWS_149 # Default aws/secretsmanager KMS encryption is real at-rest encryption; a dedicated CMK for one webhook URL adds key-management surface without threat-model benefit at course scope. Residual-risk entry.
+
+  # Audit bucket, evaluated and deferred:
+  - CKV2_AWS_62 # S3 event notifications have no consumer in this design. Noted as follow-on work (EventBridge-based audit-write reconciliation).

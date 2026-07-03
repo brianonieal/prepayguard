@@ -1,0 +1,25 @@
+# MEMORY_EPISODIC.md — PrePayGuard ("Treasury")
+# Session and gate history. Newest first.
+
+## GATE OUTCOMES
+
+| Date | Gate | Outcome | Est (raw/cal) | Actual | Notes |
+|---|---|---|---|---|---|
+| 2026-07-03 | v0.1.0 Terraform Foundation & Shared Module | CLOSED — pending GO certification | 10h / ~3.4h | ~1.5h | fmt/validate/tflint/checkov all green (270/0). `terraform plan` deferred: no AWS creds + no aws CLI on machine (decision surfaced at close). Latent v0.4.0 KMS bug fixed pre-emptively. |
+
+## SESSIONS
+
+### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build
+- /start → new project; Phase 1 brain dump supplied as two files
+  (TREASURY_PROJECT_BRIEF.md + TREASURY_DECISIONS_LOG.md); no re-interrogation.
+- 12 decisions seeded verbatim into DECISIONS.md as LOCKED.
+- BUILD APPROVED: 7-gate roadmap v0.1.0 → v1.0.0 (0.34x operator calibration,
+  with stated caveat that the pool contains no AWS/Terraform projects).
+- Phases 4/5 (mockups/frontend) marked N/A permanently — backend-only project.
+- v0.1.0: CONFIRMED → ROADMAP APPROVED → built (queue_worker_stage first per
+  Brian's instruction) → verification green → gate-close docs written.
+- Background grounding workflow (8 agents) verified provider syntax before HCL
+  was written; its HIGH finding (aws_ecr_image.id vs image_digest) recorded in
+  ARCHITECTURE.md known-unknowns for v0.2.0.
+- Toolchain installed project-locally (.tools/bin: terraform 1.15.7,
+  tflint 0.63.1; checkov via pip). aws CLI absent — flagged.

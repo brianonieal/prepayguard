@@ -1,0 +1,37 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# NOTE: .terraform.lock.hcl is intentionally COMMITTED (provider pinning).
+# NOTE: terraform.tfvars is intentionally COMMITTED — it contains no secrets by
+# design (DEC-7: the webhook URL lives only in Secrets Manager, never in tfvars).
+
+# Local tool binaries (terraform/tflint installed project-locally, no admin)
+.tools/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.ruff_cache/
+*.egg-info/
+
+# Scan output (regenerated; final copies for the handoff package are curated
+# into docs/ at v1.0.0, not committed from here)
+checkov-report*
+tflint-report*
+pip-audit-report*
+grype-report*
+
+# OS / editor
+.DS_Store
+Thumbs.db
