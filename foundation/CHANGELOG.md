@@ -1,5 +1,18 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v0.5.0 — Queue-Depth Scaling & DLQ Hardening (2026-07-03)
+
+**Commitment 3 demonstrated — ALL FOUR graded commitments now complete. Config/plan-based evidence; live load demo deferred to the full-deploy milestone.**
+
+### Added
+- `tests/test_queue_depth_scaling.py` (3) — parses `terraform show -json` and asserts, per worker stage: event-source-mapping `scaling_config.maximum_concurrency` (≥2), `ReportBatchItemFailures`, `batch_size`, the queue-depth CloudWatch alarms, and DLQ redrive wiring. Skip-guarded so hermetic (no-terraform/no-creds) runs don't fail.
+
+### Verified
+- `pytest` **29/29**. tflint/checkov unchanged (271/0, no `.tf` change); `plan` 68/0/0.
+
+### Status
+- **4 / 4 graded commitments demonstrated** (1 idempotency, 2 failure-routing, 3 scaling, 4 immutability — #4 live-verified). The scaling mechanism was built at v0.1.0; this gate proves it. DLQ/redrive already hardened (14-day DLQ retention, `maxReceiveCount` 3, redrive-allow scoping).
+
 ## v0.4.0 — Component D: Disposition, Audit, Notify (2026-07-03)
 
 **Commitments 2 & 4 demonstrated + DEC-7. Live Object-Lock immutability proven against real AWS.**

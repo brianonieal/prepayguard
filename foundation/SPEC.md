@@ -1,28 +1,28 @@
 # SPEC.md
 # Current-gate detail. Updated each gate.
 
-## LAST CLOSED: v0.4.0 — Component D (Disposition, Audit, Notify)
-**Status:** CLOSED (tagged). pytest 26/26 · LIVE Object-Lock proof PASS ·
-fmt/validate clean · tflint/checkov 271/0 (no `.tf` change) · plan 68/0/0.
+## LAST CLOSED: v0.5.0 — Queue-Depth Scaling & DLQ Hardening
+**Status:** CLOSED (tagged). pytest 29/29 · tflint/checkov 271/0 · plan 68/0/0.
+Commitment 3 demonstrated (config proof: `terraform show -json` asserts
+event-source-mapping scaling, queue-depth alarms, DLQ redrive per worker stage).
 
-- **Commitment 4 (live-verified):** D writes an immutable, integrity-hashed
-  audit record to the S3 Object Lock bucket; a real delete + shorten-retention
-  were both refused (`AccessDenied`) — `docs/evidence/live_object_lock_proof.txt`.
-- **Commitment 2:** `review` dispositions routed to the human-review queue;
-  processing failures → batch-item-failure → redrive/DLQ.
-- **DEC-7:** webhook posted on review, URL from Secrets Manager (least-priv).
-- **Deployed:** `module.audit_store` live (9 resources; first real AWS spend).
+**ALL FOUR graded commitments now demonstrated:**
+1. Idempotency — `test_idempotency.py` (DEC-13)
+2. Failure routing → review/DLQ — `test_failure_routing.py`
+3. Queue-depth scaling — `test_queue_depth_scaling.py`
+4. S3 Object Lock immutability — `test_object_lock.py` **+ live proof**
 
-## NEXT GATE: v0.5.0 — Queue-Depth Scaling & DLQ Hardening
-Demonstrate **commitment 3**: event-source-mapping concurrency/batch scaling
-under queue depth, CloudWatch queue-depth alarms, DLQ + redrive across stages.
-`tests/test_queue_depth_scaling.py`. Opens on **GO**.
+## NEXT GATE: v0.6.0 — CI/CD & Security Scanning
+GitHub Actions `ci.yml` (fmt/validate/tflint/pytest) + `plan.yml` (plan-on-PR,
+no auto-apply) · pip-audit · Grype · checkov · ruff · Lambda versions+aliases
+rollback (DEC-6/8/9/10). **First step: create the GitHub remote** (push has been
+deferred since v0.1.0 — this is where it lands). Opens on **GO**.
 
-## PIPELINE STATUS
-All four components have handler logic + passing tests. Three of four graded
-commitments demonstrated (1 idempotency, 2 failure routing, 4 immutability);
-commitment 3 (scaling) is v0.5.0. First live apply done (audit_store only);
-full deploy (4 container images + apply) remains.
+## REMAINING TO v1.0.0
+- v0.6.0 CI/CD + security scanning
+- v1.0.0 Capstone handoff package (DEC-11)
+- Not gated but pending: full deploy (4 container images built+pushed + apply)
+  for a live end-to-end run; only `audit_store` is currently live.
 
 ## DECISIONS SNAPSHOT
 14 of 14 LOCKED. No open questions.

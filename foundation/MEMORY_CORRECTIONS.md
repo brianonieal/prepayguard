@@ -3,10 +3,31 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v0.5.0 estimated=9h actual=0.40h variance=-96% source=timelog errors_open=0 errors_close=0 date=2026-07-03T22:51:56Z
 ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog errors_open=0 errors_close=0 date=2026-07-03T20:08:06Z
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v0.5.0 Queue-Depth Scaling & DLQ Hardening (2026-07-03)
+
+**What went well**
+- The whole scaling mechanism was already built at v0.1.0 (shared module), so
+  this gate was purely writing the evidence test — the DEC-1 shared-module bet
+  keeps paying off. Parsing `terraform show -json` is a clean, deterministic way
+  to prove infra config as a pytest without a live deploy.
+
+**What bit**
+- First cut of the redrive test tried to parse `redrive_policy` from
+  planned_values, but that string is known-after-apply (references the DLQ ARN),
+  so it wasn't there. Pivoted to asserting the redrive-policy + DLQ resources
+  exist. Lesson: in plan-JSON tests, assert on KNOWN values / resource presence,
+  not on computed strings.
+
+**Estimated vs actual**
+Raw 5–9h (mid 7h) → actual ~0.4h. Fifth gate, consistent ~-90%+ under. The
+project calibration (5 gates, mean ≈ -92%) is now well-established and should be
+folded back into the operator profile via aggregate-patterns after this run.
 
 ### REFLEXION — v0.4.0 Component D: Disposition, Audit, Notify (2026-07-03)
 
