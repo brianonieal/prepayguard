@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# 12 decisions logged. 12 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 13 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -149,4 +149,29 @@ Section-level detail:
 
 ---
 
-# 12 decisions logged. 12 LOCKED, 0 OPEN.
+## DEC-13 - Idempotency Backing Store (Component A)
+**Date:** 2026-07-03
+**Severity:** FULL
+**Decision:** DynamoDB single-item conditional write (`PutItem` with `ConditionExpression attribute_not_exists(payment_id)`) as Component A's idempotency store for graded commitment 1, with an explicit **PENDING → SENT status field** and **original-result replay**: on a duplicate, the handler reads the stored item and returns the original disposition + queue-message-id rather than rejecting. Ordering is write-PENDING → SendMessage to the output queue → update-to-SENT; the fast-path replay fires only on SENT, and a duplicate landing on a PENDING item re-drives the send (covering a crash between the two writes). Hand-rolled (mechanism visible in `app.py`), not the Lambda Powertools utility. The table lives inside the `api_intake_stage` module (single consumer). Provisioned free-tier capacity; a TTL attribute treats the table as a short-lived dedup cache while Component D's S3 Object Lock write remains the canonical audit record.
+**Assumptions tested:** that "idempotency" (commitment 1) means replay-returns-original-result, not dedup-by-rejection; and that the two-phase (DynamoDB + SQS) write has no silent-loss window.
+**Alternatives considered:**
+- SQS FIFO content-based dedup — rejected earlier (5-minute window is not durable payment idempotency; constrains throughput/ordering).
+- S3 conditional PutObject (If-None-Match) — rejected: the only in-design bucket is D's Object Lock Compliance audit store (spoken for by DEC-4); a second bucket for dedup adds IAM + lifecycle to save nothing over DynamoDB and loses cheap read-back by payment_id.
+- AWS Lambda Powertools idempotency utility — viable and correct-by-construction (closes both HIGH objections automatically), but hides the mechanism behind a decorator. Rejected in favor of visible hand-rolled logic because commitment 1's deliverable is *demonstrating* idempotency; reversible if the professor prefers managed tooling.
+**Critical-thinker objections raised & resolution:**
+- HIGH — "reject ≠ idempotent": resolved by storing disposition + queue-message-id and replaying the original result on a duplicate.
+- HIGH — two-phase silent payment loss (item exists, SQS send never happened, retries then blocked; Component A has no DLQ): resolved by the PENDING→SENT status field with re-drive on a PENDING hit.
+- MEDIUM — billing mode: resolved to provisioned (25 RCU / 25 WCU, free-tier), not on-demand (not free-tier-covered).
+- MEDIUM — TTL vs. audit retention (DEC-4): resolved by documenting the table as a dedup cache and S3 Object Lock as the canonical audit record (one line added to ARCHITECTURE.md at build).
+- LOW — server-side conditional-write atomicity is a *strength*: foregrounded as commitment-1 evidence (the test asserts exactly-one-wins under concurrent identical payment_ids).
+- Module placement: inside `api_intake_stage` (single-instance module; PAT-T1's for_each sibling-reference concern does not apply).
+- Encryption: AWS-managed at-rest by default; a customer-managed KMS key only if checkov (CKV_AWS_119) requires it and cost permits — resolved against the scanner at build.
+**Rationale:** DynamoDB's conditional write is the platform-correct atomic primitive for payment-ID dedup and is strongly consistent under concurrent duplicates — the single most gradeable fact for commitment 1. Hand-rolling the surrounding PENDING→SENT state machine keeps the mechanism visible for a show-don't-assert rubric, and the adversarial tests (concurrent race, crash-between-writes) convert the hand-roll's correctness risk into evidence.
+**Risk acknowledged:** hand-rolled correctness primitives can carry subtle runtime bugs (v0.1.0 reflexion lesson). Mitigated by writing the race and crash-gap tests first, so the two failure modes the critique found are proven closed before the gate closes.
+**Confidence:** HIGH (mechanism). **Reversibility:** HIGH — one handler + one table + a few IAM lines; swapping to Powertools later is contained.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 13 decisions logged. 13 LOCKED, 0 OPEN.

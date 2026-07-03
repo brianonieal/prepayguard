@@ -12,7 +12,7 @@
 | Version | Name | Goal (user-facing outcome) | Raw | Hours (0.34x) | Status |
 |---|---|---|---|---|---|
 | v0.1.0 | Terraform Foundation & Shared Module | All Terraform modules author-complete and `plan`-clean; `queue_worker_stage` built first as the dependency root; DECISIONS.md + foundation docs seeded | 10h | ~3.4h | DONE (actual: 1.5) |
-| v0.2.0 | Component A — Payment Intake API | IAM-authed API Gateway → Lambda performs payment-ID idempotency dedup and writes to output SQS. **Commitment 1** demonstrated. | 8h | ~2.7h | pending |
+| v0.2.0 | Component A — Payment Intake API | IAM-authed API Gateway → Lambda performs payment-ID idempotency dedup and writes to output SQS. **Commitment 1** demonstrated. | 8h | ~2.7h | DONE (actual: 0.4) |
 | v0.3.0 | Components B & C — Enrichment + Risk Scoring | Two SQS-triggered workers on the shared module: reference-match enrichment, then risk score + disposition decision. | 8h | ~2.7h | pending |
 | v0.4.0 | Component D — Disposition, Audit, Notify | Immutable audit write to S3 Object Lock (**commitment 4**), ambiguous → review queue (**commitment 2**), webhook via least-priv Secrets Manager (DEC-7). | 9h | ~3.1h | pending |
 | v0.5.0 | Queue-Depth Scaling & DLQ Hardening | Event-source-mapping batch/concurrency tuning (**commitment 3**), CloudWatch queue-depth alarms, DLQ + redrive across all stages. | 5–9h | ~1.7–3.1h | pending |

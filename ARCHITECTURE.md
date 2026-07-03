@@ -41,9 +41,11 @@ Stubs at v0.1.0; each component's gate (v0.2.0–v0.4.0) fleshes out its section
 with observed behavior, not speculation.
 
 ### A — Payment Intake API
-- **Duplicate submission** (retry storms, client bugs): payment-ID idempotency
-  check — accepted duplicate returns the original disposition path rather than
-  a second pipeline entry. *(Mechanism lands at v0.2.0.)*
+- **Duplicate submission** (retry storms, client bugs): atomic DynamoDB
+  conditional write (DEC-13). A duplicate `payment_id` returns the ORIGINAL
+  result (idempotent replay), never a rejection or a second enqueue. If a prior
+  attempt died after the PENDING write but before the SQS send, a retry finds
+  the PENDING record and re-drives the send — no silent loss.
 - **Unauthorized caller**: rejected at the gateway by AWS_IAM auth + resource
   policy (only the payment-submitter role); never reaches the Lambda.
 - **Output queue unavailable / send fails**: synchronous path — caller receives
@@ -94,9 +96,12 @@ exact reversion diff before any apply.
 
 ## 5. Known unknowns (course objective 3)
 
-- **Idempotency backing store (v0.2.0):** payment-ID dedup needs persistence;
-  leading candidate is DynamoDB conditional writes. SQS FIFO dedup was ruled
-  out early (5-minute window ≠ payment idempotency). Decide + build at v0.2.0.
+- **Idempotency backing store — RESOLVED (DEC-13):** DynamoDB conditional write
+  with a PENDING→SENT state machine and original-result replay. The table is a
+  short-lived dedup cache (TTL); Component D's S3 Object Lock write is the
+  canonical audit record, so the two retention models don't conflict. SQS FIFO
+  dedup, S3 If-None-Match, and Lambda Powertools were considered and rejected
+  (see DEC-13).
 - **ECR digest pinning trap (recorded from the v0.1.0 grounding review):** the
   `aws_ecr_image` data source does **not** export `image_digest` — the manifest
   digest is its `id` attribute, and `code_sha256` is the preferred

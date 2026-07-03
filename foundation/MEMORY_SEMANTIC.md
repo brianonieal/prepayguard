@@ -49,3 +49,20 @@ PATH per-invocation in Bash: `export PATH="/d/PrePayGuard/.tools/bin:$PATH"`.
 Presence checks use `command -v tool` — this exact bug cost a re-check this
 project. Related: checkov output carries ANSI codes; strip with
 `sed 's/\x1b\[[0-9;]*m//g'` before parsing.
+
+## PAT-T8: at-least-once handlers need a status field, not just a dedup write
+A bare conditional-write dedup (`PutItem attribute_not_exists`) makes a two-phase
+handler (write item, THEN an external side-effect like an SQS send) lose work if
+it crashes between the two: the item blocks all retries but the side-effect never
+happened. Fix: an explicit PENDING→SENT status field — write PENDING, do the
+side-effect, flip to SENT; replay only on SENT; a duplicate hitting PENDING
+re-drives the side-effect. Recurs anywhere an idempotency key guards a downstream
+effect. (DEC-13, Component A.)
+
+## PAT-T9: moto tests — reset the handler's module-cached clients per test
+Handlers that hoist boto3 clients to module scope (warm-container reuse) must be
+reset between moto tests, or a client cached under test 1's mock points at test
+2's torn-down mock. Pattern: lazy module globals (`_dynamodb`/`_sqs = None`) plus
+a fixture that sets them back to None after creating the mock resources.
+`pytest.ini` `pythonpath = src/<component>` makes the handler importable from
+`tests/` without sys.path hacks.

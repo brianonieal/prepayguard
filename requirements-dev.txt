@@ -1,0 +1,4 @@
+# Test/dev dependencies (not shipped in any Lambda image).
+pytest>=8
+moto[dynamodb,sqs]>=5
+boto3>=1.34

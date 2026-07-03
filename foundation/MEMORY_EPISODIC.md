@@ -6,6 +6,7 @@
 | Date | Gate | Outcome | Est (raw/cal) | Actual | Notes |
 |---|---|---|---|---|---|
 | 2026-07-03 | v0.1.0 Terraform Foundation & Shared Module | WORK COMPLETE, all criteria met — awaiting GO | 10h / ~3.4h | ~1.5h | fmt/validate/tflint/checkov green (270/0) + `terraform plan` clean in us-east-2 (74/0/0, acct <ACCOUNT_ID>). Latent v0.4.0 KMS bug fixed pre-emptively. |
+| 2026-07-03 | v0.2.0 Component A — Payment Intake API + Idempotency | WORK COMPLETE, all criteria met — awaiting GO | 8h / ~2.7h | ~0.4h | Commitment 1 demonstrated (DEC-13: DynamoDB conditional write + PENDING→SENT + replay). pytest 6/6, checkov 271/0, plan 77/0/0. Critical-thinker caught 2 HIGH design holes pre-code. |
 
 ## SESSIONS
 
@@ -26,3 +27,13 @@
   (default path; not on Git Bash PATH — Terraform reads ~/.aws/credentials
   directly regardless). IAM user treasury-cli + AdministratorAccess.
 - Region aligned us-east-1 → us-east-2; `terraform plan` clean (74/0/0).
+
+### 2026-07-03 — Session 1 (cont.): v0.2.0 Component A
+- v0.2.0: CONFIRMED → /critical-thinker on the idempotency store (DEC-13) →
+  ROADMAP APPROVED → test-first build → green.
+- Critical-thinker (isolated subagent) surfaced two HIGH design holes before any
+  code: reject-vs-replay, and a two-phase silent-loss window. Both closed in the
+  design and turned into test cases.
+- Chose hand-rolled DynamoDB conditional write + status field over AWS Lambda
+  Powertools (visible mechanism = stronger commitment-1 evidence); reversible.
+- Test deps installed: pytest 9.1.1, moto 5.2.2, boto3 1.35.49 (user site).

@@ -3,7 +3,38 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v0.2.0 Component A: Payment Intake API + Idempotency (2026-07-03)
+
+**What went well**
+- The critical-thinker pass paid for itself: it turned a vague "use DynamoDB"
+  into a correct mechanism by naming two HIGH-severity holes (reject-vs-replay,
+  and the two-phase silent-loss window) BEFORE any code. Both became test cases;
+  the crash-recovery test is the strongest single piece of commitment-1 evidence.
+- Test-first worked cleanly — the 6 cases encoded the race/crash semantics from
+  DEC-13, and the handler was written to satisfy them. 6/6 green on first real run.
+- checkov triage stayed a design review: the two new DynamoDB findings
+  (CKV_AWS_119 CMK, CKV2_AWS_16 autoscaling) were each evaluated and justified as
+  skips proportionate to a dedup cache, not reflexively suppressed.
+
+**What bit**
+- Nothing blocking. moto 5 + boto3 on Python 3.14 emit botocore `utcnow`
+  DeprecationWarnings (upstream, not our code) — noise, not failures.
+
+**Lesson**
+- For a graded "demonstrate X" commitment, the decision that matters most isn't
+  the storage tech (DynamoDB was never in doubt) — it's the SEMANTICS around it
+  (replay vs reject, two-phase ordering). Pressure-test the semantics, not just
+  the component. Same shape as v0.1.0's "ask why a check exists," applied to a
+  design rather than a scanner.
+
+**Estimated vs actual**
+Raw estimate 8h → calibrated ~2.7h (0.34x) → actual ~0.4h. Second consecutive
+gate well under even the calibrated figure. Two data points now point the same
+direction for this AWS/Terraform+Python project; per policy still no roadmap
+edits until 3 gates, but the trend is worth flagging at the next gate's estimate.
 
 ### REFLEXION — v0.1.0 Terraform Foundation & Shared Module (2026-07-03)
 

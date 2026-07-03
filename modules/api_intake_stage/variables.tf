@@ -48,3 +48,15 @@ variable "log_retention_days" {
   type        = number
   default     = 365
 }
+
+variable "idempotency_read_capacity" {
+  description = "Provisioned RCU for the idempotency dedup table. Low by design (dedup cache); stays within DynamoDB free tier."
+  type        = number
+  default     = 5
+}
+
+variable "idempotency_write_capacity" {
+  description = "Provisioned WCU for the idempotency dedup table."
+  type        = number
+  default     = 5
+}

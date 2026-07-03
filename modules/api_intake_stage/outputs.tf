@@ -42,3 +42,13 @@ output "role_name" {
   description = "Execution role name (used by least-privilege IAM tests)."
   value       = aws_iam_role.intake.name
 }
+
+output "idempotency_table_name" {
+  description = "DynamoDB dedup table name (commitment 1, DEC-13)."
+  value       = aws_dynamodb_table.idempotency.name
+}
+
+output "idempotency_table_arn" {
+  description = "DynamoDB dedup table ARN."
+  value       = aws_dynamodb_table.idempotency.arn
+}
