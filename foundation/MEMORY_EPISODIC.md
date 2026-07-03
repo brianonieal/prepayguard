@@ -5,7 +5,7 @@
 
 | Date | Gate | Outcome | Est (raw/cal) | Actual | Notes |
 |---|---|---|---|---|---|
-| 2026-07-03 | v0.1.0 Terraform Foundation & Shared Module | CLOSED — pending GO certification | 10h / ~3.4h | ~1.5h | fmt/validate/tflint/checkov all green (270/0). `terraform plan` deferred: no AWS creds + no aws CLI on machine (decision surfaced at close). Latent v0.4.0 KMS bug fixed pre-emptively. |
+| 2026-07-03 | v0.1.0 Terraform Foundation & Shared Module | WORK COMPLETE, all criteria met — awaiting GO | 10h / ~3.4h | ~1.5h | fmt/validate/tflint/checkov green (270/0) + `terraform plan` clean in us-east-2 (74/0/0, acct <ACCOUNT_ID>). Latent v0.4.0 KMS bug fixed pre-emptively. |
 
 ## SESSIONS
 
@@ -22,4 +22,7 @@
   was written; its HIGH finding (aws_ecr_image.id vs image_digest) recorded in
   ARCHITECTURE.md known-unknowns for v0.2.0.
 - Toolchain installed project-locally (.tools/bin: terraform 1.15.7,
-  tflint 0.63.1; checkov via pip). aws CLI absent — flagged.
+  tflint 0.63.1; checkov via pip). aws CLI 2.35.15 installed by Brian
+  (default path; not on Git Bash PATH — Terraform reads ~/.aws/credentials
+  directly regardless). IAM user treasury-cli + AdministratorAccess.
+- Region aligned us-east-1 → us-east-2; `terraform plan` clean (74/0/0).

@@ -35,6 +35,14 @@
 - `tflint --recursive` (ruleset-aws 0.48.0): 0 issues.
 - `checkov`: 270 passed / 0 failed; all Object Lock, versioning, encryption,
   and public-access checks pass (DEC-9's target class).
+- `terraform plan` (us-east-2, account <ACCOUNT_ID>): **74 to add, 0 to change,
+  0 to destroy**, no errors/warnings. Caller identity, audit bucket
+  (`treasury-dev-audit-<ACCOUNT_ID>`), and Object Lock COMPLIANCE all resolved.
+
+### Changed
+- Region aligned **us-east-1 → us-east-2** (tfvars, variable default,
+  ARCHITECTURE assumptions) to match the operator's account/console before the
+  first plan.
 
 ### Fixed during verification (checkov triage)
 - API resource policy: wildcard-principal Allow tightened to the submitter role
@@ -46,8 +54,6 @@
   shared module.
 
 ### Known / deferred
-- `terraform plan` pending AWS credentials (aws CLI not installed) — surfaced
-  at gate close.
 - Recorded for v0.2.0: `aws_ecr_image` exports the digest as `id` (NOT
   `image_digest`); prefer `code_sha256` as the image-update trigger.
   Request-validator (CKV2_AWS_53) lands with the payment schema at v0.2.0.

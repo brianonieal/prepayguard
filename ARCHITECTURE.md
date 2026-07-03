@@ -115,7 +115,7 @@ exact reversion diff before any apply.
 
 ## 6. Assumptions
 
-- Single AWS account, single region (us-east-1), single `dev` environment;
+- Single AWS account, single region (us-east-2), single `dev` environment;
   free-tier credits bound all sizing choices.
 - Single operator (Brian) — local Terraform state is deliberate (see
   `environments/dev/backend.tf`); CI is plan-only (DEC-6).

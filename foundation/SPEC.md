@@ -2,12 +2,11 @@
 # Current-gate detail. Updated each gate.
 
 ## CURRENT GATE: v0.1.0 — Terraform Foundation & Shared Module
-**Status:** WORK COMPLETE — awaiting GO certification.
+**Status:** WORK COMPLETE, ALL CRITERIA MET — awaiting GO certification.
 CONFIRMED ✓ · ROADMAP APPROVED ✓ · build done · fmt/validate/tflint/checkov
-all green (270 passed / 0 failed). One success criterion open: `terraform plan`
-needs AWS credentials (aws CLI not installed on this machine) — decision
-surfaced at gate close. Next gate on GO: **v0.2.0 Component A — Payment Intake
-API + idempotency (commitment 1)**; its first task is the idempotency
+green (270/0) · `terraform plan` clean in us-east-2 (74 add / 0 change / 0
+destroy, account <ACCOUNT_ID>). Next gate on GO: **v0.2.0 Component A — Payment
+Intake API + idempotency (commitment 1)**; its first task is the idempotency
 backing-store decision (see ARCHITECTURE.md known-unknowns).
 
 ### Goal

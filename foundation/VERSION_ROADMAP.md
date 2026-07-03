@@ -11,7 +11,7 @@
 
 | Version | Name | Goal (user-facing outcome) | Raw | Hours (0.34x) | Status |
 |---|---|---|---|---|---|
-| v0.1.0 | Terraform Foundation & Shared Module | All Terraform modules author-complete and `plan`-clean; `queue_worker_stage` built first as the dependency root; DECISIONS.md + foundation docs seeded | 10h | ~3.4h | DONE* (actual: 1.5) |
+| v0.1.0 | Terraform Foundation & Shared Module | All Terraform modules author-complete and `plan`-clean; `queue_worker_stage` built first as the dependency root; DECISIONS.md + foundation docs seeded | 10h | ~3.4h | DONE (actual: 1.5) |
 | v0.2.0 | Component A — Payment Intake API | IAM-authed API Gateway → Lambda performs payment-ID idempotency dedup and writes to output SQS. **Commitment 1** demonstrated. | 8h | ~2.7h | pending |
 | v0.3.0 | Components B & C — Enrichment + Risk Scoring | Two SQS-triggered workers on the shared module: reference-match enrichment, then risk score + disposition decision. | 8h | ~2.7h | pending |
 | v0.4.0 | Component D — Disposition, Audit, Notify | Immutable audit write to S3 Object Lock (**commitment 4**), ambiguous → review queue (**commitment 2**), webhook via least-priv Secrets Manager (DEC-7). | 9h | ~3.1h | pending |
@@ -22,7 +22,7 @@
 **Total (post-calibration):** ~18–24h across 7 gates.
 
 ## NOTES
-- *v0.1.0 closed on fmt/validate/tflint/checkov all green. `terraform plan` (one success criterion) is pending AWS credentials — aws CLI is not installed on this machine. Surfaced at gate close for Brian's decision; plan runs before the v0.2.0 apply work regardless.
+- v0.1.0 fully green: fmt/validate/tflint/checkov + `terraform plan` all clean. Plan ran in us-east-2 against account <ACCOUNT_ID>: **74 to add, 0 to change, 0 to destroy**, no errors/warnings. Region aligned us-east-1 → us-east-2 to match the operator's account before planning.
 - Every gate is backend/infra → flow is **CONFIRMED → ROADMAP APPROVED → GO** (no MOCKUPS/FRONTEND).
 - Build order within v0.1.0 starts at `modules/queue_worker_stage/main.tf` (dependency root for B, C, D via `for_each`), per owner instruction.
 - Graded commitments land across v0.2.0 (1), v0.4.0 (2, 4), v0.5.0 (3). Each with a passing test file before its gate closes.

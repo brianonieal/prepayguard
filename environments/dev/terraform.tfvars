@@ -1,4 +1,4 @@
-aws_region = "us-east-1"
+aws_region = "us-east-2"
 
 # ============================================================================
 # AUDIT RETENTION — READ BEFORE CHANGING (DEC-4 irreversibility)
