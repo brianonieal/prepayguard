@@ -1,0 +1,55 @@
+name: ci
+
+# DEC-6: runs on every push and PR. Static checks + tests only — no apply,
+# no AWS credentials required (terraform validate/fmt/tflint/checkov are static;
+# pytest is hermetic and the plan-parsing test skip-guards when terraform/creds
+# are absent).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+      - name: fmt
+        run: terraform fmt -check -recursive
+      - name: init (no backend)
+        run: terraform -chdir=environments/dev init -backend=false
+      - name: validate
+        run: terraform -chdir=environments/dev validate
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.63.1
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        run: pip install -r requirements-dev.txt ruff pip-audit checkov
+      - name: ruff (DEC-9)
+        run: ruff check src tests
+      - name: pip-audit (DEC-8)
+        run: |
+          for req in src/*/requirements.txt; do
+            echo "== $req =="; pip-audit -r "$req" --strict
+          done
+      - name: pytest
+        run: pytest
+      - name: checkov (DEC-9)
+        run: checkov --config-file .checkov.yaml

@@ -1,0 +1,13 @@
+# ruff config (DEC-9). Lints the four Lambda handlers + tests.
+target-version = "py312"
+line-length = 110
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+  "E501", # line length is handled by the formatter / not enforced here
+  "B904", # re-raise chaining not required in these simple handlers
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011"]

@@ -69,7 +69,7 @@ def audit_record(payment: dict) -> dict:
         "schema_version": "1.0",
         "audit_id": str(uuid.uuid4()),
         "payment_id": payment.get("payment_id"),
-        "audited_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "audited_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "decision": {
             "disposition": disposition,
             "risk_score": risk.get("score"),

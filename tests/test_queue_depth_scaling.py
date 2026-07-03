@@ -8,7 +8,6 @@ full-deploy milestone. Skip-guarded so hermetic (no terraform / no creds) runs
 don't fail.
 """
 import json
-import os
 import pathlib
 import subprocess
 

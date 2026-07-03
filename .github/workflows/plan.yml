@@ -1,0 +1,54 @@
+name: plan
+
+# DEC-6: terraform plan on PRs to main, posted as a PR comment. NO auto-apply —
+# apply stays a manual, deliberate action.
+#
+# REQUIRES a GitHub secret AWS_PLAN_ROLE_ARN: an IAM role (OIDC-trusted for this
+# repo) with read/plan permissions. Until it is set, this workflow's plan step
+# fails at the credentials stage — ci.yml is unaffected and remains the green
+# gate. Local backend means CI state is per-run, so the plan shows a full
+# create diff (documented tradeoff for course scope; a remote backend would
+# reflect real drift).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write # for AWS OIDC
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-2
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+      - name: init
+        run: terraform -chdir=environments/dev init
+      - name: plan
+        id: plan
+        run: terraform -chdir=environments/dev plan -no-color -input=false 2>&1 | tee plan.txt
+        continue-on-error: true
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('plan.txt', 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated)';
+            const body = `#### Terraform Plan \`${{ steps.plan.outcome }}\`\n<details><summary>Show plan</summary>\n\n\`\`\`terraform\n${plan}\n\`\`\`\n</details>`;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+      - name: fail if plan errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
