@@ -1,0 +1,12 @@
+{
+  "bucket": "treasury-dev-audit-<ACCOUNT_ID>",
+  "key": "audit/live-proof/immutability-check.json",
+  "version_id": "7qDwKXM1LFRAJxTB.cuzHsfJtF5dnaHR",
+  "retention_mode": "COMPLIANCE",
+  "retain_until": "2026-07-04 20:05:28.632000+00:00",
+  "delete_denied": true,
+  "delete_error_code": "AccessDenied",
+  "shorten_denied": true,
+  "shorten_error_code": "AccessDenied"
+}
+LIVE OBJECT LOCK PROOF: PASS

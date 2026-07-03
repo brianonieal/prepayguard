@@ -1,5 +1,25 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v0.4.0 — Component D: Disposition, Audit, Notify (2026-07-03)
+
+**Commitments 2 & 4 demonstrated + DEC-7. Live Object-Lock immutability proven against real AWS.**
+
+### Added
+- `src/component_d_disposition/` — SQS-triggered handler: writes a **compliance audit record** (decision + evidence + provenance + SHA-256 integrity hash) to the S3 Object Lock bucket (**commitment 4**, audit-first ordering); routes `review` dispositions to the human-review queue (**commitment 2**); posts a webhook (**DEC-7**) whose URL is read from Secrets Manager (stdlib `urllib`, no dep). Dockerfile + reqs.
+- `tests/test_object_lock.py` (4), `tests/test_failure_routing.py` (4), `tests/test_review_notification.py` (4); conftest `disposition` fixture (moto S3 Object Lock + review SQS + secret). Message schema now complete: `payment → +enrichment → +risk → audit record`.
+- `scripts/live_object_lock_proof.py` + `docs/evidence/live_object_lock_proof.txt`.
+
+### Verified
+- `pytest` 26/26.
+- **LIVE commitment-4 proof** (`treasury-dev-audit-<ACCOUNT_ID>`): retention auto-applied COMPLIANCE; `delete` → AccessDenied; shorten-retention → AccessDenied.
+- fmt/validate clean; tflint/checkov unchanged (271/0, no `.tf` change); `plan` 68/0/0 (audit_store live, **0 drift**).
+
+### Deployed (first real AWS spend)
+- `module.audit_store` applied (9 resources: S3 Object Lock bucket + CMK + policies). Persists — the locked proof object self-expires ~2026-07-04; the CMK is ~$1/mo.
+
+### Notes
+- moto doesn't emulate S3 default-retention auto-apply on objects (`get_object_retention` 500s); the moto test asserts bucket Object-Lock config, the live proof covers actual enforcement.
+
 ## v0.3.0 — Components B & C: Enrichment + Risk Scoring (2026-07-03)
 
 **Pipeline middle comes alive: reference-match enrichment + risk scoring → three-way disposition. Code + tests; no Terraform change (module instances already existed), plan stays 77/0/0.**

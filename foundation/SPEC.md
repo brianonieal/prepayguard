@@ -1,24 +1,28 @@
 # SPEC.md
 # Current-gate detail. Updated each gate.
 
-## LAST CLOSED: v0.3.0 — Components B & C (Enrichment + Risk Scoring)
-**Status:** WORK COMPLETE, ALL CRITERIA MET — awaiting GO certification.
-CONFIRMED ✓ · ROADMAP APPROVED ✓ · DEC-14 logged ✓ · pytest 14/14 ·
-fmt/validate/tflint clean · checkov 271/0 · plan 77/0/0 (no `.tf` change).
+## LAST CLOSED: v0.4.0 — Component D (Disposition, Audit, Notify)
+**Status:** CLOSED (tagged). pytest 26/26 · LIVE Object-Lock proof PASS ·
+fmt/validate clean · tflint/checkov 271/0 (no `.tf` change) · plan 68/0/0.
 
-- **B (enrichment):** matches payee against bundled synthetic DNP reference list
-  (TIN + exact/fuzzy name), attaches `enrichment` block → Component C.
-- **C (risk scoring):** rule-based score → three-way disposition (TIN→reject,
-  name→review, none→approve), attaches `risk` block → Component D.
-- Message schema now: `payment → +enrichment → +risk`. Handlers:
-  `src/component_b_enrichment/app.py`, `src/component_c_risk_scoring/app.py`.
+- **Commitment 4 (live-verified):** D writes an immutable, integrity-hashed
+  audit record to the S3 Object Lock bucket; a real delete + shorten-retention
+  were both refused (`AccessDenied`) — `docs/evidence/live_object_lock_proof.txt`.
+- **Commitment 2:** `review` dispositions routed to the human-review queue;
+  processing failures → batch-item-failure → redrive/DLQ.
+- **DEC-7:** webhook posted on review, URL from Secrets Manager (least-priv).
+- **Deployed:** `module.audit_store` live (9 resources; first real AWS spend).
 
-## NEXT GATE: v0.4.0 — Component D (Disposition, Audit, Notify)
-Consumes the scored message: writes immutable audit record to S3 Object Lock
-(**commitment 4**), routes `review` dispositions to the human-review queue
-(**commitment 2**), posts a webhook via least-priv Secrets Manager (DEC-7).
-Three evidence tests (object lock, failure routing, review notification).
-Opens on **GO**.
+## NEXT GATE: v0.5.0 — Queue-Depth Scaling & DLQ Hardening
+Demonstrate **commitment 3**: event-source-mapping concurrency/batch scaling
+under queue depth, CloudWatch queue-depth alarms, DLQ + redrive across stages.
+`tests/test_queue_depth_scaling.py`. Opens on **GO**.
+
+## PIPELINE STATUS
+All four components have handler logic + passing tests. Three of four graded
+commitments demonstrated (1 idempotency, 2 failure routing, 4 immutability);
+commitment 3 (scaling) is v0.5.0. First live apply done (audit_store only);
+full deploy (4 container images + apply) remains.
 
 ## DECISIONS SNAPSHOT
 14 of 14 LOCKED. No open questions.

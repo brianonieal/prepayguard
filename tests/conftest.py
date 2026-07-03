@@ -64,3 +64,39 @@ def worker(monkeypatch):
         out_url = sqs.create_queue(QueueName=WORKER_OUT_QUEUE)["QueueUrl"]
         monkeypatch.setenv("OUTPUT_QUEUE_URL", out_url)
         yield {"load": _load, "sqs": sqs, "out_url": out_url}
+
+
+@pytest.fixture
+def disposition(monkeypatch):
+    """Component D: Object Lock S3 bucket + review SQS queue + webhook secret."""
+    bucket = "treasury-dev-audit-test"
+    with mock_aws():
+        s3 = boto3.client("s3", region_name=REGION)
+        s3.create_bucket(
+            Bucket=bucket,
+            CreateBucketConfiguration={"LocationConstraint": REGION},
+            ObjectLockEnabledForBucket=True,
+        )
+        s3.put_object_lock_configuration(
+            Bucket=bucket,
+            ObjectLockConfiguration={
+                "ObjectLockEnabled": "Enabled",
+                "Rule": {"DefaultRetention": {"Mode": "COMPLIANCE", "Days": 1}},
+            },
+        )
+        sqs = boto3.client("sqs", region_name=REGION)
+        review_url = sqs.create_queue(QueueName="treasury-dev-review")["QueueUrl"]
+        sm = boto3.client("secretsmanager", region_name=REGION)
+        secret_arn = sm.create_secret(
+            Name="treasury-dev/review-webhook-url",
+            SecretString="https://hooks.example.test/T000/B000/xyz",
+        )["ARN"]
+
+        monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
+        monkeypatch.setenv("REVIEW_QUEUE_URL", review_url)
+        monkeypatch.setenv("WEBHOOK_SECRET_ARN", secret_arn)
+
+        yield {
+            "load": _load, "s3": s3, "sqs": sqs, "sm": sm,
+            "bucket": bucket, "review_url": review_url, "secret_arn": secret_arn,
+        }

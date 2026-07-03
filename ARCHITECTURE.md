@@ -92,7 +92,7 @@ exact reversion diff before any apply.
 
 | Surface | Why irreversible | Guard |
 |---|---|---|
-| S3 Object Lock COMPLIANCE retention (audit bucket) | Once an object version is written, NO principal — including account root — can shorten or remove its retention; AWS Support cannot override. | `retention_days` has no default (must be an explicit tfvars act); dev = 1 day; real value is a sign-off gate before the v0.4.0 apply; days-vs-years unit chosen deliberately (they differ by leap days). Checkov watches the lock config (DEC-9). |
+| S3 Object Lock COMPLIANCE retention (audit bucket) | Once an object version is written, NO principal — including account root — can shorten or remove its retention; AWS Support cannot override. | `retention_days` has no default (must be an explicit tfvars act); dev = 1 day; real value is a sign-off gate before the v0.4.0 apply; days-vs-years unit chosen deliberately (they differ by leap days). Checkov watches the lock config (DEC-9). **Live-verified immutable 2026-07-03** — a real object's delete and shorten-retention were both AccessDenied (`docs/evidence/live_object_lock_proof.txt`). |
 
 ## 5. Known unknowns (course objective 3)
 
@@ -128,3 +128,24 @@ exact reversion diff before any apply.
   mismatch at invoke; arm64 cost optimization noted for follow-on work).
 - Human reviewers drain the review queue via console/CLI for course scope — no
   reviewer UI exists or is planned (backend-only project).
+
+## 7. Message schema (grows across the pipeline)
+
+Each stage adds a block; nothing is removed, so the audit record is the full trail.
+
+```
+A intake  → { payment_id, payee, amount, payee_tin? }
+B enrich  → + enrichment { matches[{source,matched_on,confidence,severity}], match_count, highest_confidence }
+C score   → + risk { score, disposition: approve|review|reject, reasons[] }
+D audit   → audit record { schema_version, audit_id, payment_id, audited_at,
+                           decision, evidence, payment, provenance, routing,
+                           integrity{ sha256 } }  (written to S3 Object Lock)
+```
+
+- **B (DEC-14):** TIN match → conf 95, exact name → 80, fuzzy (difflib ≥0.9) → 60.
+- **C (DEC-14):** TIN match → `reject`; name match → `review` (potential match →
+  human, feeds commitment 2); no match → `approve`. Thresholds: ≥80 reject,
+  ≥30 review, else approve; name matches capped at 60 to keep them in review.
+- **D:** audit-first (authoritative) then route; `integrity.sha256` is computed
+  over all record fields except `integrity` (sorted-key compact JSON).
+

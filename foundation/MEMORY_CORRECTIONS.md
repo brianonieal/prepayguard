@@ -3,9 +3,40 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog errors_open=0 errors_close=0 date=2026-07-03T20:08:06Z
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v0.4.0 Component D: Disposition, Audit, Notify (2026-07-03)
+
+**What went well**
+- The live Object-Lock proof (Brian chose it over the moto-only default) was the
+  right call: real `AccessDenied` on delete AND on shorten-retention is
+  unarguable commitment-4 evidence in a way a simulator can't match. A targeted
+  `apply -target=module.audit_store` gave the proof without needing the 4
+  container images built.
+- Brian's push on the audit-record detail improved it — decision + evidence +
+  provenance + a SHA-256 integrity hash is a real compliance artifact; the hash
+  is genuine defense-in-depth (Object Lock stops deletion, the hash proves the
+  content wasn't altered).
+- Audit-first ordering avoided a duplicate-review-item hazard on retry.
+
+**What bit**
+- moto doesn't emulate S3's auto-apply of the bucket default retention onto
+  objects — `get_object_retention` 500s. Caught it, pivoted the moto test to a
+  deterministic bucket-config assertion, and leaned on the live proof for
+  enforcement. Exactly the moto-vs-real divergence TESTS.md predicted.
+
+**Lesson**
+- For an immutability/irreversibility claim, pay the small cost of a live proof
+  (a briefly-stranded bucket). Simulators emulate configuration reliably but not
+  always enforcement; the graded commitment is about enforcement.
+
+**Estimated vs actual**
+Raw 9h → project-calibrated (~-91%) ≈ 0.8h → actual ~0.7h. First gate estimated
+off the project-specific signal instead of the 0.34x operator multiplier, and it
+landed close — the project calibration is now the better predictor.
 
 ### REFLEXION — v0.3.0 Components B & C: Enrichment + Risk Scoring (2026-07-03)
 
