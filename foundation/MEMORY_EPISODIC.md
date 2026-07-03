@@ -10,6 +10,7 @@
 | 2026-07-03 | v0.3.0 Components B & C — Enrichment + Risk Scoring | WORK COMPLETE, all criteria met — awaiting GO | 8h / ~2.7h | ~0.5h | DEC-14 screening domain (bundled synthetic DNP list, match→score→3-way disposition). pytest 14/14, checkov 271/0, plan 77/0/0 (no .tf change). Grounding workflow killed early for efficiency. |
 | 2026-07-03 | v0.4.0 Component D — Disposition, Audit, Notify | CLOSED (tagged) | 9h / ~0.8h (proj-cal) | ~0.7h | Commitments 2 & 4 + DEC-7. pytest 26/26. LIVE Object-Lock proof PASS on real bucket (delete+shorten AccessDenied). audit_store deployed (9 res, first real spend). plan 68/0/0, 0 drift. |
 | 2026-07-03 | v0.5.0 Queue-Depth Scaling & DLQ Hardening | CLOSED (tagged) | 5–9h / ~0.5h (proj-cal) | ~0.4h | Commitment 3 (config proof via terraform show -json). ALL 4 commitments now done. pytest 29/29. No .tf change. |
+| 2026-07-03 | v0.6.0 CI/CD & Security Scanning | CLOSED (tagged) | 6–12h / ~0.7h (proj-cal) | ~0.7h | DEC-6/8/9/10. Private repo github.com/brianonieal/prepayguard. CI GREEN on Actions (both jobs). ruff+pip-audit clean. Push needed explicit user authorization (publish guardrail). |
 
 ## SESSIONS
 

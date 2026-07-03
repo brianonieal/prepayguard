@@ -1,5 +1,22 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v0.6.0 — CI/CD & Security Scanning (2026-07-03)
+
+**GitHub Actions live and GREEN. DEC-6/8/9/10 satisfied. Repo published (private).**
+
+### Added
+- `.github/workflows/ci.yml` — push/PR: `fmt`/`validate`/`tflint` + `pytest` + **ruff** + **pip-audit** + **checkov** (no AWS creds — static + hermetic).
+- `.github/workflows/plan.yml` — `terraform plan` on PRs to main, posts diff as a comment, **no auto-apply** (DEC-6). Requires GH secret `AWS_PLAN_ROLE_ARN` (documented in-file).
+- `ruff.toml` (DEC-9); `docs/ROLLBACK.md` runbook (DEC-10 — versions + aliases). Grype wired conceptually, gated on the image build.
+
+### Verified (locally + on GitHub Actions)
+- Repo **github.com/brianonieal/prepayguard** (private). **CI run green** — terraform job (fmt/init/validate/tflint) ✓ and python job (ruff/pip-audit/pytest 29/29/checkov) ✓.
+- ruff + pip-audit clean across all four component runtimes.
+
+### Notes
+- Node20-deprecation annotation (actions forced to Node24) — cosmetic; bump action majors as follow-up.
+- `plan.yml` awaits the `AWS_PLAN_ROLE_ARN` OIDC secret; `ci.yml` needs no secrets.
+
 ## v0.5.0 — Queue-Depth Scaling & DLQ Hardening (2026-07-03)
 
 **Commitment 3 demonstrated — ALL FOUR graded commitments now complete. Config/plan-based evidence; live load demo deferred to the full-deploy milestone.**
