@@ -1,0 +1,111 @@
+# PrePayGuard — Live End-to-End Run (2026-07-03, real AWS, us-east-2)
+API: https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev
+Auth: SigV4 as role treasury-dev-payment-submitter (DEC-5)
+
+## Intake API responses
+approve-1  -> 200 {"status":"queued","idempotent_replay":false}
+reject-1   -> 200 {"status":"queued","idempotent_replay":false}
+approve-1 (duplicate) -> 200 {"idempotent_replay":true, same message_id}  <-- commitment 1 LIVE
+
+## Audit records written to S3 Object Lock (COMPLIANCE)
+### audit/2026/07/03/e2e-approve-1-9774b47e-4f71-45c6-8871-82545776fb31.json
+{
+    "schema_version": "1.0",
+    "audit_id": "9774b47e-4f71-45c6-8871-82545776fb31",
+    "payment_id": "e2e-approve-1",
+    "audited_at": "2026-07-03T23:33:27.315388+00:00",
+    "decision": {
+        "disposition": "approve",
+        "risk_score": 0,
+        "reasons": [
+            "no reference-source matches"
+        ]
+    },
+    "evidence": {
+        "matches": [],
+        "match_count": 0,
+        "highest_confidence": 0
+    },
+    "payment": {
+        "payee": "Legit Vendor Inc",
+        "amount": 100
+    },
+    "provenance": {
+        "pipeline": [
+            "intake",
+            "enrichment",
+            "risk_scoring",
+            "disposition"
+        ],
+        "component_versions": {
+            "disposition": "0.4.0"
+        }
+    },
+    "routing": {
+        "routed_to_review": false
+    },
+    "integrity": {
+        "algorithm": "sha256",
+        "sha256": "60887c93e2d2eac3d73eae31cbc94be81f59388b841e9c50417e807360d29fdb",
+        "canonical": "all fields except integrity, sorted-key compact JSON"
+    }
+}
+
+### audit/2026/07/03/e2e-reject-1-1755f678-a681-4194-80c3-01692113cdc6.json
+{
+    "schema_version": "1.0",
+    "audit_id": "1755f678-a681-4194-80c3-01692113cdc6",
+    "payment_id": "e2e-reject-1",
+    "audited_at": "2026-07-03T23:33:27.268648+00:00",
+    "decision": {
+        "disposition": "reject",
+        "risk_score": 95,
+        "reasons": [
+            "tin match on death_master_file (severity high)"
+        ]
+    },
+    "evidence": {
+        "matches": [
+            {
+                "source": "death_master_file",
+                "severity": "high",
+                "matched_on": "tin",
+                "confidence": 95
+            }
+        ],
+        "match_count": 1,
+        "highest_confidence": 95
+    },
+    "payment": {
+        "payee": "Impersonator",
+        "amount": 500,
+        "payee_tin": "900000001"
+    },
+    "provenance": {
+        "pipeline": [
+            "intake",
+            "enrichment",
+            "risk_scoring",
+            "disposition"
+        ],
+        "component_versions": {
+            "disposition": "0.4.0"
+        }
+    },
+    "routing": {
+        "routed_to_review": false
+    },
+    "integrity": {
+        "algorithm": "sha256",
+        "sha256": "9a923f0f7838ed8a8fc8ba6bf6c257b90e609d19317680864135197a4023340c",
+        "canonical": "all fields except integrity, sorted-key compact JSON"
+    }
+}
+
+## Worker DLQs after run: enrichment=0 risk_scoring=0 disposition=0 (clean)
+
+## Review path (commitment 2 + DEC-7) — LIVE
+review payment e2e-review-1 (payee 'Acme Shell LLC', name match sam_exclusions):
+  -> disposition=review, score=60, routed_to_review=true
+  -> routed to human-review SQS queue (treasury-dev-review)
+  -> webhook POST captured at webhook.site: 'Payment e2e-review-1 routed to human review (score 60)'

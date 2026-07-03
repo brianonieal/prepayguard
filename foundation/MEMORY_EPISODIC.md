@@ -11,6 +11,7 @@
 | 2026-07-03 | v0.4.0 Component D — Disposition, Audit, Notify | CLOSED (tagged) | 9h / ~0.8h (proj-cal) | ~0.7h | Commitments 2 & 4 + DEC-7. pytest 26/26. LIVE Object-Lock proof PASS on real bucket (delete+shorten AccessDenied). audit_store deployed (9 res, first real spend). plan 68/0/0, 0 drift. |
 | 2026-07-03 | v0.5.0 Queue-Depth Scaling & DLQ Hardening | CLOSED (tagged) | 5–9h / ~0.5h (proj-cal) | ~0.4h | Commitment 3 (config proof via terraform show -json). ALL 4 commitments now done. pytest 29/29. No .tf change. |
 | 2026-07-03 | v0.6.0 CI/CD & Security Scanning | CLOSED (tagged) | 6–12h / ~0.7h (proj-cal) | ~0.7h | DEC-6/8/9/10. Private repo github.com/brianonieal/prepayguard. CI GREEN on Actions (both jobs). ruff+pip-audit clean. Push needed explicit user authorization (publish guardrail). |
+| 2026-07-03 | v1.0.0 Capstone Deliverable / Full Deploy | CLOSED (tagged) — PROJECT COMPLETE | 8–16h / ~1.5h (proj-cal) | ~1.5h | Full live deploy (us-east-2), e2e run demonstrated all 4 commitments LIVE. DEC-11 handoff package (md+docx). 2 deploy-only fixes (OCI manifest, API GW account role). Guardrails handled: publish, blind-apply, external secret write. |
 
 ## SESSIONS
 

@@ -1,5 +1,25 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v1.0.0 — Capstone Deliverable (2026-07-03)
+
+**Full live deployment + end-to-end run + DEC-11 handoff package. Project complete.**
+
+### Deployed (real AWS, us-east-2)
+- Built + pushed 4 Lambda container images (Docker v2 schema-2 manifest) and ran a full `terraform apply` (~68 resources). Fixed two issues only a real deploy surfaces: the buildx **OCI manifest** (Lambda rejects it → rebuilt with `oci-mediatypes=false`), and the account-level **API Gateway CloudWatch Logs role** required to enable stage access logging.
+
+### Live end-to-end run
+- Three SigV4-signed payments through the deployed API: **approve** / **reject** (TIN→DMF match) / **review** (name→sam_exclusions), plus a duplicate that returned an **idempotent replay**. Audit records landed in S3 Object Lock, the review item in the review queue, the webhook POST captured. **All four graded commitments demonstrated live.** Evidence: `docs/evidence/`.
+
+### Added
+- `docs/HANDOFF.md` + `docs/HANDOFF.docx` — the DEC-11 six-section handoff package (architecture, tests, deployment, security findings + risk table + scan appendix, residual risks, follow-on).
+- `scripts/send_payment.py` (SigV4 intake client), `scripts/live_object_lock_proof.py`.
+
+### Verified
+- `pytest` 29/29 · `checkov` 289/0 · ruff/pip-audit/tflint clean · CI green on Actions.
+
+### Status
+**v1.0.0 — capstone complete.** 14 decisions locked; all four commitments demonstrated by both automated tests and a live run. Deployed and running in us-east-2.
+
 ## v0.6.0 — CI/CD & Security Scanning (2026-07-03)
 
 **GitHub Actions live and GREEN. DEC-6/8/9/10 satisfied. Repo published (private).**

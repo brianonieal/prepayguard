@@ -13,7 +13,9 @@
 Dockerfile text eol=lf
 
 # Binaries (never normalize)
-*.png binary
-*.jpg binary
-*.zip binary
-*.gz  binary
+*.png  binary
+*.jpg  binary
+*.zip  binary
+*.gz   binary
+*.docx binary
+*.pdf  binary

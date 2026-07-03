@@ -340,11 +340,40 @@ resource "aws_api_gateway_deployment" "intake" {
   ]
 }
 
+# API Gateway account-level CloudWatch Logs role — required before a stage can
+# enable access logging (account-global, set once; surfaced during first deploy).
+data "aws_iam_policy_document" "apigw_cw_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["apigateway.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "apigw_cloudwatch" {
+  name               = "${local.function_name}-apigw-cw"
+  assume_role_policy = data.aws_iam_policy_document.apigw_cw_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "apigw_cloudwatch" {
+  role       = aws_iam_role.apigw_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_api_gateway_account" "this" {
+  cloudwatch_role_arn = aws_iam_role.apigw_cloudwatch.arn
+}
+
 resource "aws_api_gateway_stage" "this" {
   rest_api_id          = aws_api_gateway_rest_api.intake.id
   deployment_id        = aws_api_gateway_deployment.intake.id
   stage_name           = var.stage
   xray_tracing_enabled = true
+
+  depends_on = [aws_api_gateway_account.this]
 
   # Access logs: who called, with what identity, and what came back — the
   # intake edge of an audit-minded pipeline logs its callers.

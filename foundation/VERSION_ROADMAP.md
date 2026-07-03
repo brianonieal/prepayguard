@@ -17,7 +17,7 @@
 | v0.4.0 | Component D — Disposition, Audit, Notify | Immutable audit write to S3 Object Lock (**commitment 4**), ambiguous → review queue (**commitment 2**), webhook via least-priv Secrets Manager (DEC-7). | 9h | ~3.1h | DONE (actual: 0.7) |
 | v0.5.0 | Queue-Depth Scaling & DLQ Hardening | Event-source-mapping batch/concurrency tuning (**commitment 3**), CloudWatch queue-depth alarms, DLQ + redrive across all stages. | 5–9h | ~1.7–3.1h | DONE (actual: 0.4) |
 | v0.6.0 | CI/CD & Security Scanning | GitHub Actions `ci.yml` (fmt/validate/tflint/pytest) + `plan.yml` (plan-on-PR); pip-audit, Grype, checkov, ruff; Lambda versions+aliases rollback (DEC-6/8/9/10). | 6–12h | ~2.0–4.1h | DONE (actual: 0.7) |
-| v1.0.0 | Capstone Deliverable | ARCHITECTURE.md (failure modes, known unknowns, rollback), rendered test report, deployment docs, security findings (narrative + risk table + raw-scan appendix), residual risks, follow-on work (DEC-11). | 8–16h | ~2.7–5.4h | pending |
+| v1.0.0 | Capstone Deliverable | ARCHITECTURE.md (failure modes, known unknowns, rollback), rendered test report, deployment docs, security findings (narrative + risk table + raw-scan appendix), residual risks, follow-on work (DEC-11). | 8–16h | ~2.7–5.4h | DONE (actual: 1.5) |
 
 **Total (post-calibration):** ~18–24h across 7 gates.
 

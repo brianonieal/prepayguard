@@ -1,23 +1,19 @@
 # SPEC.md
-# Current-gate detail. Updated each gate.
+# Current-gate detail.
 
-## LAST CLOSED: v0.6.0 — CI/CD & Security Scanning
-**Status:** CLOSED (tagged). CI **green on GitHub Actions** —
-`github.com/brianonieal/prepayguard` (private). DEC-6/8/9/10 satisfied.
-- `ci.yml`: fmt/validate/tflint + pytest 29/29 + ruff + pip-audit + checkov ✓
-- `plan.yml`: plan-on-PR, no auto-apply (awaits `AWS_PLAN_ROLE_ARN` secret)
-- rollback runbook (`docs/ROLLBACK.md`, DEC-10)
+## PROJECT COMPLETE — v1.0.0 (2026-07-03)
+All 7 gates closed (v0.1.0 → v1.0.0). **All four graded commitments demonstrated by
+both automated tests (29/29) and a live end-to-end run on real AWS.** CI green.
+14 decisions locked. DEC-11 handoff package delivered: `docs/HANDOFF.md` + `.docx`.
 
-## NEXT GATE: v1.0.0 — Capstone Handoff Package (DEC-11)
-Six sections: architecture notes (forward-looking), tests (rendered report),
-deployment docs, security findings (narrative + risk-rating table + raw scan
-appendix), residual risks, follow-on work. Assembled from ARCHITECTURE.md,
-TESTS.md, CHANGELOG, scan output, and the live proof evidence. Opens on **GO**.
+- **Deployed & running** in us-east-2:
+  `POST https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev/payments` (SigV4).
+- Evidence: `docs/evidence/live_e2e_run.txt`, `docs/evidence/live_object_lock_proof.txt`.
 
-## PENDING (not gated)
-Full deploy — 4 container images built+pushed to ECR + full `terraform apply` —
-for a live end-to-end run + Grype image scan. Only `audit_store` is live today.
-Worth deciding whether to slot before v1.0.0 so the handoff shows a real run.
+## OPEN ITEM (post-completion)
+**Teardown** — offer to `terraform destroy` the tear-downable resources to stop the
+meter, leaving only `module.audit_store` (its Object Lock objects can't be deleted
+until retention expires — DEC-4, by design). Awaiting Brian's go.
 
 ## DECISIONS SNAPSHOT
-14 of 14 LOCKED. No open questions.
+14 of 14 LOCKED.
