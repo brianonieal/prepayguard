@@ -1,5 +1,24 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v0.3.0 — Components B & C: Enrichment + Risk Scoring (2026-07-03)
+
+**Pipeline middle comes alive: reference-match enrichment + risk scoring → three-way disposition. Code + tests; no Terraform change (module instances already existed), plan stays 77/0/0.**
+
+### Added
+- `src/component_b_enrichment/` — SQS-triggered handler: matches payee against a **bundled synthetic reference list** (`reference_data.json`, modeling SSA DMF / SAM exclusions / Treasury Offset / OIG LEIE) via deterministic TIN + exact/fuzzy name matching (DEC-14); attaches an `enrichment` block; forwards to Component C. Dockerfile + requirements.
+- `src/component_c_risk_scoring/` — SQS-triggered handler: rule-based score → three-way disposition (**TIN → reject, name → review, none → approve**); attaches a `risk` block; forwards to Component D. Dockerfile + requirements.
+- `tests/test_enrichment.py` (4) + `tests/test_risk_scoring.py` (4); conftest refactored to load three sibling `app.py` modules by path (no import collision). Message schema now: `payment → +enrichment → +risk`.
+
+### Decisions
+- **DEC-14** — screening domain model: bundled synthetic list (apply-free this gate), deterministic+fuzzy matching, transparent rule-based score; name matches route to human review (the *potential-match* case that feeds commitment 2).
+
+### Verified
+- `pytest` 14/14 · `fmt`/`validate`/`tflint` clean · `checkov` 271/0 · `terraform plan` 77/0/0 (unchanged — no `.tf` this gate).
+
+### Known / deferred
+- Domain-fidelity cross-check workflow stopped early for token efficiency; design stands on best-judgment DNP fidelity.
+- ARCHITECTURE.md message-schema/failure-mode consolidation folded into v0.4.0 (when Component D consumes the full message).
+
 ## v0.2.0 — Component A: Payment Intake API + Idempotency (2026-07-03)
 
 **Commitment 1 (idempotency) demonstrated by a passing test. Code + infra-plan + unit tests; no live apply this gate.**

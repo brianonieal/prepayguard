@@ -1,0 +1,19 @@
+{
+  "_note": "SYNTHETIC reference data for the capstone. Every entry is fabricated. TINs use the 9000000xx range (never issued) and names are invented. This models the STRUCTURE of the real U.S. Treasury Do Not Pay sources; it is NOT and must never contain real PII.",
+  "sources": {
+    "death_master_file": "SSA Death Master File - deceased individuals who must not receive payments",
+    "sam_exclusions": "SAM.gov - parties debarred or suspended from federal awards",
+    "treasury_offset": "Treasury Offset Program - payees with delinquent federal debt",
+    "oig_leie": "OIG List of Excluded Individuals/Entities - excluded from federal health programs"
+  },
+  "entries": [
+    { "name": "John Q Public", "tin": "900000001", "source": "death_master_file", "severity": "high" },
+    { "name": "Acme Shell LLC", "tin": "900000002", "source": "sam_exclusions", "severity": "high" },
+    { "name": "Jane A Doe", "tin": "900000003", "source": "treasury_offset", "severity": "medium" },
+    { "name": "Globex Offshore Inc", "tin": "900000004", "source": "oig_leie", "severity": "high" },
+    { "name": "Robert Roe", "tin": "900000005", "source": "sam_exclusions", "severity": "high" },
+    { "name": "Umbrella Holdings Group", "tin": "900000006", "source": "treasury_offset", "severity": "medium" },
+    { "name": "Mary M Sample", "tin": "900000007", "source": "death_master_file", "severity": "high" },
+    { "name": "Initech Systems LLC", "tin": "900000008", "source": "oig_leie", "severity": "high" }
+  ]
+}

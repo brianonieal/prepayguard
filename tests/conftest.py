@@ -1,21 +1,34 @@
-"""Shared pytest fixtures for Component A: moto-backed DynamoDB + SQS.
+"""Shared pytest fixtures. moto-backed AWS + a per-component handler loader.
 
-Component A's handler (src/component_a_intake/app.py) lazily caches its boto3
-clients at module scope for warm-container reuse. The `aws` fixture resets those
-caches so each test binds to a fresh moto mock.
+The three components each ship an `app.py`; they can't all be `import app`, so
+`_load` imports each by file path under a unique module name. Every load is a
+fresh module, so module-cached boto3 clients never leak across tests.
 """
+import importlib.util
+from pathlib import Path
+
 import boto3
 import pytest
 from moto import mock_aws
 
 REGION = "us-east-2"
 TABLE = "treasury-dev-intake-idempotency"
-QUEUE = "treasury-dev-intake-out"
+INTAKE_QUEUE = "treasury-dev-intake-out"
+WORKER_OUT_QUEUE = "treasury-dev-worker-out"
+
+_SRC = Path(__file__).resolve().parent.parent / "src"
+
+
+def _load(component_name):
+    path = _SRC / component_name / "app.py"
+    spec = importlib.util.spec_from_file_location(f"{component_name}_app", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture(autouse=True)
 def _aws_credentials(monkeypatch):
-    # Never touch real AWS: dummy creds + region for every test.
     monkeypatch.setenv("AWS_DEFAULT_REGION", REGION)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
@@ -26,6 +39,7 @@ def _aws_credentials(monkeypatch):
 
 @pytest.fixture
 def aws(monkeypatch):
+    """Component A: DynamoDB idempotency table + output SQS queue."""
     with mock_aws():
         ddb = boto3.client("dynamodb", region_name=REGION)
         ddb.create_table(
@@ -36,13 +50,17 @@ def aws(monkeypatch):
             ProvisionedThroughput={"ReadCapacityUnits": 25, "WriteCapacityUnits": 25},
         )
         ddb.get_waiter("table_exists").wait(TableName=TABLE)
-
         sqs = boto3.client("sqs", region_name=REGION)
-        queue_url = sqs.create_queue(QueueName=QUEUE)["QueueUrl"]
+        queue_url = sqs.create_queue(QueueName=INTAKE_QUEUE)["QueueUrl"]
         monkeypatch.setenv("OUTPUT_QUEUE_URL", queue_url)
+        yield {"app": _load("component_a_intake"), "ddb": ddb, "sqs": sqs, "queue_url": queue_url, "table": TABLE}
 
-        import app
-        app._dynamodb = None  # reset lazily-cached clients so they bind to this mock
-        app._sqs = None
 
-        yield {"app": app, "ddb": ddb, "sqs": sqs, "queue_url": queue_url, "table": TABLE}
+@pytest.fixture
+def worker(monkeypatch):
+    """Components B/C: an output SQS queue + a loader for the worker under test."""
+    with mock_aws():
+        sqs = boto3.client("sqs", region_name=REGION)
+        out_url = sqs.create_queue(QueueName=WORKER_OUT_QUEUE)["QueueUrl"]
+        monkeypatch.setenv("OUTPUT_QUEUE_URL", out_url)
+        yield {"load": _load, "sqs": sqs, "out_url": out_url}

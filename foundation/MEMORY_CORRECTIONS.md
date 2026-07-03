@@ -3,8 +3,37 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v0.3.0 Components B & C: Enrichment + Risk Scoring (2026-07-03)
+
+**What went well**
+- No Terraform change needed — the shared module instances (B/C) were already
+  wired at v0.1.0, so this gate was pure handler logic + tests. The shared-module
+  bet (DEC-1) is paying off: adding two components cost zero infra churn.
+- Multi-component test refactor (load three sibling `app.py`s by path under
+  unique module names) cleanly solved the `import app` collision; fresh module
+  per load also killed the client-cache-leak problem for free.
+
+**What bit**
+- Reference research was launched as a background workflow, then killed mid-run
+  for token efficiency. Lesson: for a well-understood public pattern (DNP), a
+  best-judgment build + a one-line simulation caveat is enough; the grounding
+  workflow was over-investment. Don't reach for a workflow when the design risk
+  is low and reversibility is high.
+
+**Lesson**
+- Match the tool to the decision's stakes. v0.1.0's live-docs grounding was worth
+  it (irreversible Object Lock, stale provider syntax). v0.3.0's domain grounding
+  was not (reversible bundled list, well-known pattern). Same instinct, wrong gate.
+
+**Estimated vs actual**
+Raw 8h → calibrated ~2.7h → actual ~0.5h. Third straight gate far under. Now at
+3 data points — per policy this is the re-evaluation point; the project-specific
+signal (≈ -90% mean) is much stronger than the 0.34x operator multiplier and
+should inform v0.4.0's estimate.
 
 ### REFLEXION — v0.2.0 Component A: Payment Intake API + Idempotency (2026-07-03)
 
