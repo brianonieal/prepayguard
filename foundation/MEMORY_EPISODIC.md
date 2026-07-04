@@ -14,6 +14,8 @@
 | 2026-07-03 | v1.0.0 Capstone Deliverable / Full Deploy | CLOSED (tagged) — PROJECT COMPLETE | 8–16h / ~1.5h (proj-cal) | ~1.5h | Full live deploy (us-east-2), e2e run demonstrated all 4 commitments LIVE. DEC-11 handoff package (md+docx). 2 deploy-only fixes (OCI manifest, API GW account role). Guardrails handled: publish, blind-apply, external secret write. |
 | 2026-07-03 | v1.1.0 Console Foundation (Phase 2) | CLOSED (tagged) | ~1–2h | ~0.8h | Cognito→IdentityPool→authed role (DEC-5 reuse), CloudFront shell live (d2rbxaf6pqgvb1.cloudfront.net), reviews table, D v1.1.0 redeployed (alias→v2, DEC-10 real). Live smoke: review→table pending. pytest 31/31, checkov 265/0. |
 
+| 2026-07-04 | v1.2.0 Console Read/Action API (Phase 2) | CLOSED (tagged) | ~1–2h | ~0.7h | Router Lambda + IAM REST API (console role only). Reviewer decisions audited to Object Lock. Deployed (18 res) + prod smoke 200s. pytest 37/37, checkov 410/0. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

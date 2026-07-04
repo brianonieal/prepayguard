@@ -57,6 +57,11 @@ output "console_cognito" {
   }
 }
 
+output "console_api_endpoint" {
+  description = "Console read/action API base URL (v1.2.0)."
+  value       = module.console_api.api_endpoint
+}
+
 output "reviews_table_name" {
   description = "Queryable review items (console dashboard source)."
   value       = module.console.reviews_table_name

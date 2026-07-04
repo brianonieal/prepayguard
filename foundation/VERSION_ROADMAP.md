@@ -30,7 +30,7 @@ calibration data yet; first gate recalibrates.
 | Version | Name | Goal | Est | Status |
 |---|---|---|---|---|
 | v1.1.0 | Console Foundation | Cognito pools + authed IAM role, S3+CloudFront shell, `reviews` DynamoDB table, Component D writes review items to it | ~1–2h | DONE (actual: 0.8) |
-| v1.2.0 | Read/Action API | GET /reviews, GET /audit/{id}, POST /reviews/{id}/decision (3 Lambdas + API GW + tests) | ~1–2h | pending |
+| v1.2.0 | Read/Action API | GET /reviews, GET /audit/{id}, POST /reviews/{id}/decision (1 router Lambda + API GW + tests) | ~1–2h | DONE (actual: 0.7) |
 | v1.3.0 | Console UI | MOCKUPS APPROVED → FRONTEND APPROVED: login, submit form, review dashboard, audit detail, approve/reject | ~2–4h | pending |
 | v1.4.0 | Integrate + Deploy → Console GA | SPA wired to Cognito+APIs, CloudFront deploy, live e2e (login → submit → flag → review) | ~1–2h | pending |
 

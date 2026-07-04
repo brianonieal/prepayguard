@@ -1,0 +1,316 @@
+# modules/console_api — the Treasury Console's read/action API (v1.2.0).
+# One router Lambda (container image, versioned + aliased per DEC-10) behind an
+# IAM-authed REST API whose resource policy admits ONLY the console
+# authenticated role (same DEC-5 mechanism as the intake API).
+# CORS: browsers preflight cross-origin SigV4 calls, so OPTIONS is un-authed
+# MOCK returning CORS headers; data responses carry the headers from the handler.
+
+locals {
+  function_name = "${var.name_prefix}-console-api"
+}
+
+# ---------------------------------------------------------------------------
+# IAM — scoped to exactly what the three routes touch
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "api" {
+  name               = "${local.function_name}-role"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+data "aws_iam_policy_document" "api" {
+  statement {
+    sid       = "WriteLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
+  }
+
+  statement {
+    sid       = "ReviewsTableReadWrite"
+    effect    = "Allow"
+    actions   = ["dynamodb:Scan", "dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [var.reviews_table_arn]
+  }
+
+  statement {
+    sid       = "AuditRecords"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${var.audit_bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "AuditPrefixSearch"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [var.audit_bucket_arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["audit/*"]
+    }
+  }
+
+  # PAT-T3: SSE-KMS bucket — readers need Decrypt, writers GenerateDataKey.
+  statement {
+    sid       = "UseAuditKmsKey"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [var.audit_kms_key_arn]
+  }
+
+  statement {
+    sid       = "XRayTracing"
+    effect    = "Allow"
+    actions   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "api" {
+  name   = "${local.function_name}-policy"
+  role   = aws_iam_role.api.id
+  policy = data.aws_iam_policy_document.api.json
+}
+
+# ---------------------------------------------------------------------------
+# Lambda
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "api" {
+  name              = "/aws/lambda/${local.function_name}"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_cloudwatch_log_group" "api_access" {
+  name              = "/apigw/${local.function_name}-access"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_lambda_function" "api" {
+  function_name = local.function_name
+  role          = aws_iam_role.api.arn
+  package_type  = "Image"
+  image_uri     = var.image_uri
+  architectures = ["x86_64"]
+  memory_size   = 256
+  timeout       = 29
+  publish       = true
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  environment {
+    variables = {
+      REVIEWS_TABLE_NAME = var.reviews_table_name
+      AUDIT_BUCKET_NAME  = var.audit_bucket_name
+      CONSOLE_ORIGIN     = var.console_origin
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.api, aws_iam_role_policy.api]
+}
+
+resource "aws_lambda_alias" "live" {
+  name             = "live"
+  description      = "Rollback pointer (DEC-10)"
+  function_name    = aws_lambda_function.api.function_name
+  function_version = aws_lambda_function.api.version
+}
+
+# ---------------------------------------------------------------------------
+# REST API — proxy-all to the router, IAM auth, console-role-only policy
+# ---------------------------------------------------------------------------
+
+resource "aws_api_gateway_rest_api" "console" {
+  name        = local.function_name
+  description = "Treasury Console read/action API (console authenticated role only)."
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_resource" "proxy" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+  parent_id   = aws_api_gateway_rest_api.console.root_resource_id
+  path_part   = "{proxy+}"
+}
+
+resource "aws_api_gateway_method" "proxy_any" {
+  rest_api_id   = aws_api_gateway_rest_api.console.id
+  resource_id   = aws_api_gateway_resource.proxy.id
+  http_method   = "ANY"
+  authorization = "AWS_IAM"
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
+resource "aws_api_gateway_integration" "proxy_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.console.id
+  resource_id             = aws_api_gateway_resource.proxy.id
+  http_method             = aws_api_gateway_method.proxy_any.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_alias.live.invoke_arn
+}
+
+# CORS preflight: browsers cannot SigV4-sign OPTIONS, so it is un-authed MOCK
+# returning only CORS headers (no data path).
+resource "aws_api_gateway_method" "proxy_options" {
+  rest_api_id   = aws_api_gateway_rest_api.console.id
+  resource_id   = aws_api_gateway_resource.proxy.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "proxy_options" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+  resource_id = aws_api_gateway_resource.proxy.id
+  http_method = aws_api_gateway_method.proxy_options.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = jsonencode({ statusCode = 200 })
+  }
+}
+
+resource "aws_api_gateway_method_response" "proxy_options" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+  resource_id = aws_api_gateway_resource.proxy.id
+  http_method = aws_api_gateway_method.proxy_options.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = true
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "proxy_options" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+  resource_id = aws_api_gateway_resource.proxy.id
+  http_method = aws_api_gateway_method.proxy_options.http_method
+  status_code = aws_api_gateway_method_response.proxy_options.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = "'${var.console_origin}'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
+  }
+
+  depends_on = [aws_api_gateway_integration.proxy_options]
+}
+
+data "aws_iam_policy_document" "resource_policy" {
+  statement {
+    sid    = "AllowConsoleRoleInvoke"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = [var.allowed_invoker_role_arn]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*"]
+  }
+
+  statement {
+    sid    = "DenyAllButConsoleRole"
+    effect = "Deny"
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*"]
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:PrincipalArn"
+      values   = [var.allowed_invoker_role_arn]
+    }
+    # OPTIONS preflight is unauthenticated by necessity; exempt it from the deny.
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:PrincipalType"
+      values   = ["Anonymous"]
+    }
+  }
+}
+
+resource "aws_api_gateway_rest_api_policy" "console" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+  policy      = data.aws_iam_policy_document.resource_policy.json
+}
+
+resource "aws_lambda_permission" "apigw" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  qualifier     = aws_lambda_alias.live.name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.console.execution_arn}/*"
+}
+
+resource "aws_api_gateway_deployment" "console" {
+  rest_api_id = aws_api_gateway_rest_api.console.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_method.proxy_any.id,
+      aws_api_gateway_integration.proxy_lambda.id,
+      aws_api_gateway_integration.proxy_options.id,
+      data.aws_iam_policy_document.resource_policy.json,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    aws_api_gateway_integration.proxy_lambda,
+    aws_api_gateway_integration_response.proxy_options,
+    aws_api_gateway_rest_api_policy.console,
+  ]
+}
+
+resource "aws_api_gateway_stage" "this" {
+  rest_api_id          = aws_api_gateway_rest_api.console.id
+  deployment_id        = aws_api_gateway_deployment.console.id
+  stage_name           = var.stage
+  xray_tracing_enabled = true
+
+  # Account-level API GW CloudWatch role already exists (api_intake_stage).
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_access.arn
+    format = jsonencode({
+      requestId    = "$context.requestId"
+      httpMethod   = "$context.httpMethod"
+      resourcePath = "$context.resourcePath"
+      status       = "$context.status"
+      userArn      = "$context.identity.userArn"
+      sourceIp     = "$context.identity.sourceIp"
+    })
+  }
+}

@@ -20,8 +20,8 @@ data "aws_caller_identity" "current" {}
 locals {
   name_prefix = "${var.project_name}-${var.environment}" # treasury-dev
 
-  # One ECR repo per component image (DEC-2).
-  components = ["intake", "enrichment", "risk_scoring", "disposition"]
+  # One ECR repo per component image (DEC-2) + the console API router (v1.2.0).
+  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api"]
 
   # Lambda timeouts, defined once so queue visibility timeouts can be computed
   # from their CONSUMER's timeout (AWS guidance: visibility >= 6x timeout).
@@ -128,14 +128,33 @@ module "console" {
 }
 
 # Console users' invoke policy lives HERE (not in the console module) to break
-# the console<->api_intake reference cycle. v1.2.0 adds the read-API ARNs.
+# the console<->api_intake reference cycle.
 data "aws_iam_policy_document" "console_invoke" {
   statement {
-    sid       = "InvokePaymentIntakeApi"
-    effect    = "Allow"
-    actions   = ["execute-api:Invoke"]
-    resources = ["${module.api_intake.api_execution_arn}/*"]
+    sid     = "InvokeConsoleFacingApis"
+    effect  = "Allow"
+    actions = ["execute-api:Invoke"]
+    resources = [
+      "${module.api_intake.api_execution_arn}/*",
+      "${module.console_api.api_execution_arn}/*",
+    ]
   }
+}
+
+# Console read/action API (v1.2.0)
+module "console_api" {
+  source = "../../modules/console_api"
+
+  name_prefix              = local.name_prefix
+  image_uri                = "${module.ecr["console_api"].repository_url}:${var.placeholder_image_tag}"
+  allowed_invoker_role_arn = module.console.authenticated_role_arn
+  reviews_table_name       = module.console.reviews_table_name
+  reviews_table_arn        = module.console.reviews_table_arn
+  audit_bucket_name        = module.audit_store.bucket_name
+  audit_bucket_arn         = module.audit_store.bucket_arn
+  audit_kms_key_arn        = module.audit_store.kms_key_arn
+  console_origin           = module.console.console_url
+  stage                    = var.environment
 }
 
 resource "aws_iam_role_policy" "console_invoke" {
