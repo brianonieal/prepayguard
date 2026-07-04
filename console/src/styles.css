@@ -233,3 +233,7 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .danger-panel h3{color:var(--red)}
 .danger-panel code{background:#f3dcda;color:var(--red);padding:1px 6px;border-radius:4px;font:600 12px var(--mono)}
 .sc-dex{font-size:12px;color:#8a8272;font-style:italic;margin-top:6px}
+/* v3.2.x: decision-algorithm explainer */
+.sc-algo{border-top:3px solid var(--navy);margin-bottom:16px}
+.sc-algo-list{margin:0 0 0 18px;padding:0;font-size:14px;line-height:1.6;color:#3a352b}
+.sc-algo-list li{margin-bottom:5px}
