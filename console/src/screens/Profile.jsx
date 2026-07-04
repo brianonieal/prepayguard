@@ -1,8 +1,9 @@
 import { useState } from "react";
 
-export default function Profile({ email }) {
+export default function Profile({ email, role }) {
   const [name, setName] = useState("Brian Onieal");
   const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "TC";
+  const roleLabel = role && role !== "none" ? role[0].toUpperCase() + role.slice(1) : "No role";
 
   return (
     <div className="body">
@@ -17,7 +18,7 @@ export default function Profile({ email }) {
               <div>
                 <div style={{ fontWeight: 600, fontSize: 16 }}>{name}</div>
                 <div className="mono" style={{ color: "#6b6455", fontSize: 13 }}>{email}</div>
-                <span className="rolebadge">Reviewer</span>
+                <span className="rolebadge">{roleLabel}</span>
               </div>
             </div>
             <label htmlFor="dn">Display name</label>
@@ -40,7 +41,7 @@ export default function Profile({ email }) {
             <h3>Account</h3>
             <dl>
               <dt>Cognito sub</dt><dd className="mono">a1b2c3d4-…-9f0e</dd>
-              <dt>Role</dt><dd>Reviewer</dd>
+              <dt>Role</dt><dd>{roleLabel}</dd>
               <dt>Created</dt><dd>2026-07-03</dd>
               <dt>Last sign-in</dt><dd>just now · this device</dd>
               <dt>Status</dt><dd><span className="pill p-approved">active</span></dd>

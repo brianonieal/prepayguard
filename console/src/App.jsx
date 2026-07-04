@@ -6,7 +6,7 @@ import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
 import UserMenu from "./components/UserMenu.jsx";
-import { currentUser, logout } from "./lib/auth.js";
+import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
 
 export function nav(hash) {
   window.location.hash = hash;
@@ -32,6 +32,7 @@ function useHashParts() {
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined=checking, null=out, obj=in
+  const [role, setRole] = useState(null);      // null=unknown; submitter|reviewer|admin|none
   const [settings, setSettingsState] = useState(loadSettings);
   const parts = useHashParts();
   const setSettings = (patch) =>
@@ -42,6 +43,17 @@ export default function App() {
     });
 
   useEffect(() => { currentUser().then((u) => setUser(u)).catch(() => setUser(null)); }, []);
+  // Resolve the role from Cognito groups once signed in (drives nav + guards).
+  useEffect(() => {
+    if (user) currentGroups().then((g) => setRole(roleFromGroups(g))).catch(() => setRole("none"));
+    else setRole(null);
+  }, [user]);
+
+  const canReview = role === "reviewer" || role === "admin";
+  // A submitter (or an unassigned user) landing on the review queue is bounced home.
+  useEffect(() => {
+    if (user && role && !canReview && parts[0] === "reviews") nav("#/submit");
+  }, [user, role, canReview, parts]);
 
   if (user === undefined) {
     return <div className="login-page"><div className="login-wrap"><div className="sub">Loading…</div></div></div>;
@@ -63,21 +75,24 @@ export default function App() {
         <div className="seal">T</div>
         <b>Treasury Console</b>
         <span className="env">DEV · us-east-2</span>
+        {role && role !== "none" && <span className="rolechip" data-testid="role-chip">{role}</span>}
         <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut} />
       </header>
       <nav className="tabs">
         <button className={route === "submit" ? "on" : ""} onClick={() => nav("#/submit")}>Submit Payment</button>
-        <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
+        {canReview && (
+          <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
+        )}
       </nav>
       <main className="content">
         {route === "submit" && <Submit />}
-        {onReviews && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} onOpen={(id) => nav(`#/reviews/${id}`)} />}
-        {onReviews && detailId && <AuditDetail paymentId={detailId} onBack={() => nav("#/reviews")} />}
-        {route === "profile" && <Profile email={emailLabel} />}
+        {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} onOpen={(id) => nav(`#/reviews/${id}`)} />}
+        {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} onBack={() => nav("#/reviews")} />}
+        {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v1.4.1</span>
+        <span>Treasury Console · v2.0.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

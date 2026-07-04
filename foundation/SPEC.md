@@ -1,6 +1,19 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.0.0 — Roles & Segregation of Duties (2026-07-04, live) · Phase 3 gate 1/5
+Who submits ≠ who approves.
+
+- **Cognito groups → per-group IAM roles** (submitter/reviewer/admin) via
+  Identity-Pool Token role-mapping; no-group users fall back to a no-access role.
+- **Edge authz:** reviewer+admin → all routes; submitter → batch routes only.
+- **SoD:** A stamps `submitted_by` (cognitoIdentityId) → D persists it →
+  console_api `_apply_decision` returns 403 when decider == submitter (single + bulk).
+- **Console:** role from `cognito:groups` gates nav/actions; topbar role chip.
+- Verified: pytest 60/60, vitest 15/15, checkov 502/0, plan 0-drift; **LIVE**
+  brian(admin via mapping) self-approve→403, cross-identity→200.
+- 17 decisions LOCKED (DEC-17: roles + SoD).
+
 ## v1.6.0 — Write-Scale Hardening (2026-07-04, live)
 Batch ingestion moved server-side; reviewers act in bulk.
 
@@ -47,14 +60,12 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Roadmap through v1.6.0 is complete.** Both hardening halves (read-scale
-  v1.5.0, write-scale v1.6.0) shipped and are live-verified. No gate is currently
-  pending — the next gate would be a new roadmap item (re-run BUILD APPROVED).
-- Possible follow-ons (not scoped): very-large-file sharding (Step Functions),
-  real-time batch progress (WebSockets), server-side "select all matching" bulk,
-  non-CSV formats.
+- **Phase 3 in progress (gate 1/5 done).** Next: **v2.1.0 — Reference-Data
+  Lifecycle** (screening lists → managed, versioned store; admin-gated update path;
+  each screening cites the list version it matched). Then v2.2.0 semantic matching,
+  v2.3.0 LLM briefs, v2.4.0 analytics.
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-16 of 16 LOCKED.
+17 of 17 LOCKED.

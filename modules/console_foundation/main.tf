@@ -84,15 +84,69 @@ data "aws_iam_policy_document" "authenticated_assume" {
 
 resource "aws_iam_role" "authenticated" {
   name               = "${var.name_prefix}-console-authenticated"
-  description        = "Temp-cred role for logged-in Treasury Console users (SigV4 to the APIs)."
+  description        = "Fallback role for a logged-in user in NO group: no API access (v2.0.0)."
   assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
+}
+
+# v2.0.0 — per-group roles for segregation of duties. Same federated trust as
+# the authenticated fallback; their distinct invoke policies are attached at env
+# level (module NOTE above). submitter can submit, reviewer can adjudicate,
+# admin does both (+ future reference-data / analytics surfaces).
+resource "aws_iam_role" "submitter" {
+  name               = "${var.name_prefix}-console-submitter"
+  description        = "Console 'submitter' group: submit payments + upload batches, no approval."
+  assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
+}
+
+resource "aws_iam_role" "reviewer" {
+  name               = "${var.name_prefix}-console-reviewer"
+  description        = "Console 'reviewer' group: adjudicate the human-review queue."
+  assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
+}
+
+resource "aws_iam_role" "admin" {
+  name               = "${var.name_prefix}-console-admin"
+  description        = "Console 'admin' group: full console access."
+  assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
+}
+
+# Cognito groups → roles. Lower precedence wins when a user is in several groups,
+# so admin (10) > reviewer (20) > submitter (30) resolves cognito:preferred_role.
+resource "aws_cognito_user_group" "submitter" {
+  name         = "submitter"
+  user_pool_id = aws_cognito_user_pool.console.id
+  role_arn     = aws_iam_role.submitter.arn
+  precedence   = 30
+}
+
+resource "aws_cognito_user_group" "reviewer" {
+  name         = "reviewer"
+  user_pool_id = aws_cognito_user_pool.console.id
+  role_arn     = aws_iam_role.reviewer.arn
+  precedence   = 20
+}
+
+resource "aws_cognito_user_group" "admin" {
+  name         = "admin"
+  user_pool_id = aws_cognito_user_pool.console.id
+  role_arn     = aws_iam_role.admin.arn
+  precedence   = 10
 }
 
 resource "aws_cognito_identity_pool_roles_attachment" "console" {
   identity_pool_id = aws_cognito_identity_pool.console.id
 
   roles = {
+    # A logged-in user in NO group falls back here (no API-invoke policy attached).
     authenticated = aws_iam_role.authenticated.arn
+  }
+
+  # Map the caller to their group's role from the token's cognito:preferred_role
+  # (Cognito sets it from the highest-precedence group that has a role_arn).
+  role_mapping {
+    identity_provider         = "${aws_cognito_user_pool.console.endpoint}:${aws_cognito_user_pool_client.spa.id}"
+    type                      = "Token"
+    ambiguous_role_resolution = "AuthenticatedRole"
   }
 }
 

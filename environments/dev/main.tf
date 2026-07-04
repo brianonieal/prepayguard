@@ -128,16 +128,37 @@ module "console" {
   site_bucket_name = "${local.name_prefix}-console-${data.aws_caller_identity.current.account_id}"
 }
 
-# Console users' invoke policy lives HERE (not in the console module) to break
-# the console<->api_intake reference cycle.
-data "aws_iam_policy_document" "console_invoke" {
+# Console group roles' invoke policies live HERE (not in the console module) to
+# break the console<->api_intake reference cycle (v2.0.0). The API resource
+# policies are the matching allow/deny side. All three groups may submit;
+# submitters are edge-scoped to the batch routes on the console API.
+data "aws_iam_policy_document" "console_full_invoke" {
   statement {
-    sid     = "InvokeConsoleFacingApis"
+    sid     = "InvokeIntakeAndConsole"
     effect  = "Allow"
     actions = ["execute-api:Invoke"]
     resources = [
       "${module.api_intake.api_execution_arn}/*",
       "${module.console_api.api_execution_arn}/*",
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "console_submitter_invoke" {
+  statement {
+    sid       = "InvokeIntake"
+    effect    = "Allow"
+    actions   = ["execute-api:Invoke"]
+    resources = ["${module.api_intake.api_execution_arn}/*"]
+  }
+  statement {
+    sid     = "InvokeConsoleBatchOnly"
+    effect  = "Allow"
+    actions = ["execute-api:Invoke"]
+    resources = [
+      "${module.console_api.api_execution_arn}/*/POST/batches",
+      "${module.console_api.api_execution_arn}/*/GET/batches",
+      "${module.console_api.api_execution_arn}/*/GET/batches/*",
     ]
   }
 }
@@ -148,7 +169,8 @@ module "console_api" {
 
   name_prefix              = local.name_prefix
   image_uri                = "${module.ecr["console_api"].repository_url}:${var.placeholder_image_tag}"
-  allowed_invoker_role_arn = module.console.authenticated_role_arn
+  reviewer_admin_role_arns = [module.console.reviewer_role_arn, module.console.admin_role_arn]
+  submitter_role_arn       = module.console.submitter_role_arn
   reviews_table_name       = module.console.reviews_table_name
   reviews_table_arn        = module.console.reviews_table_arn
   reviews_status_index_arn = module.console.reviews_status_index_arn
@@ -186,10 +208,22 @@ module "batch_ingest" {
   console_origin         = module.console.console_url
 }
 
-resource "aws_iam_role_policy" "console_invoke" {
-  name   = "${local.name_prefix}-console-invoke"
-  role   = module.console.authenticated_role_name
-  policy = data.aws_iam_policy_document.console_invoke.json
+resource "aws_iam_role_policy" "reviewer_invoke" {
+  name   = "${local.name_prefix}-reviewer-invoke"
+  role   = module.console.reviewer_role_name
+  policy = data.aws_iam_policy_document.console_full_invoke.json
+}
+
+resource "aws_iam_role_policy" "admin_invoke" {
+  name   = "${local.name_prefix}-admin-invoke"
+  role   = module.console.admin_role_name
+  policy = data.aws_iam_policy_document.console_full_invoke.json
+}
+
+resource "aws_iam_role_policy" "console_submitter_invoke" {
+  name   = "${local.name_prefix}-console-submitter-invoke"
+  role   = module.console.submitter_role_name
+  policy = data.aws_iam_policy_document.console_submitter_invoke.json
 }
 
 module "api_intake" {
@@ -199,7 +233,10 @@ module "api_intake" {
   image_uri   = "${module.ecr["intake"].repository_url}:${var.placeholder_image_tag}"
   allowed_invoker_role_arns = [
     aws_iam_role.payment_submitter.arn,
-    module.console.authenticated_role_arn, # Treasury Console users (v1.1.0)
+    # Console group roles (v2.0.0) — all three may submit payments.
+    module.console.submitter_role_arn,
+    module.console.reviewer_role_arn,
+    module.console.admin_role_arn,
   ]
   stage = var.environment
 

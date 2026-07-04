@@ -37,6 +37,18 @@ def test_webhook_posted_with_secret_url_on_review(disposition, monkeypatch):
     assert spy.calls[0]["body"]["payment_id"] == "p1"
 
 
+def test_review_item_records_submitter_for_sod(disposition, monkeypatch):
+    # v2.0.0: the submitter identity Component A stamped must reach the reviews
+    # table so the console can enforce segregation of duties.
+    import boto3
+    app = disposition["load"]("component_d_disposition")
+    monkeypatch.setattr(app.urlrequest, "urlopen", _WebhookSpy())
+    app.handler(_sqs_event({**_scored("p-sod", "review", score=60), "submitted_by": "user-123"}))
+    item = boto3.resource("dynamodb", region_name="us-east-2").Table(
+        disposition["reviews_table"]).get_item(Key={"payment_id": "p-sod"})["Item"]
+    assert item["submitted_by"] == "user-123"
+
+
 def test_no_webhook_for_approved_payment(disposition, monkeypatch):
     app = disposition["load"]("component_d_disposition")
     spy = _WebhookSpy()

@@ -6,8 +6,15 @@ variable "image_uri" {
   type = string
 }
 
-variable "allowed_invoker_role_arn" {
-  description = "The console authenticated role — the ONLY principal that may invoke this API."
+# v2.0.0 role-scoped access: reviewers/admins get the whole API; submitters are
+# scoped (at the edge) to the batch-upload routes only.
+variable "reviewer_admin_role_arns" {
+  description = "Roles allowed to invoke every route (reviewer + admin)."
+  type        = list(string)
+}
+
+variable "submitter_role_arn" {
+  description = "Submitter role — admitted ONLY on the batch-upload routes (POST/GET /batches)."
   type        = string
 }
 

@@ -142,6 +142,8 @@ def _route_to_review(payment: dict, record: dict) -> None:
         "score": payment.get("risk", {}).get("score", 0),
         "status": "pending",
         "received_at": record["audited_at"],
+        # SoD (v2.0.0): who submitted this payment, so a reviewer can't clear their own.
+        "submitted_by": payment.get("submitted_by", "unknown"),
     })
     body = json.dumps({
         "text": f"Payment {payment.get('payment_id')} routed to human review "

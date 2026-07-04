@@ -56,6 +56,14 @@ def _response(status_code: int, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _caller_identity(event: dict[str, Any]) -> str:
+    # Stable per-user id for segregation of duties (v2.0.0). Cognito-federated
+    # console callers carry a cognitoIdentityId; a plain assumed-role caller
+    # (e.g. the payment-submitter test role) falls back to its role ARN.
+    ident = (event.get("requestContext") or {}).get("identity") or {}
+    return ident.get("cognitoIdentityId") or ident.get("userArn") or "unknown"
+
+
 def _extract_payment(event: dict[str, Any]) -> dict[str, Any]:
     body = event.get("body")
     if body is None:
@@ -112,6 +120,9 @@ def handler(event, context=None):
         # Fall through to (re-)send so the payment is not silently lost.
 
     # 3. Enqueue for screening, then commit the terminal state + message id.
+    #    Stamp the submitter identity so the reviewer surface can enforce
+    #    segregation of duties (an approver can't clear their own payment, v2.0.0).
+    payment["submitted_by"] = _caller_identity(event)
     message_id = _sqs_client().send_message(
         QueueUrl=queue_url,
         MessageBody=json.dumps(payment),

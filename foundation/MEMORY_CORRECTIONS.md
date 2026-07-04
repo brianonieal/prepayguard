@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.0.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:54:51Z
 ESTIMATION: gate=v1.6.0 estimated=3h actual=2.00h variance=-33% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:25:22Z
 ESTIMATION: gate=v1.5.0 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T12:31:57Z
 ESTIMATION: gate=v1.4.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T11:58:03Z
@@ -16,6 +17,41 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION - v2.0.0 Roles & Segregation of Duties (2026-07-04, Phase 3)
+
+**What went well**
+- Cognito GROUPS -> per-group IAM roles via Identity-Pool Token role-mapping
+  (cognito:preferred_role) reused DEC-5/DEC-15 cleanly - one auth model, now
+  role-scoped. Live proof: brian assumed the admin role (not the fallback),
+  confirming the mapping end to end.
+- SoD split correctly across layers: EDGE (resource policy scopes submitter to
+  batch routes) for API authz IAM can express, HANDLER (decider != submitted_by)
+  for the per-item maker/checker it can't. Both live-verified (403 self, 200 cross).
+- submitted_by rode the pipeline for free: A stamps it, B/C already forward the
+  whole payment dict untouched, D persists it. No B/C changes needed - the
+  pass-through worker pattern paid off again.
+- Refactor from v1.6.0 (_apply_decision shared core) meant SoD landed in ONE
+  place and covered single + bulk automatically.
+
+**What bit**
+- The known IAM-propagation error returned: API Gateway UpdateRestApi rejected
+  both resource policies ("ensure Principals are valid") because the group roles
+  were created in the SAME apply. Fix (already in the playbook): the roles DID
+  get created, so poll get-role for propagation, then re-plan + re-apply - it
+  went clean the second time. Worth pre-empting: create new principal roles in a
+  prior targeted apply before the policies that name them.
+- Cognito vs STS credential field names differ (SecretKey vs SecretAccessKey) -
+  cost one script iteration on the live check. Trivia, but bit twice historically.
+
+**What to watch**
+- A user with NO group gets the authenticated fallback (no API access) - a fresh
+  login is required after group assignment for cognito:preferred_role to appear
+  in the token. Assign groups BEFORE expecting console access.
+
+**Estimated vs actual**
+Est ~2-3h -> actual ~2.5h. Landed at the top of the band as flagged: genuinely
+cross-cutting (Cognito + IAM + 3 handlers + UI + e2e) but no single hard part.
 
 ### REFLEXION — v1.6.0 Write-Scale Hardening (2026-07-04, Phase 2)
 

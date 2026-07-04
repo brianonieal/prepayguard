@@ -36,6 +36,25 @@ calibration data yet; first gate recalibrates.
 | v1.5.0 | Read-Scale Hardening | Reviews GSI (status/received_at) + paginated `GET /reviews?status=&limit=&cursor=`; `payment_id`-indexed audit lookup (audit_index table; D writes for every disposition) → O(1) `GET /audit`; frontend pagination + server-side status filter. | ~1–2h | DONE (actual: 1.0) |
 | v1.6.0 | Write-Scale Hardening | S3 batch-file ingestion (presigned upload → S3-triggered Lambda → idempotent enqueue + batch summary, replacing the client-side loop); bulk review actions (batch decision endpoint + multi-select UI). | ~2–3h | DONE (actual: 2.0) |
 
+## PHASE 3 — "Do-Not-Pay Intelligence" (BUILD APPROVED 2026-07-04)
+Adds the AI/ML layer the capstone is named for + the realism gaps around it. All
+AWS-native (Bedrock, Cognito, DynamoDB/S3); stack unchanged. Sequenced by
+DEPENDENCY, not marquee: roles gate the admin/analytics surfaces; the managed
+reference store underpins semantic matching; briefs explain semantic hits;
+analytics synthesizes. Estimates sit in the ~1–4h integration band (recent
+actuals: v1.4.0 2.5, v1.5.0 1.0, v1.6.0 2.0); the two Bedrock gates carry the
+most uncertainty (unfamiliar API + mocking LLM/embeddings in tests).
+
+| Version | Name | Goal | Est | Status |
+|---|---|---|---|---|
+| v2.0.0 | Roles & Segregation of Duties | Cognito groups (submitter/reviewer/admin) → per-group IAM roles; intake + console APIs authorize by group; **app-level SoD: an approver cannot approve a payment they submitted**. Console gates nav/actions by role. | ~2–3h | DONE (actual: 2.5) |
+| v2.1.0 | Reference-Data Lifecycle | Screening lists move from bundled to a managed, **versioned** store (DynamoDB/S3); admin-gated update path; each screening record cites the reference list version it matched. | ~2–3h | pending |
+| v2.2.0 | Semantic Payee Matching | Bedrock embeddings in enrichment: a match is exact-rule OR semantic similarity ≥ threshold over the managed reference set. Vector store settled at gate (cosine-in-DDB proposed vs OpenSearch Serverless). | ~3–4h | pending |
+| v2.3.0 | LLM Adjudication Briefs | Bedrock generates an evidence-grounded "why flagged / recommended action" for reviewers. **Advisory only — NOT part of the immutable decision record; the human still decides.** | ~2–3h | pending |
+| v2.4.0 | Analytics & Compliance Reporting | Throughput / hit-rate / disposition / aging dashboard + auditor export & legal-hold view over the audit log; role-gated (admin/auditor). | ~2–4h | pending |
+
+**Phase 3 total (calibrated):** ~11–17h across 5 gates.
+
 ## NOTES
 - v0.1.0 fully green: fmt/validate/tflint/checkov + `terraform plan` all clean. Plan ran in us-east-2 against account <ACCOUNT_ID>: **74 to add, 0 to change, 0 to destroy**, no errors/warnings. Region aligned us-east-1 → us-east-2 to match the operator's account before planning.
 - Every gate is backend/infra → flow is **CONFIRMED → ROADMAP APPROVED → GO** (no MOCKUPS/FRONTEND).

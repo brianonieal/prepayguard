@@ -247,3 +247,39 @@ def test_bulk_decide_caps_batch_size(console_api):
     resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
                                              body={"payment_ids": [f"p{i}" for i in range(51)], "decision": "approved"}))
     assert resp["statusCode"] == 400
+
+
+# --- v2.0.0 segregation of duties ---
+
+CALLER = "arn:aws:sts::1:assumed-role/console-authenticated/brian"
+
+
+def _pending(payment_id, submitted_by):
+    return {"payment_id": payment_id, "audit_id": "a", "status": "pending",
+            "received_at": "2026-07-04T00:00:00+00:00", "submitted_by": submitted_by}
+
+
+def test_sod_blocks_self_approval(console_api):
+    console_api["table"].put_item(Item=_pending("own1", CALLER))  # submitted by the same identity
+    resp = console_api["app"].handler(_event("POST", "/reviews/own1/decision", body={"decision": "approved"}, caller=CALLER))
+    assert resp["statusCode"] == 403
+    assert json.loads(resp["body"])["error"] == "segregation_of_duties"
+    assert console_api["table"].get_item(Key={"payment_id": "own1"})["Item"]["status"] == "pending"  # untouched
+
+
+def test_sod_allows_cross_identity_approval(console_api):
+    console_api["table"].put_item(Item=_pending("other1", "a-different-submitter"))
+    resp = console_api["app"].handler(_event("POST", "/reviews/other1/decision", body={"decision": "approved"}, caller=CALLER))
+    assert resp["statusCode"] == 200
+
+
+def test_bulk_decide_respects_sod(console_api):
+    console_api["table"].put_item(Item=_pending("mine", CALLER))
+    console_api["table"].put_item(Item=_pending("theirs", "someone-else"))
+    resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
+                                             body={"payment_ids": ["mine", "theirs"], "decision": "approved"}, caller=CALLER))
+    body = json.loads(resp["body"])
+    assert body["applied"] == 1
+    by_id = {r["payment_id"]: r for r in body["results"]}
+    assert by_id["theirs"]["ok"] is True
+    assert by_id["mine"]["ok"] is False and by_id["mine"]["error"] == "segregation_of_duties"

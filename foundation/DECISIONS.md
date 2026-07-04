@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 16 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 17 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -216,4 +216,17 @@ Section-level detail:
 
 ---
 
-# 16 decisions logged. 16 LOCKED, 0 OPEN.
+## DEC-17 - Console Roles & Segregation of Duties (v2.0.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** Console access is role-based via Cognito User-Pool GROUPS (submitter / reviewer / admin) mapped to per-group IAM roles through the Identity Pool's Token role-mapping (cognito:preferred_role). API authorization is at the edge (resource policies): reviewer+admin get every route; submitter is scoped to the batch-upload routes only; all three may submit. The maker/checker control IAM cannot express - an approver cannot decide a payment they submitted - is enforced in the handler: Component A stamps submitted_by (cognitoIdentityId), Component D carries it to the reviews table, and console_api's _apply_decision returns 403 when decider == submitted_by (single + bulk).
+**Alternatives considered:** a single Cognito authorizer on API Gateway (rejected - bolts a second auth scheme onto the IAM-authed APIs; groups->IAM-roles reuses DEC-5/DEC-15 uniformly). Rules-based role mapping (rejected for Token/preferred_role - precedence lives on the group, simpler). IAM-only SoD (impossible - "not your own payment" is per-item app state, not policy-expressible). Exempting admin from SoD (rejected - SoD is identity-based and absolute; admins are bound too).
+**Rationale:** one auth model (AWS_IAM/SigV4) across machine + human callers, now role-scoped; segregation of duties is a core payment-integrity control. Proven live: brian (admin via Token mapping) self-approve -> 403 segregation_of_duties; a different submitter's payment -> 200.
+**Risk acknowledged:** SoD identity = cognitoIdentityId, so a non-Cognito submitter (the payment-submitter IAM machine role) has no per-user id and its submissions are approvable by any reviewer - acceptable (a machine test client, not a human maker). Submitter-on-batch authorization is duplicated in the resource policy AND the identity policy (defense in depth); both must stay in sync.
+**Confidence:** HIGH. **Reversibility:** MEDIUM - roles/groups are additive; removing SoD is a one-line handler change.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 17 decisions logged. 17 LOCKED, 0 OPEN.

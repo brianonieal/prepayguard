@@ -9,6 +9,8 @@ vi.mock("./lib/auth.js", () => ({
   login: async () => ({ username: "brian@example.test", signInDetails: { loginId: "brian@example.test" } }),
   logout: async () => {},
   currentUser: async () => null, // start logged-out so the login gate shows
+  currentGroups: vi.fn(async () => ["admin"]), // default: full-access role
+  roleFromGroups: (g) => g.includes("admin") ? "admin" : g.includes("reviewer") ? "reviewer" : g.includes("submitter") ? "submitter" : "none",
 }));
 
 vi.mock("./lib/api.js", () => {
@@ -40,8 +42,9 @@ vi.mock("./lib/api.js", () => {
 });
 
 import { bulkDecide } from "./lib/api.js";
+import { currentGroups } from "./lib/auth.js";
 
-beforeEach(() => { window.location.hash = ""; localStorage.clear(); });
+beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
 
 const signIn = async () => {
   await screen.findByText("PrePayGuard payment integrity console");
@@ -84,7 +87,7 @@ test("submit fakes a queued result", async () => {
 test("review queue lists live items and filters", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
   expect(await screen.findByText("console-smoke-1")).toBeInTheDocument();
   expect(screen.getByText("Umbrella Holdings Group")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Search reviews"), { target: { value: "zzz" } });
@@ -94,7 +97,7 @@ test("review queue lists live items and filters", async () => {
 test("audit detail: evidence, verify button, decision flips status", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
   fireEvent.click(await screen.findByRole("button", { name: "Review →" }));
   expect(await screen.findByText("Screening evidence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Verify integrity" })).toBeInTheDocument();
@@ -154,10 +157,26 @@ test("batch upload parses rows then ingests server-side and shows a summary", as
   expect(screen.getByText(/2 queued for screening/)).toBeInTheDocument();
 });
 
+test("submitter role sees Submit but not the Review Queue", async () => {
+  currentGroups.mockResolvedValue(["submitter"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByTestId("role-chip")).toHaveTextContent("submitter");
+  expect(screen.getByRole("button", { name: "Submit Payment" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Review Queue" })).toBeNull();
+});
+
+test("admin role sees both tabs and the role chip", async () => {
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
+  expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
+});
+
 test("review queue multi-select applies a bulk decision", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
   fireEvent.click(await screen.findByLabelText("Select console-smoke-1"));
   expect(screen.getByText(/selected/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Approve 1" }));

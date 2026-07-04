@@ -46,6 +46,14 @@ def _s3_client():
     return _s3
 
 
+def _caller_identity(event) -> str:
+    # Stable per-user id for segregation of duties (v2.0.0), matching the field
+    # Component A stamps as submitted_by: cognitoIdentityId for federated console
+    # users, role ARN otherwise.
+    ident = (event.get("requestContext") or {}).get("identity") or {}
+    return ident.get("cognitoIdentityId") or ident.get("userArn") or "unknown"
+
+
 def _response(code: int, payload) -> dict:
     return {
         "statusCode": code,
@@ -155,6 +163,12 @@ def _apply_decision(payment_id: str, decision: str, note: str, caller_arn: str):
         return 404, {"payment_id": payment_id, "error": "review_not_found"}
     if existing.get("status") != "pending":
         return 409, {"payment_id": payment_id, "error": "already_decided", "status": existing.get("status")}
+    # Segregation of duties (v2.0.0): an approver cannot decide a payment they
+    # themselves submitted. The IAM edge already stops a submitter from reaching
+    # this route at all; this is the per-payment maker/checker control.
+    if existing.get("submitted_by") and existing["submitted_by"] == caller_arn:
+        return 403, {"payment_id": payment_id, "error": "segregation_of_duties",
+                     "detail": "an approver cannot decide a payment they submitted"}
 
     now = datetime.datetime.now(datetime.UTC).isoformat()
     record = {
@@ -259,7 +273,7 @@ def handler(event, context=None):
     method = event.get("httpMethod", "")
     path = event.get("path", "")
     parts = [p for p in path.split("/") if p]
-    caller = event.get("requestContext", {}).get("identity", {}).get("userArn", "unknown")
+    caller = _caller_identity(event)
 
     try:
         if method == "GET" and parts == ["reviews"]:

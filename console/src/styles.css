@@ -124,6 +124,8 @@ tbody tr:hover{background:#faf8f2}
 .attach .icon{width:30px;height:30px;border-radius:5px;background:#eef3f1;display:grid;place-items:center;font:700 10px var(--mono);color:var(--copper)}
 .attach .meta{color:#6b6455;font-size:12px;margin-left:auto;text-align:right}
 .btn-sm{padding:6px 12px;font-size:13px}
+/* v2.0.0: role chip in the topbar (sits in the right group via the topbar flex gap) */
+.rolechip{text-transform:capitalize;font:600 11px var(--mono);color:#cfe0d8;background:var(--navy-2);border:1px solid #3a4a63;border-radius:999px;padding:3px 10px}
 /* v1.6.0: bulk review actions */
 .bulkbar{display:flex;align-items:center;gap:12px;background:#eef3f1;border:1px solid var(--line);border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:13.5px}
 .bulkbar b{color:var(--navy)}

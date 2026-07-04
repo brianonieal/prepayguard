@@ -259,19 +259,38 @@ resource "aws_api_gateway_integration_response" "proxy_options" {
 }
 
 data "aws_iam_policy_document" "resource_policy" {
+  # Reviewers + admins: the whole API.
   statement {
-    sid    = "AllowConsoleRoleInvoke"
+    sid    = "AllowReviewerAdminAllPaths"
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = [var.allowed_invoker_role_arn]
+      identifiers = var.reviewer_admin_role_arns
     }
     actions   = ["execute-api:Invoke"]
     resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*"]
   }
 
+  # Submitters: ONLY the batch-upload routes (upload a CSV + poll its summary).
+  # Scoped at the edge so a submitter can never reach /reviews/decisions even if
+  # an identity policy were mis-scoped (defense in depth for the maker/checker split).
   statement {
-    sid    = "DenyAllButConsoleRole"
+    sid    = "AllowSubmitterBatchPaths"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = [var.submitter_role_arn]
+    }
+    actions = ["execute-api:Invoke"]
+    resources = [
+      "${aws_api_gateway_rest_api.console.execution_arn}/*/POST/batches",
+      "${aws_api_gateway_rest_api.console.execution_arn}/*/GET/batches",
+      "${aws_api_gateway_rest_api.console.execution_arn}/*/GET/batches/*",
+    ]
+  }
+
+  statement {
+    sid    = "DenyAllButNamedRoles"
     effect = "Deny"
     principals {
       type        = "AWS"
@@ -282,7 +301,7 @@ data "aws_iam_policy_document" "resource_policy" {
     condition {
       test     = "StringNotEquals"
       variable = "aws:PrincipalArn"
-      values   = [var.allowed_invoker_role_arn]
+      values   = concat(var.reviewer_admin_role_arns, [var.submitter_role_arn])
     }
     # OPTIONS preflight is unauthenticated by necessity; exempt it from the deny.
     condition {

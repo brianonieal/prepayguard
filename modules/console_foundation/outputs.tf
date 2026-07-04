@@ -20,6 +20,14 @@ output "authenticated_role_name" {
   value       = aws_iam_role.authenticated.name
 }
 
+# v2.0.0 group roles — invoke policies attached at env level (cycle break).
+output "submitter_role_arn" { value = aws_iam_role.submitter.arn }
+output "submitter_role_name" { value = aws_iam_role.submitter.name }
+output "reviewer_role_arn" { value = aws_iam_role.reviewer.arn }
+output "reviewer_role_name" { value = aws_iam_role.reviewer.name }
+output "admin_role_arn" { value = aws_iam_role.admin.arn }
+output "admin_role_name" { value = aws_iam_role.admin.name }
+
 output "console_url" {
   value = "https://${aws_cloudfront_distribution.site.domain_name}"
 }

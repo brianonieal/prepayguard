@@ -1,5 +1,25 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.0.0 — Roles & Segregation of Duties (2026-07-04, Phase 3)
+
+**The console now separates who may submit from who may approve — and an approver can't clear a payment they submitted.**
+
+### Backend
+- **Cognito groups → per-group IAM roles** (submitter / reviewer / admin) via Identity-Pool **Token role-mapping** (`cognito:preferred_role`); a user in no group falls back to a no-access role.
+- **Edge authorization (resource policies):** reviewer+admin → every route; **submitter → only the batch-upload routes**; all three may submit (intake admits all three + the machine payment-submitter role).
+- **Segregation of duties (app-level, the part IAM can't express):** Component A stamps `submitted_by` (`cognitoIdentityId`), B/C pass it through, Component D writes it to the reviews table, and console_api's `_apply_decision` returns **403** when decider == submitter — on **single and bulk** decisions.
+- All 6 images rebuilt **v2.0.0**.
+
+### Frontend (deployed)
+- Role read from the ID token's `cognito:groups` → nav + actions gate by role (submitter sees Submit only; reviewer/admin get the queue + decisions); a route guard bounces a submitter off `/reviews`; role chip in the topbar; Profile shows the real role.
+
+### Verified
+- `pytest` 60/60 · `vitest` 15/15 · `checkov` 502/0 · `tflint` clean · `plan` 0-drift.
+- **LIVE**: `brian` assumed the **admin** role via Token role-mapping; **self-approve → 403 `segregation_of_duties`**; a *different* submitter's payment → **200**.
+- Known IAM-propagation error on the two resource policies (roles created in the same apply) → re-applied clean once the roles propagated.
+
+**DEC-17 LOCKED** — role model + segregation of duties.
+
 ## v1.6.0 — Write-Scale Hardening (2026-07-04, Phase 2)
 
 **Batch CSV files ingest server-side through a new pipeline component; reviewers clear many cases in one action.**

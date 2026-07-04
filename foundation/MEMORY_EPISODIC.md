@@ -24,6 +24,8 @@
 
 | 2026-07-04 | v1.6.0 Write-Scale Hardening (Phase 2) | CLOSED (tagged) | ~2–3h | ~2.0h | Component E S3-triggered batch ingest reusing A's idempotency store+queue (DEC-16); intra-file+cross-path dedup; batches table+endpoints; bulk decision (per-item audit); frontend batch-upload + multi-select. Caught+fixed an intra-file dup bug pre-deploy. Live PASS (dedup + bulk). |
 
+| 2026-07-04 | v2.0.0 Roles & Segregation of Duties (Phase 3) | CLOSED (tagged) | ~2–3h | ~2.5h | Cognito groups->IAM roles via Token role-mapping; edge authz (submitter->batch routes only); app-level SoD (approver != submitter, single+bulk) proven live; console role-gating. Hit the known IAM-propagation resource-policy error -> re-apply. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build
