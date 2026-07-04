@@ -53,6 +53,24 @@ variable "uploads_bucket_name" {
   type        = string
 }
 
+# v1.6.0 write-scale: batch CSV ingestion. console_api presigns the upload and
+# reads the batch summary written by Component E.
+variable "batch_bucket_name" {
+  type = string
+}
+
+variable "batch_bucket_arn" {
+  type = string
+}
+
+variable "batches_table_name" {
+  type = string
+}
+
+variable "batches_table_arn" {
+  type = string
+}
+
 variable "stage" {
   type    = string
   default = "dev"

@@ -1,5 +1,23 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v1.6.0 — Write-Scale Hardening (2026-07-04, Phase 2)
+
+**Batch CSV files ingest server-side through a new pipeline component; reviewers clear many cases in one action.**
+
+### Backend
+- **Component E — Batch Ingest** (new S3-triggered Lambda, `src/component_e_batch_ingest`). A CSV uploaded to the `batch-imports` bucket fires an `ObjectCreated` event; E parses each row and performs the **same** payment-ID idempotency claim + enqueue as Component A, against the **same** idempotency table and intake queue (**DEC-16**) — so single-API and batch submissions dedupe against each other. Batched via `SendMessageBatch`; intra-file duplicates deduped too. Writes a per-file **batch summary** (counts + row errors).
+- `console_api`: `POST /batches` (presign CSV upload + mint `batch_id`), `GET /batches/{id}` (poll summary; "processing" until E writes), `GET /batches`. **`POST /reviews/decisions`** — one decision applied to ≤50 payments, **each still writing its own immutable audit record**; partial-success reported. `_decide` refactored to a shared `_apply_decision` core.
+- New `modules/batch_ingest_stage`: batch-imports S3 bucket (SSE, versioned, CORS, lifecycle) + `batches` table + Component E Lambda + least-priv IAM + S3→Lambda trigger (to the `live` alias, DEC-10). All 6 images rebuilt (**v1.6.1**), deployed.
+
+### Frontend (deployed)
+- **Submit:** batch upload is now server-side — presign → upload the raw CSV once → poll the summary (queued / duplicate / rejected + errors), replacing the per-row client loop. Client-side parse kept for the preview/validation table.
+- **Review queue:** row checkboxes + a bulk action bar ("Approve N / Reject N") over the loaded page.
+
+### Verified
+- Backend `pytest` 56/56 · console `vitest` 13/13 · `checkov` 472/0 · `tflint` clean · `plan` 0-drift.
+- **LIVE**: presign → `aws s3` upload → E summary **queued 2 / duplicate 1** (intra-file dedup proven on a file with a repeated id) → **bulk approve** flipped the pending payment to approved.
+- Caught + fixed an intra-file duplicate bug pre-deploy (first occurrence still PENDING when the repeat is checked → added an in-file `seen` set).
+
 ## v1.5.0 — Read-Scale Hardening (2026-07-04, Phase 2)
 
 **Reviews list and audit lookup now scale: GSI-backed pagination + an O(1) audit index.**

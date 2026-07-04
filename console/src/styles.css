@@ -124,6 +124,10 @@ tbody tr:hover{background:#faf8f2}
 .attach .icon{width:30px;height:30px;border-radius:5px;background:#eef3f1;display:grid;place-items:center;font:700 10px var(--mono);color:var(--copper)}
 .attach .meta{color:#6b6455;font-size:12px;margin-left:auto;text-align:right}
 .btn-sm{padding:6px 12px;font-size:13px}
+/* v1.6.0: bulk review actions */
+.bulkbar{display:flex;align-items:center;gap:12px;background:#eef3f1;border:1px solid var(--line);border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:13.5px}
+.bulkbar b{color:var(--navy)}
+tr.row-sel{background:#f4f8f6}
 /* tier-1: toolbar, empty, explainability, verify */
 .toolbar{display:flex;gap:10px;margin-bottom:12px}
 .search{flex:1;max-width:360px}

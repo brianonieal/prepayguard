@@ -66,3 +66,30 @@ export async function uploadFile(url, file) {
   const r = await fetch(url, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
   if (!r.ok) throw new Error(`upload ${r.status}`);
 }
+
+// v1.6.0 batch ingestion: presign a CSV upload, then poll its server-side summary.
+export async function presignBatch(filename) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/batches`, {
+    method: "POST", body: JSON.stringify({ filename }), headers: { "Content-Type": "application/json" },
+  }));
+}
+
+export async function getBatch(batchId) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/batches/${encodeURIComponent(batchId)}`));
+}
+
+export async function listBatches() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/batches`));
+}
+
+// v1.6.0 bulk review actions: one decision applied to many payments.
+export async function bulkDecide(paymentIds, decision, note = "") {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reviews/decisions`, {
+    method: "POST", body: JSON.stringify({ payment_ids: paymentIds, decision, note }),
+    headers: { "Content-Type": "application/json" },
+  }));
+}

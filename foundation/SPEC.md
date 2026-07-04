@@ -1,6 +1,21 @@
 # SPEC.md
 # Current-gate detail.
 
+## v1.6.0 — Write-Scale Hardening (2026-07-04, live)
+Batch ingestion moved server-side; reviewers act in bulk.
+
+- **Component E — Batch Ingest** (new S3-triggered Lambda): CSV → `batch-imports`
+  bucket → `ObjectCreated` → parse + idempotent enqueue reusing **Component A's**
+  idempotency table + intake queue (**DEC-16**). Intra-file *and* cross-path
+  dedup; per-file summary in the `batches` table.
+- **console_api:** `POST /batches` (presign), `GET /batches/{id}` + `GET /batches`
+  (poll), **`POST /reviews/decisions`** (bulk, ≤50, one audit record each).
+- **Frontend:** Submit uploads the CSV once and polls the summary; review queue
+  gains multi-select + a bulk Approve/Reject bar.
+- Verified: pytest 56/56, vitest 13/13, checkov 472/0, plan 0-drift; **LIVE**
+  batch summary queued=2/duplicate=1 (dedup proven) + bulk approve.
+- 16 decisions LOCKED (DEC-16: batch ingest reuses the intake idempotency store).
+
 ## v1.5.0 — Read-Scale Hardening (2026-07-04, live)
 Reviews and audit lookups now scale past a full-table Scan.
 
@@ -32,11 +47,14 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **v1.6.0 — Write-Scale Hardening (next):** S3 batch-file ingestion (presigned
-  upload → S3-triggered Lambda → idempotent enqueue + batch summary, replacing the
-  client-side loop); bulk review actions (batch decision endpoint + multi-select UI).
+- **Roadmap through v1.6.0 is complete.** Both hardening halves (read-scale
+  v1.5.0, write-scale v1.6.0) shipped and are live-verified. No gate is currently
+  pending — the next gate would be a new roadmap item (re-run BUILD APPROVED).
+- Possible follow-ons (not scoped): very-large-file sharding (Step Functions),
+  real-time batch progress (WebSockets), server-side "select all matching" bulk,
+  non-CSV formats.
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-15 of 15 LOCKED.
+16 of 16 LOCKED.

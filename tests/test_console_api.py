@@ -37,16 +37,26 @@ def console_api(monkeypatch):
             AttributeDefinitions=[{"AttributeName": "payment_id", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST",
         )
+        batches = ddb.create_table(  # v1.6.0 batch summary table
+            TableName="treasury-dev-batches",
+            KeySchema=[{"AttributeName": "batch_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "batch_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
         s3 = boto3.client("s3", region_name=REGION)
         bucket = "treasury-dev-audit-test"
         s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
 
         uploads = "treasury-dev-console-uploads-test"
         s3.create_bucket(Bucket=uploads, CreateBucketConfiguration={"LocationConstraint": REGION})
+        batch_bucket = "treasury-dev-batch-imports-test"
+        s3.create_bucket(Bucket=batch_bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
         monkeypatch.setenv("REVIEWS_TABLE_NAME", "treasury-dev-reviews")
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
         monkeypatch.setenv("AUDIT_INDEX_TABLE", "treasury-dev-audit-index")
         monkeypatch.setenv("UPLOADS_BUCKET_NAME", uploads)
+        monkeypatch.setenv("BATCH_BUCKET", batch_bucket)
+        monkeypatch.setenv("BATCHES_TABLE", "treasury-dev-batches")
         monkeypatch.setenv("CONSOLE_ORIGIN", "https://console.example.test")
 
         table.put_item(Item={
@@ -59,7 +69,8 @@ def console_api(monkeypatch):
             Body=json.dumps({"audit_id": "a-111", "payment_id": "r1",
                              "decision": {"disposition": "review"}}).encode(),
         )
-        yield {"app": _load("console_api"), "table": table, "index": index, "s3": s3, "bucket": bucket, "uploads": uploads}
+        yield {"app": _load("console_api"), "table": table, "index": index, "batches": batches,
+               "s3": s3, "bucket": bucket, "uploads": uploads, "batch_bucket": batch_bucket}
 
 
 def _event(method, path, body=None, qs=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
@@ -165,3 +176,74 @@ def test_get_audit_falls_back_without_index(console_api):
     # No index entry → prefix-scan fallback still finds it (backward compat).
     resp = console_api["app"].handler(_event("GET", "/audit/r1"))
     assert resp["statusCode"] == 200
+
+
+# --- v1.6.0 write-scale: batch ingestion + bulk decisions ---
+
+def test_presign_batch_returns_upload_url(console_api):
+    resp = console_api["app"].handler(_event("POST", "/batches", body={"filename": "payroll.csv"}))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200
+    assert body["batch_id"] and body["key"] == f"batch-imports/{body['batch_id']}/payroll.csv"
+    assert "X-Amz-Signature" in body["upload_url"]
+
+
+def test_presign_batch_rejects_non_csv(console_api):
+    resp = console_api["app"].handler(_event("POST", "/batches", body={"filename": "payroll.xlsx"}))
+    assert resp["statusCode"] == 400
+
+
+def test_get_batch_processing_then_complete(console_api):
+    app = console_api["app"]
+    # Before E writes the summary, the poller is told to keep waiting.
+    pending = json.loads(app.handler(_event("GET", "/batches/b-xyz"))["body"])
+    assert pending["status"] == "processing"
+    console_api["batches"].put_item(Item={
+        "batch_id": "b-xyz", "filename": "payroll.csv", "status": "complete",
+        "total": 3, "queued": 2, "duplicate": 1, "rejected": 0, "received_at": "2026-07-04T10:00:00+00:00",
+    })
+    done = json.loads(app.handler(_event("GET", "/batches/b-xyz"))["body"])
+    # DynamoDB numbers serialize to strings via the app's default=str (same as `score`).
+    assert done["status"] == "complete" and int(done["queued"]) == 2 and int(done["duplicate"]) == 1
+
+
+def test_list_batches_newest_first(console_api):
+    for i in range(2):
+        console_api["batches"].put_item(Item={
+            "batch_id": f"b{i}", "filename": f"f{i}.csv", "status": "complete",
+            "total": 1, "queued": 1, "duplicate": 0, "rejected": 0,
+            "received_at": f"2026-07-0{i + 1}T00:00:00+00:00",
+        })
+    body = json.loads(console_api["app"].handler(_event("GET", "/batches"))["body"])
+    assert body["count"] == 2 and body["batches"][0]["batch_id"] == "b1"  # newest first
+
+
+def test_bulk_decide_applies_each_and_audits(console_api):
+    app, t = console_api["app"], console_api["table"]
+    t.put_item(Item={"payment_id": "r2", "audit_id": "a-222", "score": 55,
+                     "status": "pending", "received_at": "2026-07-03T21:00:00+00:00"})
+    resp = app.handler(_event("POST", "/reviews/decisions",
+                              body={"payment_ids": ["r1", "r2"], "decision": "approved", "note": "cleared"}))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200 and body["applied"] == 2
+    assert t.get_item(Key={"payment_id": "r1"})["Item"]["status"] == "approved"
+    assert t.get_item(Key={"payment_id": "r2"})["Item"]["status"] == "approved"
+    # Each payment gets its own decision audit record.
+    keys = [o["Key"] for o in console_api["s3"].list_objects_v2(
+        Bucket=console_api["bucket"], Prefix="audit/")["Contents"]]
+    assert any("decision-r1-" in k for k in keys) and any("decision-r2-" in k for k in keys)
+
+
+def test_bulk_decide_partial_failure_reported(console_api):
+    resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
+                                             body={"payment_ids": ["r1", "ghost"], "decision": "rejected"}))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200 and body["applied"] == 1
+    by_id = {r["payment_id"]: r for r in body["results"]}
+    assert by_id["r1"]["ok"] is True and by_id["ghost"]["ok"] is False
+
+
+def test_bulk_decide_caps_batch_size(console_api):
+    resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
+                                             body={"payment_ids": [f"p{i}" for i in range(51)], "decision": "approved"}))
+    assert resp["statusCode"] == 400

@@ -22,6 +22,8 @@
 
 | 2026-07-04 | v1.5.0 Read-Scale Hardening (Phase 2) | CLOSED (tagged) | ~1–2h | ~1.0h | Reviews GSI + paginated query (cursor); audit_index table (D writes every disposition) -> O(1) GET /audit w/ prefix-scan fallback; frontend Load-more. Redeployed D+console_api. Live e2e PASS + pagination verified. |
 
+| 2026-07-04 | v1.6.0 Write-Scale Hardening (Phase 2) | CLOSED (tagged) | ~2–3h | ~2.0h | Component E S3-triggered batch ingest reusing A's idempotency store+queue (DEC-16); intra-file+cross-path dedup; batches table+endpoints; bulk decision (per-item audit); frontend batch-upload + multi-select. Caught+fixed an intra-file dup bug pre-deploy. Live PASS (dedup + bulk). |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 15 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 16 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -203,4 +203,17 @@ Section-level detail:
 
 ---
 
-# 15 decisions logged. 15 LOCKED, 0 OPEN.
+## DEC-16 - Batch Ingestion Reuses the Intake Idempotency Store (v1.6.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** Component E (S3-triggered batch CSV ingestion) enqueues to the **same intake SQS queue** and claims against the **same DynamoDB idempotency table** as Component A, rather than calling the intake API per row or maintaining its own dedup store. E mirrors A's `attribute_not_exists` PENDING->SENT claim inline (against the shared table), batched via `SendMessageBatch`. Result: a payment submitted via BOTH a batch file and the single API dedupes to one screening. E adds intra-file dedup (a `seen` set) because within one file the first occurrence is still PENDING, not SENT, when a repeat is checked.
+**Alternatives considered:** (A-per-row) Component E signs and calls `POST /payments` per row — single enforcement path, but chatty (N HTTP round-trips), needs a service-role SigV4 signer, and couples batch throughput to API Gateway limits. (Own store) E keeps a separate idempotency table — simplest to build, but a payment in both paths would screen twice, breaking the "screened once" guarantee. (Shared code library) extract A's claim into a package both images import — cleanest in theory, but the container-per-component build (DEC-2) has no shared build context; a Lambda layer or restructured build is disproportionate for ~15 lines.
+**Rationale:** correctness (cross-path idempotency) is the whole point of the intake dedup (commitment 1); the store, not the code, is the source of truth, so sharing the store is what matters. Reuses A's queue + table with no new dedup surface. A cross-path idempotency test and an intra-file dedup test guard the mirrored logic against drift; both verified live (summary queued=2/duplicate=1 on a file with a repeated id).
+**Risk acknowledged:** the claim logic is duplicated (not shared) across A and E, so a change to the state machine must land in both — pinned by tests. Component E is a single Lambda parsing a whole file (15-min / memory ceiling); very large files would need sharding (Step Functions) — noted as follow-on, out of v1.6.0 scope.
+**Confidence:** HIGH. **Reversibility:** MEDIUM — moving to a shared library or per-row API calls later is contained to Component E; the shared table/queue contract stays.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 16 decisions logged. 16 LOCKED, 0 OPEN.

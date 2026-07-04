@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listReviews } from "../lib/api.js";
+import { listReviews, bulkDecide } from "../lib/api.js";
 
 const AGE_H = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso)) / 3.6e6));
 const AGE = (iso) => {
@@ -14,6 +14,9 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(new Set());
+  const [busy, setBusy] = useState(false);
+  const [actionErr, setActionErr] = useState("");
 
   const load = (reset) => {
     setLoading(true);
@@ -26,8 +29,8 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
       .finally(() => setLoading(false));
   };
 
-  // Refetch page 1 whenever the server-side status filter changes.
-  useEffect(() => { setItems(null); setCursor(null); load(true); }, [status]); // eslint-disable-line
+  // Refetch page 1 (and drop any selection) whenever the status filter changes.
+  useEffect(() => { setItems(null); setCursor(null); setSelected(new Set()); load(true); }, [status]); // eslint-disable-line
 
   if (err) return <div className="body"><div className="verdict bad">Failed to load reviews: {err}</div></div>;
   if (items === null) return <div className="body"><div className="sub">Loading review queue…</div></div>;
@@ -37,6 +40,28 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
   const pend = items.filter((r) => r.status === "pending");
   const avg = pend.length ? Math.round(pend.reduce((s, r) => s + Number(r.score), 0) / pend.length) : "—";
   const oldest = pend.length ? AGE(pend.map((r) => r.received_at).sort()[0]) : "—";
+
+  const selectablePending = rows.filter((r) => r.status === "pending");
+  const toggle = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const allSelected = selectablePending.length > 0 && selectablePending.every((r) => selected.has(r.payment_id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectablePending.map((r) => r.payment_id)));
+
+  const doBulk = async (decision) => {
+    setBusy(true); setActionErr("");
+    try {
+      await bulkDecide([...selected], decision);
+      setSelected(new Set());
+      setItems(null); setCursor(null); load(true);
+    } catch (e) {
+      setActionErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="body">
@@ -61,14 +86,39 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
           </button>
         ))}
       </div>
+
+      {selected.size > 0 && (
+        <div className="bulkbar" role="region" aria-label="Bulk actions">
+          <span><b>{selected.size}</b> selected</span>
+          <button className="btn btn-green btn-sm" disabled={busy} onClick={() => doBulk("approved")}>Approve {selected.size}</button>
+          <button className="btn btn-red btn-sm" disabled={busy} onClick={() => doBulk("rejected")}>Reject {selected.size}</button>
+          <button className="rowlink" disabled={busy} onClick={() => setSelected(new Set())}>Clear</button>
+          {busy && <span className="sub">applying…</span>}
+        </div>
+      )}
+      {actionErr && <div className="verdict bad">{actionErr}</div>}
+
       {rows.length === 0 ? (
         <div className="empty">{loading ? "Loading…" : "No payments match."}</div>
       ) : (
         <table>
-          <thead><tr><th>Payment</th><th>Payee</th><th>Match</th><th>Score</th><th>Received</th><th>Status</th><th></th></tr></thead>
+          <thead><tr>
+            <th style={{ width: 28 }}>
+              {selectablePending.length > 0 && (
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all pending" />
+              )}
+            </th>
+            <th>Payment</th><th>Payee</th><th>Match</th><th>Score</th><th>Received</th><th>Status</th><th></th>
+          </tr></thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.payment_id}>
+              <tr key={r.payment_id} className={selected.has(r.payment_id) ? "row-sel" : ""}>
+                <td>
+                  {r.status === "pending" && (
+                    <input type="checkbox" checked={selected.has(r.payment_id)}
+                      onChange={() => toggle(r.payment_id)} aria-label={`Select ${r.payment_id}`} />
+                  )}
+                </td>
                 <td className="mono">{r.payment_id}</td>
                 <td>{r.payee || "—"}</td>
                 <td>{r.match || "—"}</td>

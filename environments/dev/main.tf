@@ -20,8 +20,9 @@ data "aws_caller_identity" "current" {}
 locals {
   name_prefix = "${var.project_name}-${var.environment}" # treasury-dev
 
-  # One ECR repo per component image (DEC-2) + the console API router (v1.2.0).
-  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api"]
+  # One ECR repo per component image (DEC-2) + the console API router (v1.2.0)
+  # + the batch-ingest worker (Component E, v1.6.0).
+  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api", "batch_ingest"]
 
   # Lambda timeouts, defined once so queue visibility timeouts can be computed
   # from their CONSUMER's timeout (AWS guidance: visibility >= 6x timeout).
@@ -158,7 +159,31 @@ module "console_api" {
   audit_kms_key_arn        = module.audit_store.kms_key_arn
   console_origin           = module.console.console_url
   uploads_bucket_name      = "${local.name_prefix}-console-uploads-${data.aws_caller_identity.current.account_id}"
-  stage                    = var.environment
+  # v1.6.0 batch ingestion: console_api presigns the CSV upload + polls the summary.
+  batch_bucket_name  = module.batch_ingest.batch_bucket_name
+  batch_bucket_arn   = module.batch_ingest.batch_bucket_arn
+  batches_table_name = module.batch_ingest.batches_table_name
+  batches_table_arn  = module.batch_ingest.batches_table_arn
+  stage              = var.environment
+}
+
+# ---------------------------------------------------------------------------
+# Component E — Batch Ingest (v1.6.0, write-scale). S3-triggered; reuses
+# Component A's idempotency store + intake queue (DEC-16) so single-API and
+# batch submissions dedupe against each other.
+# ---------------------------------------------------------------------------
+
+module "batch_ingest" {
+  source = "../../modules/batch_ingest_stage"
+
+  name_prefix            = local.name_prefix
+  image_uri              = "${module.ecr["batch_ingest"].repository_url}:${var.placeholder_image_tag}"
+  batch_bucket_name      = "${local.name_prefix}-batch-imports-${data.aws_caller_identity.current.account_id}"
+  idempotency_table_name = module.api_intake.idempotency_table_name
+  idempotency_table_arn  = module.api_intake.idempotency_table_arn
+  intake_queue_url       = module.api_intake.output_queue_url
+  intake_queue_arn       = module.api_intake.output_queue_arn
+  console_origin         = module.console.console_url
 }
 
 resource "aws_iam_role_policy" "console_invoke" {

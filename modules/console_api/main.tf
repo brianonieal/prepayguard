@@ -87,6 +87,22 @@ data "aws_iam_policy_document" "api" {
     resources = [aws_s3_bucket.uploads.arn, "${aws_s3_bucket.uploads.arn}/*"]
   }
 
+  # v1.6.0 batch ingestion: presign the CSV upload (PutObject) and poll the
+  # batch summary Component E writes (GetItem/Scan). Enqueue + dedup stay on E.
+  statement {
+    sid       = "BatchUploadPresign"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${var.batch_bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "BatchSummaryRead"
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:Scan"]
+    resources = [var.batches_table_arn]
+  }
+
   statement {
     sid       = "XRayTracing"
     effect    = "Allow"
@@ -135,6 +151,8 @@ resource "aws_lambda_function" "api" {
       AUDIT_BUCKET_NAME   = var.audit_bucket_name
       AUDIT_INDEX_TABLE   = var.audit_index_table_name
       UPLOADS_BUCKET_NAME = aws_s3_bucket.uploads.id
+      BATCH_BUCKET        = var.batch_bucket_name
+      BATCHES_TABLE       = var.batches_table_name
       CONSOLE_ORIGIN      = var.console_origin
     }
   }

@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v1.6.0 estimated=3h actual=2.00h variance=-33% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:25:22Z
 ESTIMATION: gate=v1.5.0 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T12:31:57Z
 ESTIMATION: gate=v1.4.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T11:58:03Z
 ESTIMATION: gate=v1.3.0 estimated=4h actual=1.60h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T01:23:40Z
@@ -15,6 +16,41 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v1.6.0 Write-Scale Hardening (2026-07-04, Phase 2)
+
+**What went well**
+- The proxy-all console API ({proxy+} catch-all) meant three new routes
+  (/batches, /batches/{id}, /reviews/decisions) were pure handler code — zero
+  new API Gateway resources. The router-Lambda shape keeps paying off.
+- DEC-16 (reuse A's idempotency table + intake queue instead of a new store or
+  per-row HTTP) made "screened once across single + batch paths" fall out for
+  free. Sharing the STORE, not the code, was the right call given the
+  container-per-component build has no shared context.
+- Refactoring _decide -> _apply_decision let the bulk endpoint reuse the exact
+  single-decision logic (per-item audit record preserved). Small seam, big reuse.
+
+**What bit**
+- Intra-file duplicates. The shared-table claim can't catch a payment_id
+  repeated WITHIN one file: the first occurrence is still PENDING (not SENT)
+  when the repeat is checked, so _claim returned "re-drive" and sent it twice.
+  Fixed with an in-file `seen` set. Caught by writing the live test with a
+  deliberate dup row BEFORE deploying — the test-with-real-intent habit paid off.
+- New-bucket S3 307. A presigned browser PUT to a just-created regional bucket
+  307-redirects until routing propagates (minutes). Not a code bug; verified
+  ingestion via `aws s3 cp` (same ObjectCreated event) and noted the transient.
+- Immutable ECR tags. Fixing E after pushing v1.6.0 forced a full v1.6.1
+  rebuild+repoint of all 6 images (one global tag). Cost: one extra apply.
+  Lesson: don't push the release tag until the component is test-green live.
+- New component image = chicken/egg with its Terraform-owned ECR repo. Correct
+  order is targeted `apply -target=module.ecr[...]` to create the repo, THEN
+  push, THEN full apply — not a manual `aws ecr create-repository` (its AES256
+  default collides with the module's KMS, and ECR encryption is immutable).
+
+**Estimated vs actual**
+Est ~2-3h -> actual ~2.0h. Landed mid-range: the new component + module + S3
+trigger + 3 endpoints + 2 UI changes was real surface, but the established
+patterns (shared module, proxy-all API, presign/upload) absorbed most of it.
 
 ### REFLEXION — v1.5.0 Read-Scale Hardening (2026-07-04, Phase 2)
 

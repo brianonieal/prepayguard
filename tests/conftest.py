@@ -67,6 +67,35 @@ def worker(monkeypatch):
 
 
 @pytest.fixture
+def batch_ingest(monkeypatch):
+    """Component E: batch-imports S3 bucket + the SHARED idempotency table and
+    intake queue (reused from Component A, DEC-16) + the batch summary table."""
+    batch_bucket = "treasury-dev-batch-imports-test"
+    batches_table = "treasury-dev-batches"
+    with mock_aws():
+        s3 = boto3.client("s3", region_name=REGION)
+        s3.create_bucket(Bucket=batch_bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
+        ddb = boto3.client("dynamodb", region_name=REGION)
+        for name, key in ((TABLE, "payment_id"), (batches_table, "batch_id")):
+            ddb.create_table(
+                TableName=name,
+                KeySchema=[{"AttributeName": key, "KeyType": "HASH"}],
+                AttributeDefinitions=[{"AttributeName": key, "AttributeType": "S"}],
+                BillingMode="PROVISIONED",
+                ProvisionedThroughput={"ReadCapacityUnits": 25, "WriteCapacityUnits": 25},
+            )
+            ddb.get_waiter("table_exists").wait(TableName=name)
+        sqs = boto3.client("sqs", region_name=REGION)
+        queue_url = sqs.create_queue(QueueName=INTAKE_QUEUE)["QueueUrl"]
+        monkeypatch.setenv("OUTPUT_QUEUE_URL", queue_url)
+        monkeypatch.setenv("BATCHES_TABLE", batches_table)
+        yield {
+            "app": _load("component_e_batch_ingest"), "s3": s3, "ddb": ddb, "sqs": sqs,
+            "bucket": batch_bucket, "queue_url": queue_url, "table": TABLE, "batches_table": batches_table,
+        }
+
+
+@pytest.fixture
 def disposition(monkeypatch):
     """Component D: Object Lock S3 bucket + review SQS queue + webhook secret."""
     bucket = "treasury-dev-audit-test"

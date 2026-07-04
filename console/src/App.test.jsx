@@ -32,8 +32,14 @@ vi.mock("./lib/api.js", () => {
     listAttachments: async () => ({ attachments: [] }),
     presignAttachment: async () => ({ upload_url: "http://x", key: "k" }),
     uploadFile: async () => {},
+    presignBatch: async () => ({ upload_url: "http://x", batch_id: "b1", key: "batch-imports/b1/f.csv" }),
+    getBatch: async () => ({ batch_id: "b1", status: "complete", queued: 2, duplicate: 0, rejected: 0, errors: [] }),
+    listBatches: async () => ({ batches: [] }),
+    bulkDecide: vi.fn(async () => ({ decision: "approved", applied: 1, results: [] })),
   };
 });
+
+import { bulkDecide } from "./lib/api.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); });
 
@@ -136,11 +142,24 @@ test("footer grounds the page", async () => {
   expect(screen.getByText(/immutably audited/)).toBeInTheDocument();
 });
 
-test("batch upload stages parsed rows", async () => {
+test("batch upload parses rows then ingests server-side and shows a summary", async () => {
   render(<App />);
   await signIn();
-  const file = new File(["payment_id,payee,amount\nB-1,Batch Vendor,25"], "batch.csv", { type: "text/csv" });
+  const file = new File(["payment_id,payee,amount\nB-1,Batch Vendor,25\nB-2,Other,50"], "batch.csv", { type: "text/csv" });
   fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText("B-1")).toBeInTheDocument();
-  expect(screen.getByText("staged")).toBeInTheDocument();
+  // Server-side ingestion (v1.6.0): one upload → poll the batch summary.
+  fireEvent.click(await screen.findByRole("button", { name: "Submit 2 payments" }));
+  expect(await screen.findByText(/Batch ingested/)).toBeInTheDocument();
+  expect(screen.getByText(/2 queued for screening/)).toBeInTheDocument();
+});
+
+test("review queue multi-select applies a bulk decision", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByLabelText("Select console-smoke-1"));
+  expect(screen.getByText(/selected/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Approve 1" }));
+  expect(bulkDecide).toHaveBeenCalledWith(["console-smoke-1"], "approved");
 });
