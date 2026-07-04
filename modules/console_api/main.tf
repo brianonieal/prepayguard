@@ -46,16 +46,16 @@ data "aws_iam_policy_document" "api" {
   statement {
     sid       = "ReviewsTableReadWrite"
     effect    = "Allow"
-    actions   = ["dynamodb:Scan", "dynamodb:Query", "dynamodb:GetItem", "dynamodb:UpdateItem"]
-    resources = [var.reviews_table_arn, var.reviews_status_index_arn] # v1.5.0: Query the GSI
+    actions   = ["dynamodb:Scan", "dynamodb:Query", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:BatchWriteItem", "dynamodb:DescribeTable"] # BatchWriteItem/DescribeTable: v3.1.0 demo reset
+    resources = [var.reviews_table_arn, var.reviews_status_index_arn]                                                                               # v1.5.0: Query the GSI
   }
 
   # v1.5.0: O(1) audit lookup via the payment_id -> key index.
-  # v2.4.0: Scan for analytics + the auditor audit-log.
+  # v2.4.0: Scan for analytics + the auditor audit-log. v3.1.0: BatchWriteItem for reset.
   statement {
     sid       = "AuditIndexRead"
     effect    = "Allow"
-    actions   = ["dynamodb:GetItem", "dynamodb:Scan"]
+    actions   = ["dynamodb:GetItem", "dynamodb:Scan", "dynamodb:BatchWriteItem", "dynamodb:DescribeTable"]
     resources = [var.audit_index_table_arn]
   }
 
@@ -136,8 +136,18 @@ data "aws_iam_policy_document" "api" {
   statement {
     sid       = "BatchSummaryRead"
     effect    = "Allow"
-    actions   = ["dynamodb:GetItem", "dynamodb:Scan"]
+    actions   = ["dynamodb:GetItem", "dynamodb:Scan", "dynamodb:BatchWriteItem", "dynamodb:DescribeTable"] # BatchWriteItem/DescribeTable: v3.1.0 demo reset
     resources = [var.batches_table_arn]
+  }
+
+  # v3.1.0 demo reset: clear the intake idempotency table (Component A's dedup
+  # store) so the same sample payment_ids can be re-submitted after a reset.
+  # Handler enforces admin-only + a typed confirmation.
+  statement {
+    sid       = "IdempotencyReset"
+    effect    = "Allow"
+    actions   = ["dynamodb:Scan", "dynamodb:BatchWriteItem", "dynamodb:DescribeTable"]
+    resources = [var.idempotency_table_arn]
   }
 
   statement {
@@ -190,6 +200,7 @@ resource "aws_lambda_function" "api" {
       UPLOADS_BUCKET_NAME = aws_s3_bucket.uploads.id
       BATCH_BUCKET        = var.batch_bucket_name
       BATCHES_TABLE       = var.batches_table_name
+      IDEMPOTENCY_TABLE   = var.idempotency_table_name
       REFERENCE_BUCKET    = var.reference_bucket_name
       ADMIN_ROLE_NAME     = local.admin_role_name
       AUDITOR_ROLE_NAME   = local.auditor_role_name

@@ -117,10 +117,10 @@ export default function App() {
         {route === "analytics" && canAnalytics && <Analytics />}
         {route === "reference" && isAdmin && <ReferenceData />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
-        {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
+        {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v3.0.0</span>
+        <span>Treasury Console · v3.1.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

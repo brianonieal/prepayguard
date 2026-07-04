@@ -1,5 +1,21 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.1.0 — Demo Controls (2026-07-04, Phase 4 · gate 2/3)
+
+**An admin-only "Clear data" control that zeroes the working data for a clean demo slate — repeatable, behind a typed confirmation — while the immutable audit trail visibly survives.**
+
+### Backend
+- **console_api** `POST /admin/reset` (**admin-only** via `_is_admin`; requires body `{"confirm":"RESET"}` or **400**): clears every row from the four working tables — `reviews`, `audit_index`, `batches`, and the intake `idempotency` store — and returns per-table deleted counts. Generic `_clear_table()` reads each table's own key schema and paginates + `batch_writer`-deletes, so it works regardless of key name. The immutable S3 audit records (Object Lock) are **intentionally untouched**: dashboards read zero, but every historical disposition stays permanently locked in the bucket.
+- **IAM**: added `dynamodb:BatchWriteItem` + `dynamodb:DescribeTable` (alongside existing Scan) on `reviews` / `audit_index` / `batches`, and a new `IdempotencyReset` statement (Scan + BatchWriteItem + DescribeTable) on the idempotency table — which console_api now reaches via its name/ARN wired from `module.api_intake`. New env `IDEMPOTENCY_TABLE`.
+
+### Frontend (deployed)
+- **Settings → "Demo controls"** (admin-only "danger zone"): explains what clears vs. the immutable audit that survives, gates the **Clear data** button behind typing `RESET`, and reports the per-table counts on success. `App.jsx` passes `isAdmin` to Settings. Footer → v3.1.0.
+
+### Verified
+- pytest **39/39** (+3: clears all four tables; missing/bad token → 400; non-admin → 403), console vitest **28/28** (+2: admin sees Demo controls + typed-`RESET` enables + runs reset; reviewer doesn't), `vite build` clean, `terraform plan` **0-drift**, CORS guard green (`/admin/reset` added).
+- **LIVE** (us-east-2, images → v3.1.0): guards proven (reviewer+RESET → **403**, admin+no-token → **400**, nothing deleted); then the **real reset** → **200**, cleared 420 records (35+186+8+191), all four tables and `/showcase` read **zero**, and the audit bucket still holds **217** locked JSON objects.
+- **Deploy-only fixes** (moto doesn't enforce IAM, so tests passed but real IAM caught them): `_clear_table`'s `table.key_schema` needs `dynamodb:DescribeTable`, and `batch_writer` uses `dynamodb:BatchWriteItem` (not `DeleteItem`) — both granted via IAM-only re-applies, no image rebuild.
+
 ## v3.0.0 — Executive Showcase (2026-07-04, Phase 4 · gate 1/3)
 
 **A new "Overview" console tab that tells the PrePayGuard story — mission, how it decides, what it has actually done — with hand-built SVG charts, balanced for a Treasury exec and an academic reviewer, over live data.**

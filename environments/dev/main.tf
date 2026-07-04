@@ -205,6 +205,9 @@ module "console_api" {
   batch_bucket_arn   = module.batch_ingest.batch_bucket_arn
   batches_table_name = module.batch_ingest.batches_table_name
   batches_table_arn  = module.batch_ingest.batches_table_arn
+  # v3.1.0: demo reset clears Component A's idempotency store too.
+  idempotency_table_name = module.api_intake.idempotency_table_name
+  idempotency_table_arn  = module.api_intake.idempotency_table_arn
   # v2.1.0: reference-data lifecycle (read + admin publish).
   reference_bucket_name = module.reference_store.bucket_name
   reference_bucket_arn  = module.reference_store.bucket_arn

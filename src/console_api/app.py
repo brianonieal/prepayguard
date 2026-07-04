@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "3.0.0"
+COMPONENT_VERSION = "3.1.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
 REFERENCE_KEY = "reference/current.json"
 VALID_SEVERITIES = {"high", "medium", "low"}
@@ -647,6 +647,51 @@ def _showcase(event) -> dict:
     })
 
 
+# --- v3.1.0: demo reset (admin-only; zero the working tables for a clean demo) ---
+# Clears the four DynamoDB tables that drive the console's views so a demo can start
+# from a clean slate. The immutable S3 audit records (Object Lock) are intentionally
+# NOT touched - the dashboards read empty, but every historical disposition stays
+# locked in the bucket, provable on demand. Repeatable; returns per-table counts.
+
+RESET_TABLE_ENVS = ["REVIEWS_TABLE_NAME", "AUDIT_INDEX_TABLE", "BATCHES_TABLE", "IDEMPOTENCY_TABLE"]
+
+
+def _clear_table(table) -> int:
+    """Delete every item from a table, keyed generically off its own key schema
+    (so it works regardless of the key attribute names). Paginates + batch-deletes."""
+    key_attrs = [k["AttributeName"] for k in table.key_schema]
+    names = {f"#{i}": a for i, a in enumerate(key_attrs)}
+    proj = ", ".join(names.keys())
+    deleted = 0
+    kwargs = {"ProjectionExpression": proj, "ExpressionAttributeNames": names}
+    resp = table.scan(**kwargs)
+    while True:
+        with table.batch_writer() as batch:
+            for it in resp.get("Items", []):
+                batch.delete_item(Key={a: it[a] for a in key_attrs})
+                deleted += 1
+        lek = resp.get("LastEvaluatedKey")
+        if not lek:
+            return deleted
+        resp = table.scan(ExclusiveStartKey=lek, **kwargs)
+
+
+def _reset(event) -> dict:
+    if not _is_admin(event):
+        return _response(403, {"error": "admin_only", "detail": "reset requires the admin role"})
+    body = json.loads(event.get("body") or "{}")
+    if body.get("confirm") != "RESET":
+        return _response(400, {"error": "confirmation_required",
+                               "detail": 'send {"confirm":"RESET"} to clear the working data'})
+    cleared = {}
+    for env_name in RESET_TABLE_ENVS:
+        table_name = os.environ.get(env_name)
+        if table_name:
+            cleared[table_name] = _clear_table(_resource().Table(table_name))
+    return _response(200, {"cleared": cleared, "total": sum(cleared.values()),
+                           "note": "immutable S3 audit records (Object Lock) are unaffected"})
+
+
 def handler(event, context=None):
     method = event.get("httpMethod", "")
     path = event.get("path", "")
@@ -687,6 +732,9 @@ def handler(event, context=None):
         # Executive showcase (v3.0.0, any signed-in reviewer/admin/auditor)
         if method == "GET" and parts == ["showcase"]:
             return _showcase(event)
+        # Demo reset (v3.1.0, admin-only; clears the working tables)
+        if method == "POST" and parts == ["admin", "reset"]:
+            return _reset(event)
         # Batch ingestion (v1.6.0)
         if method == "POST" and parts == ["batches"]:
             return _presign_batch(json.loads(event.get("body") or "{}"))

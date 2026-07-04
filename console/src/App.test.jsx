@@ -44,6 +44,7 @@ vi.mock("./lib/api.js", () => {
     getBatch: async () => ({ batch_id: "b1", status: "complete", queued: 2, duplicate: 0, rejected: 0, errors: [] }),
     listBatches: async () => ({ batches: [] }),
     bulkDecide: vi.fn(async () => ({ decision: "approved", applied: 1, results: [] })),
+    resetData: vi.fn(async () => ({ cleared: { "treasury-dev-reviews": 5, "treasury-dev-audit-index": 5 }, total: 10, note: "immutable S3 audit records (Object Lock) are unaffected" })),
     getReference: async () => ({
       version: 1, updated_at: "2026-07-04T00:00:00+00:00", updated_by: "seed", sources: {},
       entries: [{ name: "Acme Shell LLC", tin: "900000002", source: "sam_exclusions", severity: "high" }],
@@ -65,7 +66,7 @@ vi.mock("./lib/api.js", () => {
   };
 });
 
-import { bulkDecide, putReference } from "./lib/api.js";
+import { bulkDecide, putReference, resetData } from "./lib/api.js";
 import { currentGroups } from "./lib/auth.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
@@ -306,6 +307,31 @@ test("submitter role does not see the Overview tab", async () => {
   await signIn();
   expect(await screen.findByRole("button", { name: "Submit Payment" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Overview" })).toBeNull();
+});
+
+test("admin sees Demo controls; typing RESET enables Clear data and runs the reset", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(screen.getByText("Demo controls")).toBeInTheDocument();
+  const btn = screen.getByRole("button", { name: "Clear data" });
+  expect(btn).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Reset confirmation"), { target: { value: "RESET" } });
+  expect(btn).toBeEnabled();
+  fireEvent.click(btn);
+  expect(await screen.findByTestId("reset-result")).toBeInTheDocument();
+  expect(resetData).toHaveBeenCalled();
+});
+
+test("reviewer does not see Demo controls in Settings", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]);
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(screen.getByText("Appearance")).toBeInTheDocument();
+  expect(screen.queryByText("Demo controls")).toBeNull();
 });
 
 test("review queue multi-select applies a bulk decision", async () => {

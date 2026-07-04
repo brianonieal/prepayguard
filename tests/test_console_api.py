@@ -43,6 +43,12 @@ def console_api(monkeypatch):
             AttributeDefinitions=[{"AttributeName": "batch_id", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST",
         )
+        idempotency = ddb.create_table(  # v3.1.0 reset clears Component A's dedup store
+            TableName="treasury-dev-intake-idempotency",
+            KeySchema=[{"AttributeName": "payment_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "payment_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
         s3 = boto3.client("s3", region_name=REGION)
         bucket = "treasury-dev-audit-test"
         s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
@@ -68,6 +74,7 @@ def console_api(monkeypatch):
         monkeypatch.setenv("UPLOADS_BUCKET_NAME", uploads)
         monkeypatch.setenv("BATCH_BUCKET", batch_bucket)
         monkeypatch.setenv("BATCHES_TABLE", "treasury-dev-batches")
+        monkeypatch.setenv("IDEMPOTENCY_TABLE", "treasury-dev-intake-idempotency")
         monkeypatch.setenv("CONSOLE_ORIGIN", "https://console.example.test")
 
         table.put_item(Item={
@@ -84,8 +91,8 @@ def console_api(monkeypatch):
         # v2.2.0: publish embeds entries via Bedrock; stub it (no live model in tests).
         monkeypatch.setattr(app, "_embed", lambda text, model: [0.1, 0.2, 0.3, 0.4])
         yield {"app": app, "table": table, "index": index, "batches": batches,
-               "s3": s3, "bucket": bucket, "uploads": uploads, "batch_bucket": batch_bucket,
-               "reference_bucket": reference_bucket}
+               "idempotency": idempotency, "s3": s3, "bucket": bucket, "uploads": uploads,
+               "batch_bucket": batch_bucket, "reference_bucket": reference_bucket}
 
 
 def _event(method, path, body=None, qs=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
@@ -487,3 +494,41 @@ def test_showcase_visible_to_reviewer_admin_and_auditor(console_api):
     _seed_showcase(console_api)
     for caller in (ADMIN, AUDITOR, REV):
         assert console_api["app"].handler(_event("GET", "/showcase", caller=caller))["statusCode"] == 200
+
+
+# --- v3.1.0 demo reset (admin-only; clears the working tables) ---
+
+def _seed_reset(console_api):
+    """Put rows in all four working tables so the reset has something to clear."""
+    c = console_api
+    c["table"].put_item(Item={"payment_id": "rz1", "status": "pending", "received_at": "2026-07-04T00:00:00+00:00"})
+    c["index"].put_item(Item={"payment_id": "rz1", "audit_key": "audit/x.json",
+                              "disposition": "review", "audited_at": "2026-07-04T00:00:00+00:00"})
+    c["batches"].put_item(Item={"batch_id": "bz1", "status": "complete"})
+    c["idempotency"].put_item(Item={"payment_id": "rz1"})
+
+
+def test_reset_clears_all_working_tables(console_api):
+    _seed_reset(console_api)
+    resp = console_api["app"].handler(_event("POST", "/admin/reset", body={"confirm": "RESET"}, caller=ADMIN))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200
+    # r1 (fixture) + rz1 in reviews and audit-index -> 2 each; batches/idempotency -> 1 each.
+    assert body["total"] >= 4
+    for t in ("table", "index", "batches", "idempotency"):
+        assert console_api[t].scan()["Count"] == 0, f"{t} not empty after reset"
+
+
+def test_reset_requires_confirmation_token(console_api):
+    _seed_reset(console_api)
+    assert console_api["app"].handler(_event("POST", "/admin/reset", body={}, caller=ADMIN))["statusCode"] == 400
+    assert console_api["app"].handler(_event("POST", "/admin/reset", body={"confirm": "nope"}, caller=ADMIN))["statusCode"] == 400
+    # nothing was deleted on a rejected confirmation
+    assert console_api["table"].scan()["Count"] > 0
+
+
+def test_reset_is_admin_only(console_api):
+    _seed_reset(console_api)
+    for caller in (REV, AUDITOR):
+        assert console_api["app"].handler(_event("POST", "/admin/reset", body={"confirm": "RESET"}, caller=caller))["statusCode"] == 403
+    assert console_api["table"].scan()["Count"] > 0  # untouched by the forbidden callers

@@ -89,6 +89,16 @@ variable "batches_table_arn" {
   type = string
 }
 
+# v3.1.0 demo reset: console_api clears the intake idempotency table (Component A's
+# dedup store) so re-submitting the same sample payment_ids after a reset works.
+variable "idempotency_table_name" {
+  type = string
+}
+
+variable "idempotency_table_arn" {
+  type = string
+}
+
 # v2.1.0 reference-data lifecycle: console_api reads the current list and
 # publishes new versions (admin-only).
 variable "reference_bucket_name" {

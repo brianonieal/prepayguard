@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v3.1.0 estimated=2h actual=1.50h variance=-25% source=timelog errors_open=0 errors_close=0 date=2026-07-04T20:21:34Z
 ESTIMATION: gate=v3.0.0 estimated=4h actual=1.50h variance=-62% source=timelog errors_open=0 errors_close=0 date=2026-07-04T19:51:01Z
 ESTIMATION: gate=v2.4.0 estimated=4h actual=2.50h variance=-38% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:50:06Z
 ESTIMATION: gate=v2.3.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:24:12Z
@@ -23,6 +24,42 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION - v3.1.0 Demo Controls (2026-07-04, Phase 4 gate 2/3)
+
+**What went well**
+- The reset stayed generic. `_clear_table` reads each table's own key schema and
+  batch-deletes, so one helper clears all four working tables regardless of key name -
+  no per-table hardcoding to drift out of sync. Driven off a list of env-var names.
+- Guards were provable in isolation. Direct Lambda invokes proved the two guard rails
+  (non-admin → 403, missing token → 400) AND that neither path deleted anything
+  (reviews stayed at 35), before I ran the real wipe. Then the destructive run cleared
+  420 rows, every table + /showcase read zero, and the audit bucket still held 217
+  locked objects - the exact "dashboards empty, audit permanent" story the feature sells.
+- Confirmation lives in two places on purpose: the browser gates the button behind a
+  typed RESET, and the server independently requires `{"confirm":"RESET"}`. A stray API
+  call without the token can't wipe the data.
+
+**What bit - a textbook deploy-only IAM class (moto doesn't enforce IAM)**
+- pytest passed with the WRONG IAM, twice over, because moto grants everything. Real
+  DynamoDB then rejected two actions the code needs that I hadn't granted:
+  1. `_clear_table` touches `table.key_schema`, which lazily calls **DescribeTable** -
+     not covered by Scan/GetItem. AccessDenied.
+  2. boto3's `table.batch_writer()` deletes via **BatchWriteItem**, NOT `DeleteItem` -
+     I'd granted DeleteItem (which the code never calls). AccessDenied again.
+  Both were IAM-only fixes (add DescribeTable, swap DeleteItem→BatchWriteItem) - no
+  image rebuild, just re-applies. But it was two round-trips of "apply → invoke →
+  read AccessDenied → widen policy" that a moment's thought about the ACTUAL boto3
+  call surface would have collapsed into one.
+
+**Lesson**
+- When granting IAM for a boto3 call, grant for the API operation boto3 actually
+  issues, not the conceptual verb. `batch_writer()` = BatchWriteItem; `.key_schema`
+  (and any lazy Table attribute) = DescribeTable; a "delete loop" may never call
+  DeleteItem at all. moto-backed tests confirm LOGIC but say nothing about IAM - for
+  any new AWS action, the real-deploy AccessDenied is the only true test, so read the
+  boto3 source or CloudTrail rather than guessing from the method name. Same family as
+  the OCI-manifest and API-GW-account deploy-only issues: budget one apply-loop for it.
 
 ### REFLEXION - v3.0.0 Executive Showcase (2026-07-04, Phase 4 gate 1/3)
 

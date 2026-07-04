@@ -1,6 +1,24 @@
 # SPEC.md
 # Current-gate detail.
 
+## v3.1.0 — Demo Controls (2026-07-04, live) · Phase 4 gate 2/3
+Admin-only "Clear data" that zeroes the working data for a clean demo; the immutable
+audit survives (the compliance point). Repeatable.
+
+- **console_api** `POST /admin/reset` (admin-only; body `{"confirm":"RESET"}` or 400):
+  generic `_clear_table` (key discovered from schema, paginated batch-delete) empties
+  reviews / audit_index / batches / idempotency; returns per-table counts. S3 Object
+  Lock audit records intentionally untouched.
+- **IAM**: +BatchWriteItem +DescribeTable on the three tables + a new IdempotencyReset
+  statement; idempotency name/ARN wired from module.api_intake; env IDEMPOTENCY_TABLE.
+- **Console**: Settings "Demo controls" (admin-only danger zone) — typed-RESET gate,
+  shows counts, states what clears vs. the immutable audit.
+- Verified: pytest 39/39, vitest 28/28, build clean, plan 0-drift, CORS green;
+  **LIVE**: guards 403/400 (no delete), then real reset 200 / 420 cleared / all
+  dashboards zero / 217 audit objects still locked in S3.
+- Deploy-only IAM lesson: key_schema needs DescribeTable, batch_writer needs
+  BatchWriteItem (moto skips IAM, so tests missed both). No new DECISION (reinforces DEC-4).
+
 ## v3.0.0 — Executive Showcase (2026-07-04, live) · Phase 4 gate 1/3
 A new "Overview" console tab that tells the PrePayGuard story to an exec + a professor, over live data.
 
@@ -145,8 +163,8 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 ## NEXT / OPEN
 - **Phase 4 "Showcase & Demo Readiness" is IN PROGRESS** (BUILD APPROVED 2026-07-04).
   - v3.0.0 Executive Showcase — **DONE + LIVE**.
-  - v3.1.0 Demo Controls (admin-only "Clear data" in Settings) — **NEXT**.
-  - v3.2.0 Console Depth (real Profile + Settings) — pending.
+  - v3.1.0 Demo Controls (admin-only "Clear data" in Settings) — **DONE + LIVE** (working data zeroed).
+  - v3.2.0 Console Depth (real Profile + Settings) — **NEXT**.
 - The locked roadmap v0.1.0 → v2.4.0 remains complete underneath; Phase 4 adds the
   demo/showcase layer on top. (Optional v3.3.0 Notifications deferred.)
 - **Teardown** available anytime (audit bucket stays under Object Lock).

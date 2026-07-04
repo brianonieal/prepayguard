@@ -64,7 +64,7 @@ console_api endpoint). Recent gates run ~40–50% under estimate.
 | Version | Name | Goal | Est | Status |
 |---|---|---|---|---|
 | v3.0.0 | Executive Showcase | New console tab (reviewer/admin/auditor): high-polish narrative of what PrePayGuard is, how it decides, and what it did — hand-built SVG charts (disposition donut, throughput timeline, hit-rate, match-type, pipeline flow), balanced exec+professor prose, worked approve/review/reject examples with evidence. Live data via a lean `GET /showcase`. | ~3–4h | DONE (actual: ~1.5) — live: /showcase 200, 178 screened, all 3 worked examples resolved |
-| v3.1.0 | Demo Controls | Admin-only "Clear data" in Settings: resets the working views (reviews / audit_index / batches / idempotency) for a clean demo slate, behind a typed confirmation; the immutable S3 audit stays under Object Lock (surfaced as the compliance point). | ~1.5–2h | pending |
+| v3.1.0 | Demo Controls | Admin-only "Clear data" in Settings: resets the working views (reviews / audit_index / batches / idempotency) for a clean demo slate, behind a typed confirmation; the immutable S3 audit stays under Object Lock (surfaced as the compliance point). | ~1.5–2h | DONE (actual: ~1.5) — live: reset 200, 420 cleared, all dashboards zero, 217 audit objects intact |
 | v3.2.0 | Console Depth | Make the remaining chrome real: Profile loads real ID-token fields + working Change Password and MFA (TOTP) via Amplify; Settings persists prefs honestly (no fake/inert toggles). Remove every dead button. | ~2–3h | pending |
 
 **Phase 4 total (calibrated):** ~7–9h across 3 gates. (Optional v3.3.0 Notifications — real SES email digest — deferred unless requested.)

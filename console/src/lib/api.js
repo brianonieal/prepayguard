@@ -136,6 +136,16 @@ export async function getShowcase() {
   return unwrap(await c.fetch(`${config.consoleApi}/showcase`));
 }
 
+// v3.1.0 demo reset: admin-only. Clears the working tables (reviews / audit_index /
+// batches / idempotency) so a demo starts from zero; the immutable S3 audit is
+// untouched. Requires the typed confirmation the server also checks.
+export async function resetData() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/admin/reset`, {
+    method: "POST", body: JSON.stringify({ confirm: "RESET" }), headers: { "Content-Type": "application/json" },
+  }));
+}
+
 // v1.6.0 bulk review actions: one decision applied to many payments.
 export async function bulkDecide(paymentIds, decision, note = "") {
   const c = await client();
