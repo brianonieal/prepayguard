@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "2.1.0"
+COMPONENT_VERSION = "2.2.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
 REFERENCE_KEY = "reference/current.json"
 VALID_SEVERITIES = {"high", "medium", "low"}
@@ -284,7 +284,33 @@ def _list_batches() -> dict:
     return _response(200, {"batches": items, "count": len(items)})
 
 
-# --- v2.1.0: reference-data lifecycle -------------------------------------
+# --- v2.1.0/v2.2.0: reference-data lifecycle + semantic embeddings ---------
+
+_bedrock = None
+
+
+def _bedrock_client():
+    global _bedrock
+    if _bedrock is None:
+        _bedrock = boto3.client("bedrock-runtime")
+    return _bedrock
+
+
+def _embed(text, model):
+    resp = _bedrock_client().invoke_model(
+        modelId=model, body=json.dumps({"inputText": str(text or ""), "normalize": True}),
+        accept="application/json", contentType="application/json")
+    return json.loads(resp["body"].read())["embedding"]
+
+
+def _strip_embeddings(doc):
+    # The 1024-float vectors are for Component B (which reads S3 directly), not
+    # the browser - keep the API payload lean.
+    for e in doc.get("entries", []):
+        e.pop("embedding", None)
+        e.pop("embedding_model", None)
+    return doc
+
 
 def _get_reference() -> dict:
     try:
@@ -295,7 +321,7 @@ def _get_reference() -> dict:
             return _response(404, {"error": "reference_not_seeded",
                                    "detail": "run scripts/seed_reference_data.py"})
         raise
-    return _response(200, json.loads(body))
+    return _response(200, _strip_embeddings(json.loads(body)))
 
 
 def _validate_entries(entries) -> list[str]:
@@ -333,8 +359,17 @@ def _put_reference(event, caller: str) -> dict:
     try:
         current = json.loads(s3.get_object(Bucket=bucket, Key=REFERENCE_KEY)["Body"].read())
         cur_version, sources = int(current.get("version", 0)), current.get("sources", {})
+        cur_threshold = current.get("semantic_threshold")
     except ClientError:
-        cur_version, sources = 0, {}
+        cur_version, sources, cur_threshold = 0, {}, None
+
+    # v2.2.0: embed each entry name (Bedrock) so Component B can semantic-match by
+    # cosine over the stored vectors - no vector DB. Embeddings are versioned WITH
+    # the list, so a screening's cited version pins the exact vectors used.
+    model = os.environ.get("EMBED_MODEL", "amazon.titan-embed-text-v2:0")
+    for e in entries:
+        e["embedding"] = _embed(e["name"], model)
+        e["embedding_model"] = model
 
     # Claim the next version number with a conditional put (If-None-Match) so two
     # concurrent publishes can never mint the same immutable versions/{N}.json.
@@ -346,6 +381,7 @@ def _put_reference(event, caller: str) -> dict:
             "updated_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "updated_by": caller,
             "sources": body.get("sources", sources),
+            "semantic_threshold": body.get("semantic_threshold", cur_threshold),
             "entries": entries,
         }
         try:
@@ -391,7 +427,7 @@ def _get_reference_version(n: str) -> dict:
         if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
             return _response(404, {"error": "version_not_found", "version": int(n)})
         raise
-    return _response(200, json.loads(body))
+    return _response(200, _strip_embeddings(json.loads(body)))
 
 
 def handler(event, context=None):

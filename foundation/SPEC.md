@@ -1,6 +1,19 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.2.0 — Semantic Payee Matching (2026-07-04, live) · Phase 3 gate 3/5
+Catches payee variants that exact + fuzzy string matching miss (Bedrock embeddings).
+
+- **Cosine-in-store** (DEC-19): console_api embeds each entry on publish, stores
+  the vector in the versioned doc; B embeds the payee only when string rules miss,
+  cosine ≥ threshold (0.72, versioned) → `name_semantic` match, capped to REVIEW.
+  Bedrock failure degrades to rule-based screening. No vector DB (~$0 vs ~$700/mo).
+- **Console**: AuditDetail shows semantic similarity.
+- Verified: pytest 79/79, vitest 20/20, checkov 0-failed, plan 0-drift, CORS green;
+  **LIVE**: "Globex Overseas Incorporated" (difflib 0.55) → name_semantic 0.857 →
+  review, audit cites v3.
+- 19 decisions LOCKED (DEC-19).
+
 ## v2.1.2 — Multi-Format Batch Ingestion (2026-07-04, live) · Phase 3 (inserted)
 Batch upload takes CSV + Excel + JSON; unsupported files are reported.
 
@@ -88,13 +101,12 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Phase 3 in progress (gate 2/5 done).** Next: **v2.2.0 — Semantic Payee
-  Matching** (Bedrock embeddings in enrichment; match = exact rule OR similarity
-  ≥ threshold over the v2.1.0 store; vector-store decision at gate — cosine-in-
-  store proposed vs OpenSearch Serverless, which would ~350x the ~$2/mo idle
-  cost). Then v2.3.0 LLM briefs, v2.4.0 analytics.
+- **Phase 3 in progress (gate 3/5 done).** Next: **v2.3.0 — LLM Adjudication
+  Briefs** (Bedrock generates an evidence-grounded "why flagged / recommended
+  action" for reviewers; advisory only — NOT part of the immutable decision
+  record). Then v2.4.0 Analytics & Compliance Reporting (FINAL).
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-18 of 18 LOCKED.
+19 of 19 LOCKED.

@@ -63,7 +63,9 @@ export default function AuditDetail({ paymentId, onBack }) {
             {record.evidence.matches.map((m, i) => (
               <div className="matchcard" key={i}>
                 <b>{m.matched_on.replace("_", " ")} match</b> — {m.source}{" "}
-                <span style={{ color: "#6b6455" }}>(severity {m.severity}, confidence {m.confidence})</span>
+                <span style={{ color: "#6b6455" }}>
+                  (severity {m.severity}, confidence {m.confidence}{m.similarity != null ? `, similarity ${m.similarity}` : ""})
+                </span>
               </div>
             ))}
             <div className="explain">

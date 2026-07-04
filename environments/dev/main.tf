@@ -31,6 +31,10 @@ locals {
     risk_scoring = 60
     disposition  = 60
   }
+
+  # v2.2.0: Bedrock embedding model for semantic payee matching (cosine-in-store).
+  embed_model     = "amazon.titan-embed-text-v2:0"
+  embed_model_arn = "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-embed-text-v2:0"
 }
 
 # ---------------------------------------------------------------------------
@@ -199,7 +203,10 @@ module "console_api" {
   # v2.1.0: reference-data lifecycle (read + admin publish).
   reference_bucket_name = module.reference_store.bucket_name
   reference_bucket_arn  = module.reference_store.bucket_arn
-  stage                 = var.environment
+  # v2.2.0: embed entries on publish for semantic matching.
+  embed_model     = local.embed_model
+  embed_model_arn = local.embed_model_arn
+  stage           = var.environment
 }
 
 # ---------------------------------------------------------------------------
@@ -303,10 +310,14 @@ locals {
       audit_index_table_arn = null
       # v2.1.0: B reads the versioned screening lists (the ONLY stage that does).
       reference_bucket_arn = module.reference_store.bucket_arn
+      # v2.2.0: B invokes the embedding model for semantic matching (only stage).
+      bedrock_model_arn = local.embed_model_arn
       env_vars = {
-        STAGE            = "enrichment"
-        OUTPUT_QUEUE_URL = aws_sqs_queue.enrichment_out.url
-        REFERENCE_BUCKET = module.reference_store.bucket_name
+        STAGE              = "enrichment"
+        OUTPUT_QUEUE_URL   = aws_sqs_queue.enrichment_out.url
+        REFERENCE_BUCKET   = module.reference_store.bucket_name
+        EMBED_MODEL        = local.embed_model
+        SEMANTIC_THRESHOLD = "0.72"
       }
     }
 
@@ -323,6 +334,7 @@ locals {
       reviews_table_arn     = null
       audit_index_table_arn = null
       reference_bucket_arn  = null
+      bedrock_model_arn     = null
       env_vars = {
         STAGE            = "risk_scoring"
         OUTPUT_QUEUE_URL = aws_sqs_queue.risk_scoring_out.url
@@ -345,6 +357,7 @@ locals {
       reviews_table_arn     = module.console.reviews_table_arn
       audit_index_table_arn = module.console.audit_index_table_arn
       reference_bucket_arn  = null
+      bedrock_model_arn     = null
       env_vars = {
         STAGE              = "disposition"
         REVIEW_QUEUE_URL   = module.review_queue.queue_url
@@ -377,4 +390,5 @@ module "worker" {
   reviews_table_arn     = each.value.reviews_table_arn
   audit_index_table_arn = each.value.audit_index_table_arn
   reference_bucket_arn  = each.value.reference_bucket_arn
+  bedrock_model_arn     = each.value.bedrock_model_arn
 }

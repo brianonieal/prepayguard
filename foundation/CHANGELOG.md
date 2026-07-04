@@ -1,5 +1,23 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.2.0 — Semantic Payee Matching (2026-07-04, Phase 3)
+
+**Screening now catches payee name variants that exact + fuzzy string matching miss — via Bedrock embeddings, with no vector database and no change to the ~$2/mo idle cost.**
+
+### Backend
+- **Component B**: after the string rules find nothing, embed the payee (Bedrock **Titan Embed Text v2**) and cosine it against the reference entries' stored vectors; add a `name_semantic` match when best ≥ `semantic_threshold` (default **0.72**, versioned in the doc). Bounded to the ambiguous cases (skipped on any string hit). **Bedrock failure degrades to rule-based screening** (deterministic rules already ran) rather than DLQ-ing the payment. `name_semantic` is capped to **REVIEW** by Component C — never auto-reject (decision-model invariant: only a confirmed TIN rejects).
+- **console_api** `PUT /reference`: embeds each entry on publish and stores the vector **in the versioned doc** (embeddings versioned with the list, so a screening's cited version pins the exact vectors); GET strips embeddings from the browser payload.
+- **Cosine-in-store, not OpenSearch** (**DEC-19**): the reference list is small, in-memory cosine over unit vectors is trivially fast, and it avoids OpenSearch Serverless's ~$700/mo minimum. Bedrock IAM scoped to the one model on B (shared-module conditional var) + console_api.
+
+### Frontend (deployed)
+- AuditDetail evidence shows semantic matches with their **similarity**; `explainScore` needed no change (it already caps non-TIN matches).
+
+### Verified
+- `pytest` 79/79 · `vitest` 20/20 · `checkov` 0-failed (133 resources) · `tflint` clean · `plan` 0-drift · `check_cors.py` green.
+- **LIVE PASS**: published v3 (embeddings computed) → `"Globex Overseas Incorporated"` (no TIN; **difflib 0.55** to the listed `"Globex Offshore Inc"`, so string matching misses it) flagged via **`name_semantic` at cosine 0.857** → routed to **review** → audit cites `reference_list_version: 3`. Tuning showed clean separation (clean vendors ~0.24 vs variants 0.86–0.97).
+
+**DEC-19 LOCKED** — semantic matching: cosine-in-store, versioned embeddings, semantic→review, degrade-on-error.
+
 ## v2.1.2 — Multi-Format Batch Ingestion (2026-07-04, Phase 3)
 
 **The batch upload now takes CSV, Excel (.xlsx), and JSON — anything else is reported "unsupported," never silently dropped.**

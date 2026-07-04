@@ -94,6 +94,17 @@ variable "reference_bucket_arn" {
   type = string
 }
 
+# v2.2.0: console_api embeds reference entries on publish (Bedrock).
+variable "embed_model" {
+  description = "Bedrock embedding model id (e.g. amazon.titan-embed-text-v2:0)."
+  type        = string
+}
+
+variable "embed_model_arn" {
+  description = "Foundation-model ARN the API may invoke for embeddings."
+  type        = string
+}
+
 variable "stage" {
   type    = string
   default = "dev"

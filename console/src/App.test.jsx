@@ -21,7 +21,10 @@ vi.mock("./lib/api.js", () => {
   const record = {
     schema_version: "1.0", audit_id: "a1", payment_id: "console-smoke-1", audited_at: "2026-07-03T23:52:41+00:00",
     decision: { disposition: "review", risk_score: 48, reasons: ["name_exact match on treasury_offset (severity medium)"] },
-    evidence: { matches: [{ source: "treasury_offset", matched_on: "name_exact", confidence: 80, severity: "medium" }], match_count: 1, highest_confidence: 80 },
+    evidence: { matches: [
+      { source: "treasury_offset", matched_on: "name_exact", confidence: 80, severity: "medium" },
+      { source: "oig_leie", matched_on: "name_semantic", confidence: 74, severity: "high", similarity: 0.74 },
+    ], match_count: 2, highest_confidence: 80 },
     payment: { payee: "Umbrella Holdings Group", amount: 75 },
     provenance: { pipeline: ["intake", "enrichment", "risk_scoring", "disposition"], component_versions: { disposition: "2.1.0" }, reference_list_version: 3 },
     integrity: { algorithm: "sha256", sha256: "deadbeef" },
@@ -107,6 +110,8 @@ test("audit detail: evidence, verify button, decision flips status", async () =>
   fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
   fireEvent.click(await screen.findByRole("button", { name: "Review →" }));
   expect(await screen.findByText("Screening evidence")).toBeInTheDocument();
+  expect(screen.getByText(/name semantic match/)).toBeInTheDocument();  // v2.2.0
+  expect(screen.getByText(/similarity 0\.74/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Verify integrity" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Approve payment" }));
   expect(await screen.findByText("approved")).toBeInTheDocument();

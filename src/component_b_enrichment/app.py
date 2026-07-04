@@ -18,12 +18,16 @@ Matching (DEC-14):
 - TIN exact (normalized)         -> confidence 95
 - name exact (normalized)        -> confidence 80
 - name fuzzy (difflib >= 0.90)   -> confidence 60
-A hit is a POTENTIAL match; the pay/review/reject decision is Component C's.
+- name SEMANTIC (v2.2.0)         -> Bedrock-embedding cosine >= threshold, run only
+                                    when the string methods above found nothing.
+A hit is a POTENTIAL match; the pay/review/reject decision is Component C's. A
+semantic hit is capped to REVIEW by C (never a definitive match), like a fuzzy one.
 """
 from __future__ import annotations
 
 import difflib
 import json
+import math
 import os
 import re
 import time
@@ -34,6 +38,7 @@ import boto3
 
 _sqs = None
 _s3 = None
+_bedrock = None
 _reference: dict | None = None
 _reference_fetched = 0.0
 
@@ -90,6 +95,65 @@ def _normalize_tin(tin: Any) -> str:
     return re.sub(r"\D", "", str(tin or ""))
 
 
+def _bedrock_client():
+    global _bedrock
+    if _bedrock is None:
+        _bedrock = boto3.client("bedrock-runtime")
+    return _bedrock
+
+
+def _embed(text: str) -> list[float]:
+    resp = _bedrock_client().invoke_model(
+        modelId=os.environ.get("EMBED_MODEL", "amazon.titan-embed-text-v2:0"),
+        body=json.dumps({"inputText": str(text or ""), "normalize": True}),
+        accept="application/json", contentType="application/json",
+    )
+    return json.loads(resp["body"].read())["embedding"]
+
+
+def _cosine(u, v) -> float:
+    if not u or not v or len(u) != len(v):
+        return 0.0
+    dot = sum(a * b for a, b in zip(u, v, strict=True))  # lengths guarded equal above
+    nu = math.sqrt(sum(a * a for a in u)) or 1.0
+    nv = math.sqrt(sum(b * b for b in v)) or 1.0
+    return dot / (nu * nv)
+
+
+def _semantic_threshold() -> float:
+    try:
+        return float(_reference_data().get("semantic_threshold"))  # versioned with the list
+    except (TypeError, ValueError):
+        return float(os.environ.get("SEMANTIC_THRESHOLD", "0.72"))
+
+
+def _semantic_match(payment: dict) -> list[dict]:
+    """v2.2.0: catch payee variants exact/fuzzy string matching missed, via Bedrock
+    embeddings cosine'd against the versioned per-entry vectors (no vector DB).
+    Runs ONLY when the string methods found nothing, bounding Bedrock calls to the
+    ambiguous cases. On a Bedrock error, degrade to rule-based screening (the
+    deterministic rules already ran) rather than DLQ the payment."""
+    entries = [e for e in _reference_data()["entries"] if e.get("embedding")]
+    if not entries or not str(payment.get("payee") or "").strip():
+        return []
+    try:
+        vec = _embed(payment.get("payee"))
+    except Exception:
+        return []
+    threshold = _semantic_threshold()
+    best = None
+    for entry in entries:
+        sim = _cosine(vec, entry["embedding"])
+        if sim >= threshold and (best is None or sim > best[1]):
+            best = (entry, sim)
+    if best is None:
+        return []
+    entry, sim = best
+    return [{"source": entry["source"], "severity": entry["severity"],
+             "matched_on": "name_semantic", "confidence": round(sim * 100),
+             "similarity": round(sim, 4)}]
+
+
 def match_against_reference(payment: dict) -> list[dict]:
     matches: list[dict] = []
     payee = _normalize_name(payment.get("payee"))
@@ -107,6 +171,9 @@ def match_against_reference(payment: dict) -> list[dict]:
         elif payee and entry_name and difflib.SequenceMatcher(None, payee, entry_name).ratio() >= FUZZY_THRESHOLD:
             matches.append({**base, "matched_on": "name_fuzzy", "confidence": 60})
 
+    # Semantic net: only for payees the deterministic string rules cleared.
+    if not matches:
+        matches.extend(_semantic_match(payment))
     return matches
 
 

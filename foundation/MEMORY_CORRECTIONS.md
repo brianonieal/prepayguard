@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.2.0 estimated=4h actual=2.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:11:40Z
 ESTIMATION: gate=v2.1.2 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T17:51:18Z
 ESTIMATION: gate=v2.1.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T16:55:42Z
 ESTIMATION: gate=v2.0.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:54:51Z
@@ -20,6 +21,38 @@ ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog e
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
 
+### REFLEXION - v2.2.0 Semantic Payee Matching (2026-07-04, Phase 3)
+
+**What went well**
+- Cosine-in-store was the right call and the numbers proved it: clean vendors
+  landed ~0.24, true variants 0.86-0.97 - a HUGE margin, so the default 0.72
+  threshold separated cleanly with zero infra beyond a Bedrock invoke. OpenSearch
+  (~$700/mo) would have bought nothing here [[treasury-cost-posture]].
+- Versioning the embeddings WITH the list (publish-time compute) fell straight
+  out of DEC-18 - a screening's cited version now pins the exact vectors too.
+- explainScore already capped every non-tin match, so the reviewer scoring "just
+  worked" for name_semantic - the decision model's "only TIN rejects" invariant
+  paid off in the UI for free.
+- The demo picked itself from the tuning matrix: "Globex Overseas Incorporated"
+  had difflib 0.55 (string-missed) but cosine 0.857 - the cleanest possible proof
+  that semantic catches what string matching cannot.
+
+**What bit / watch**
+- B's 60s reference TTL means a freshly-published list (with new embeddings)
+  isn't live until warm containers expire - the live verify had to sleep 65s
+  after publish before submitting, or a stale-cached container would screen
+  without embeddings. Real behavior, not a bug; noted for any "publish then
+  immediately test" flow.
+- ruff now requires an explicit strict= on zip(); added strict=True in _cosine
+  (lengths are guarded equal above).
+- Degrade-on-Bedrock-error is a deliberate availability>freshness choice for an
+  ADDITIVE control (rules still run). For a primary control it would be wrong.
+  Flagged as an alarm follow-on in DEC-19.
+
+**Estimated vs actual**
+Est ~3-4h -> actual ~2.0h. Under band despite being the "unfamiliar Bedrock
+gate": the conditional-IAM + versioned-store seams from prior gates absorbed
+most of it, and the threshold tuning was one clean pass.
 ### REFLEXION - v2.1.2 Multi-Format Batch Ingestion (2026-07-04, Phase 3, inserted)
 
 **What went well**

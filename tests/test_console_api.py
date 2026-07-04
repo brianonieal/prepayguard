@@ -79,7 +79,10 @@ def console_api(monkeypatch):
             Body=json.dumps({"audit_id": "a-111", "payment_id": "r1",
                              "decision": {"disposition": "review"}}).encode(),
         )
-        yield {"app": _load("console_api"), "table": table, "index": index, "batches": batches,
+        app = _load("console_api")
+        # v2.2.0: publish embeds entries via Bedrock; stub it (no live model in tests).
+        monkeypatch.setattr(app, "_embed", lambda text, model: [0.1, 0.2, 0.3, 0.4])
+        yield {"app": app, "table": table, "index": index, "batches": batches,
                "s3": s3, "bucket": bucket, "uploads": uploads, "batch_bucket": batch_bucket,
                "reference_bucket": reference_bucket}
 
@@ -307,6 +310,17 @@ def test_publish_validates_entries(console_api):
     assert resp["statusCode"] == 400
     detail = json.loads(resp["body"])["detail"]
     assert len(detail) == 4  # name, tin, source, severity all flagged
+
+
+def test_publish_embeds_entries_and_get_strips_them(console_api):
+    # v2.2.0: publish stores per-entry embeddings; the API GET hides them.
+    app = console_api["app"]
+    app.handler(_event("PUT", "/reference", body={"entries": NEW_ENTRIES}, caller=ADMIN))
+    stored = json.loads(console_api["s3"].get_object(
+        Bucket=console_api["reference_bucket"], Key="reference/current.json")["Body"].read())
+    assert all("embedding" in e for e in stored["entries"])          # in the store (for B)
+    got = json.loads(app.handler(_event("GET", "/reference"))["body"])
+    assert all("embedding" not in e for e in got["entries"])         # stripped for the browser
 
 
 def test_version_history_lists_newest_first(console_api):

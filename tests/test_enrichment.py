@@ -85,6 +85,58 @@ def test_store_failure_with_no_cache_fails_the_message(worker, monkeypatch):
     assert _drain(worker["sqs"], worker["out_url"]) == []
 
 
+# --- v2.2.0: semantic matching (Bedrock embeddings mocked for determinism) ---
+
+def test_semantic_match_when_string_match_misses(worker, monkeypatch):
+    _seed_store(monkeypatch, {
+        "version": 5, "semantic_threshold": 0.8,
+        "entries": [{"name": "Globex Offshore Inc", "tin": "900000004",
+                     "source": "oig_leie", "severity": "high", "embedding": [1.0, 0.0, 0.0]}],
+    })
+    app = worker["load"]("component_b_enrichment")
+    # payee string doesn't match "Globex Offshore Inc" at all; its embedding does.
+    monkeypatch.setattr(app, "_embed", lambda text: [0.95, 0.31, 0.0])  # cosine ~0.95
+    app.handler(_sqs_event({"payment_id": "s1", "amount": 10, "payee": "Overseas Holdings Group"}))
+    m = _drain(worker["sqs"], worker["out_url"])[0]["enrichment"]["matches"]
+    assert len(m) == 1 and m[0]["matched_on"] == "name_semantic"
+    assert m[0]["source"] == "oig_leie" and m[0]["similarity"] >= 0.8
+
+
+def test_semantic_below_threshold_no_match(worker, monkeypatch):
+    _seed_store(monkeypatch, {"version": 5, "semantic_threshold": 0.9,
+                              "entries": [{"name": "Globex", "tin": "", "source": "oig_leie",
+                                           "severity": "high", "embedding": [1.0, 0.0, 0.0]}]})
+    app = worker["load"]("component_b_enrichment")
+    monkeypatch.setattr(app, "_embed", lambda text: [0.5, 0.87, 0.0])  # cosine ~0.5 < 0.9
+    app.handler(_sqs_event({"payment_id": "s2", "amount": 10, "payee": "Totally Different Vendor"}))
+    assert _drain(worker["sqs"], worker["out_url"])[0]["enrichment"]["match_count"] == 0
+
+
+def test_semantic_skipped_when_string_matches(worker, monkeypatch):
+    _seed_store(monkeypatch, {"version": 5, "entries": [{"name": "Acme Shell LLC", "tin": "900000002",
+                              "source": "sam_exclusions", "severity": "high", "embedding": [1.0, 0.0, 0.0]}]})
+    app = worker["load"]("component_b_enrichment")
+    called = []
+    monkeypatch.setattr(app, "_embed", lambda text: called.append(text) or [1.0, 0.0, 0.0])
+    app.handler(_sqs_event({"payment_id": "s3", "amount": 10, "payee": "Acme Shell LLC"}))  # exact
+    out = _drain(worker["sqs"], worker["out_url"])[0]
+    assert out["enrichment"]["matches"][0]["matched_on"] == "name_exact"
+    assert called == []  # embed (Bedrock) never runs when a string rule already matched
+
+
+def test_semantic_bedrock_error_degrades_not_dlq(worker, monkeypatch):
+    _seed_store(monkeypatch, {"version": 5, "entries": [{"name": "Globex", "tin": "", "source": "oig_leie",
+                              "severity": "high", "embedding": [1.0, 0.0, 0.0]}]})
+    app = worker["load"]("component_b_enrichment")
+
+    def boom(text):
+        raise RuntimeError("bedrock unavailable")
+    monkeypatch.setattr(app, "_embed", boom)
+    result = app.handler(_sqs_event({"payment_id": "s4", "amount": 10, "payee": "Unmatched Vendor"}))
+    assert result["batchItemFailures"] == []  # screened without semantic, not DLQ'd
+    assert _drain(worker["sqs"], worker["out_url"])[0]["enrichment"]["match_count"] == 0
+
+
 def test_partial_batch_failure_isolates_bad_record(worker):
     app = worker["load"]("component_b_enrichment")
     result = app.handler({"Records": [

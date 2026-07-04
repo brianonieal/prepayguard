@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 18 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 19 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -242,4 +242,17 @@ Section-level detail:
 
 ---
 
-# 18 decisions logged. 18 LOCKED, 0 OPEN.
+## DEC-19 - Semantic Payee Matching: Cosine-in-Store (v2.2.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** Semantic payee matching uses Bedrock Titan Embed Text v2 embeddings with **cosine similarity "in the store"** - per-entry vectors are computed at publish time by console_api and stored IN the versioned reference document, NOT in a vector database. Component B embeds the payee ONLY when the deterministic string rules (exact/fuzzy) found nothing, computes cosine in-memory against the stored entry vectors, and adds a `name_semantic` match when the best similarity >= threshold (default 0.72, stored in and versioned with the doc). Semantic matches are capped to REVIEW by Component C (never auto-reject). A Bedrock failure in B degrades to rule-based screening (the deterministic rules already ran) rather than DLQ-ing the payment. Because embeddings are versioned with the list, a screening's cited reference_list_version pins the exact vectors it was judged against.
+**Alternatives considered:** OpenSearch Serverless / a managed vector DB (rejected - ~$700/mo always-on minimum vs the ~$2/mo idle baseline [[treasury-cost-posture]], for a reference list of tens-to-hundreds of entries where in-memory cosine over unit vectors is trivially fast). Embedding reference entries in B on cold start (rejected - re-embeds the whole list per cold start, unversioned, unauditable; publish-time embedding computes once and versions with the list). Embedding EVERY payee (rejected - run semantic only when string matching missed, bounding Bedrock calls to the ambiguous cases). Auto-reject on high semantic similarity (rejected - semantic is inherently approximate; a name match however close is never a definitive identity match, only a confirmed TIN rejects, per the decision model).
+**Rationale:** catches real-world payee variants (Offshore->Overseas, Inc->Incorporated, suffix swaps) that exact+fuzzy string matching misses, with near-zero cost/latency and full auditability. Proven live: "Globex Overseas Incorporated" (difflib 0.55 to the listed "Globex Offshore Inc" - string-missed) flagged via name_semantic at cosine 0.857, routed to review, audit cites list v3. Empirical separation was clean: clean vendors ~0.24, true variants 0.86-0.97; 0.72 splits them with margin.
+**Risk acknowledged:** (1) A Bedrock outage silently disables the semantic net (screening degrades to rules) - a control that can quietly weaken; observable via Bedrock error metrics, alarm is a follow-on. (2) Publish latency scales with entry count (N sequential embed calls in one API request) - fine for tens-hundreds; a large list needs async/batch embedding. (3) One global cosine threshold (0.72) tuned on a small sample; a larger/real list may need per-source tuning. Posture: start conservative, measure, tighten.
+**Confidence:** HIGH. **Reversibility:** HIGH - swap cosine-in-store for OpenSearch behind B's `_semantic_match` + console_api's embed-on-publish; the pipeline shape never changes.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 19 decisions logged. 19 LOCKED, 0 OPEN.

@@ -155,6 +155,19 @@ data "aws_iam_policy_document" "worker" {
     }
   }
 
+  # Semantic matching (v2.2.0): added ONLY when bedrock_model_arn is non-null
+  # (Component B). Invoke the embedding model to catch payee variants the string
+  # rules miss - scoped to the one foundation model, no other Bedrock access.
+  dynamic "statement" {
+    for_each = var.bedrock_model_arn == null ? [] : [var.bedrock_model_arn]
+    content {
+      sid       = "InvokeEmbeddingModel"
+      effect    = "Allow"
+      actions   = ["bedrock:InvokeModel"]
+      resources = [statement.value]
+    }
+  }
+
   # Console (v1.5.0): audit index write (payment_id -> audit key), every disposition.
   dynamic "statement" {
     for_each = var.audit_index_table_arn == null ? [] : [var.audit_index_table_arn]

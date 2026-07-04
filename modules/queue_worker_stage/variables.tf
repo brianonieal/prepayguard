@@ -118,6 +118,12 @@ variable "reference_bucket_arn" {
   default     = null
 }
 
+variable "bedrock_model_arn" {
+  description = "v2.2.0: ARN of the Bedrock embedding model this stage may invoke for semantic matching. Null for every stage except enrichment (Component B). Controls a conditional IAM statement."
+  type        = string
+  default     = null
+}
+
 variable "audit_kms_key_arn" {
   description = "ARN of the CMK encrypting the audit bucket. Set together with audit_bucket_arn (Component D only): SSE-KMS writes require key usage rights on the writer principal."
   type        = string

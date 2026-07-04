@@ -113,6 +113,15 @@ data "aws_iam_policy_document" "api" {
     }
   }
 
+  # v2.2.0: embed reference entries on publish (semantic matching). Scoped to the
+  # one embedding model.
+  statement {
+    sid       = "InvokeEmbeddingModel"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
+    resources = [var.embed_model_arn]
+  }
+
   # v1.6.0 batch ingestion: presign the CSV upload (PutObject) and poll the
   # batch summary Component E writes (GetItem/Scan). Enqueue + dedup stay on E.
   statement {
@@ -181,6 +190,7 @@ resource "aws_lambda_function" "api" {
       BATCHES_TABLE       = var.batches_table_name
       REFERENCE_BUCKET    = var.reference_bucket_name
       ADMIN_ROLE_NAME     = local.admin_role_name
+      EMBED_MODEL         = var.embed_model
       CONSOLE_ORIGIN      = var.console_origin
     }
   }
