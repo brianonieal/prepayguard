@@ -42,6 +42,12 @@ export async function getAudit(paymentId) {
   return unwrap(await c.fetch(`${config.consoleApi}/audit/${encodeURIComponent(paymentId)}`));
 }
 
+// v2.3.0: on-demand advisory LLM brief. Read-only; never part of the audit record.
+export async function getBrief(paymentId) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reviews/${encodeURIComponent(paymentId)}/brief`));
+}
+
 export async function decide(paymentId, body) {
   const c = await client();
   return unwrap(await c.fetch(`${config.consoleApi}/reviews/${encodeURIComponent(paymentId)}/decision`, {

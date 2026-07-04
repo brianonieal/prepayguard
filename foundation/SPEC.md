@@ -1,6 +1,18 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.3.0 — LLM Adjudication Briefs (2026-07-04, live) · Phase 3 gate 4/5
+Reviewers get an evidence-grounded AI brief — advisory, never in the audit record.
+
+- **console_api** `GET /reviews/{id}/brief`: read-only; loads the audit record,
+  grounds a prompt in its evidence, Bedrock Nova Lite via Converse. 404 no record;
+  502 on model error. Never written to S3/audit/decision (DEC-20, verified live).
+- **Console**: reviewer-triggered "Get AI brief" panel + advisory disclaimer.
+- Verified: pytest 82/82, vitest 21/21, checkov 0-failed, plan 0-drift, CORS green;
+  **LIVE**: brief cited the SAM name match + score 60 + INVESTIGATE; confirmed
+  absent from the audit record.
+- 20 decisions LOCKED (DEC-20).
+
 ## v2.2.0 — Semantic Payee Matching (2026-07-04, live) · Phase 3 gate 3/5
 Catches payee variants that exact + fuzzy string matching miss (Bedrock embeddings).
 
@@ -101,12 +113,12 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Phase 3 in progress (gate 3/5 done).** Next: **v2.3.0 — LLM Adjudication
-  Briefs** (Bedrock generates an evidence-grounded "why flagged / recommended
-  action" for reviewers; advisory only — NOT part of the immutable decision
-  record). Then v2.4.0 Analytics & Compliance Reporting (FINAL).
+- **Phase 3 in progress (gate 4/5 done).** Next: **v2.4.0 — Analytics &
+  Compliance Reporting (FINAL)** — throughput / hit-rate / disposition / aging
+  dashboard + an auditor export & legal-hold view over the audit log; role-gated
+  (admin/auditor). Closing this gate completes the locked roadmap.
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-19 of 19 LOCKED.
+20 of 20 LOCKED.

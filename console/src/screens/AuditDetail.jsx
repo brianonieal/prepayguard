@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { decide, getAudit, listAttachments, listReviews, presignAttachment, uploadFile } from "../lib/api.js";
+import { decide, getAudit, getBrief, listAttachments, listReviews, presignAttachment, uploadFile } from "../lib/api.js";
 import { hashRecord } from "../lib/integrity.js";
 import { explainScore } from "../lib/score.js";
 
@@ -12,6 +12,9 @@ export default function AuditDetail({ paymentId, onBack }) {
   const [tampered, setTampered] = useState(false);
   const [verify, setVerify] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [brief, setBrief] = useState(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefErr, setBriefErr] = useState("");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -36,6 +39,12 @@ export default function AuditDetail({ paymentId, onBack }) {
     try { await decide(paymentId, { decision, note }); setStatus(decision); }
     catch (ex) { setErr(ex?.message || "decision failed"); }
     finally { setBusy(false); }
+  };
+  const loadBrief = async () => {
+    setBriefBusy(true); setBriefErr("");
+    try { setBrief(await getBrief(paymentId)); }
+    catch (ex) { setBriefErr(ex?.message || "brief unavailable"); }
+    finally { setBriefBusy(false); }
   };
   const doAttach = async (file) => {
     if (!file) return;
@@ -84,6 +93,25 @@ export default function AuditDetail({ paymentId, onBack }) {
               </div>
               <div className="bandkey"><span>approve &lt;30</span><span>review 30–79</span><span>reject ≥80</span></div>
             </div>
+          </div>
+
+          <div className="panel" style={{ marginTop: 14 }}>
+            <h3>AI adjudication brief</h3>
+            <div className="note" style={{ maxWidth: "none", marginTop: 0 }}>
+              AI-generated · advisory · <b>not part of the audit record</b>. The reviewer makes the decision.
+            </div>
+            {!brief && (
+              <button className="btn btn-primary btn-sm" style={{ marginTop: 10 }} disabled={briefBusy} onClick={loadBrief}>
+                {briefBusy ? "Generating…" : "Get AI brief"}
+              </button>
+            )}
+            {briefErr && <div className="verdict bad" style={{ marginTop: 10 }}>{briefErr}</div>}
+            {brief && (
+              <div className="result-ok" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
+                {brief.brief}
+                <div className="sub" style={{ marginTop: 8, fontSize: 11 }}>{brief.model} · {(brief.generated_at || "").slice(0, 19)}Z</div>
+              </div>
+            )}
           </div>
 
           {status === "pending" && (

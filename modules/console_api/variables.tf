@@ -105,6 +105,17 @@ variable "embed_model_arn" {
   type        = string
 }
 
+# v2.3.0: LLM adjudication briefs (Bedrock text model via Converse).
+variable "brief_model" {
+  description = "Bedrock text model id for reviewer briefs (e.g. amazon.nova-lite-v1:0)."
+  type        = string
+}
+
+variable "brief_model_arn" {
+  description = "Foundation-model ARN the API may invoke for briefs."
+  type        = string
+}
+
 variable "stage" {
   type    = string
   default = "dev"

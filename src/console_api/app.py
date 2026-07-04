@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "2.2.0"
+COMPONENT_VERSION = "2.3.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
 REFERENCE_KEY = "reference/current.json"
 VALID_SEVERITIES = {"high", "medium", "low"}
@@ -125,7 +125,8 @@ def _list_reviews(event: dict) -> dict:
     return _response(200, {"reviews": items, "count": len(items), "next_cursor": next_cursor})
 
 
-def _get_audit(payment_id: str) -> dict:
+def _load_audit(payment_id: str):
+    """Return (key, record) for a payment's audit record, or (None, None)."""
     bucket = os.environ["AUDIT_BUCKET_NAME"]
     key = None
     # v1.5.0: O(1) index lookup; fall back to the prefix scan for pre-index records.
@@ -137,9 +138,62 @@ def _get_audit(payment_id: str) -> dict:
     if key is None:
         key = _find_audit_key(bucket, payment_id)
     if key is None:
-        return _response(404, {"error": "audit_record_not_found", "payment_id": payment_id})
+        return None, None
     body = _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read()
-    return _response(200, {"key": key, "record": json.loads(body)})
+    return key, json.loads(body)
+
+
+def _get_audit(payment_id: str) -> dict:
+    key, record = _load_audit(payment_id)
+    if key is None:
+        return _response(404, {"error": "audit_record_not_found", "payment_id": payment_id})
+    return _response(200, {"key": key, "record": record})
+
+
+# --- v2.3.0: LLM adjudication brief (advisory; NEVER written to the audit) -----
+
+BRIEF_SYSTEM = (
+    "You are an assistant to a U.S. Treasury Do-Not-Pay payment reviewer. Given a "
+    "screening audit record, write a concise brief (<=120 words) for a human reviewer: "
+    "why the payment was flagged, what the evidence shows, and a recommended action "
+    "(APPROVE, REJECT, or INVESTIGATE) with a one-line rationale. Reason ONLY from the "
+    "provided record - never invent names, matches, amounts, or facts not present. This "
+    "brief is advisory; the human makes and owns the decision."
+)
+
+
+def _llm_brief(record: dict) -> str:
+    decision = record.get("decision", {})
+    facts = {
+        "payment_id": record.get("payment_id"),
+        "payee": record.get("payment", {}).get("payee"),
+        "amount": record.get("payment", {}).get("amount"),
+        "disposition": decision.get("disposition"),
+        "risk_score": decision.get("risk_score"),
+        "reasons": decision.get("reasons", []),
+        "matches": record.get("evidence", {}).get("matches", []),
+        "reference_list_version": record.get("provenance", {}).get("reference_list_version"),
+    }
+    resp = _bedrock_client().converse(
+        modelId=os.environ["BRIEF_MODEL"],
+        system=[{"text": BRIEF_SYSTEM}],
+        messages=[{"role": "user", "content": [{"text":
+            "Screening record:\n" + json.dumps(facts, default=str) + "\n\nWrite the brief."}]}],
+        inferenceConfig={"maxTokens": 300, "temperature": 0.2},
+    )
+    return resp["output"]["message"]["content"][0]["text"].strip()
+
+
+def _brief(payment_id: str) -> dict:
+    _key, record = _load_audit(payment_id)
+    if record is None:
+        return _response(404, {"error": "audit_record_not_found", "payment_id": payment_id})
+    try:
+        brief = _llm_brief(record)
+    except Exception as exc:  # the brief is optional - never crash the case over it
+        return _response(502, {"error": "brief_unavailable", "detail": str(exc)[:200]})
+    return _response(200, {"brief": brief, "model": os.environ.get("BRIEF_MODEL"),
+                           "generated_at": datetime.datetime.now(datetime.UTC).isoformat()})
 
 
 def _list_attachments(payment_id: str) -> dict:
@@ -448,6 +502,9 @@ def handler(event, context=None):
             return _decide(parts[1], json.loads(event.get("body") or "{}"), caller)
         if method == "GET" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "attachments":
             return _list_attachments(parts[1])
+        # v2.3.0: on-demand advisory brief (read-only; never written to the audit).
+        if method == "GET" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "brief":
+            return _brief(parts[1])
         if method == "POST" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "attachments":
             return _presign_attachment(parts[1], json.loads(event.get("body") or "{}"))
         # Reference-data lifecycle (v2.1.0)

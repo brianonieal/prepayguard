@@ -32,6 +32,8 @@
 
 | 2026-07-04 | v2.2.0 Semantic Payee Matching (Phase 3) | CLOSED (tagged) | ~3–4h | ~2.0h | Bedrock embeddings, cosine-in-store (no vector DB, ~$0 vs OpenSearch ~$700/mo), semantic->review, versioned vectors, degrade-on-error. Live tuned: clean ~0.24 vs variants 0.86-0.97, 0.72 splits; 'Globex Overseas Incorporated' caught semantically (string missed). |
 
+| 2026-07-04 | v2.3.0 LLM Adjudication Briefs (Phase 3) | CLOSED (tagged) | ~2–3h | ~1.5h | On-demand, read-only, grounded advisory briefs (Nova Lite/Converse); never written to the audit record (verified live); reviewer-triggered button + disclaimer; degrade-on-error. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

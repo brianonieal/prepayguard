@@ -192,6 +192,34 @@ def test_get_audit_falls_back_without_index(console_api):
     assert resp["statusCode"] == 200
 
 
+# --- v2.3.0: advisory LLM adjudication brief ---
+
+def test_brief_returns_grounded_summary(console_api, monkeypatch):
+    captured = {}
+
+    def fake(record):
+        captured["record"] = record
+        return "Flagged on a name match to a treasury_offset entry. Recommend INVESTIGATE."
+    monkeypatch.setattr(console_api["app"], "_llm_brief", fake)  # no live Bedrock in tests
+    resp = console_api["app"].handler(_event("GET", "/reviews/r1/brief"))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200 and "INVESTIGATE" in body["brief"]
+    # grounded in the ACTUAL audit record (disposition comes from r1's record)
+    assert captured["record"]["decision"]["disposition"] == "review"
+
+
+def test_brief_404_when_no_audit_record(console_api):
+    assert console_api["app"].handler(_event("GET", "/reviews/ghost/brief"))["statusCode"] == 404
+
+
+def test_brief_degrades_gracefully_on_model_error(console_api, monkeypatch):
+    def boom(record):
+        raise RuntimeError("bedrock throttled")
+    monkeypatch.setattr(console_api["app"], "_llm_brief", boom)
+    resp = console_api["app"].handler(_event("GET", "/reviews/r1/brief"))
+    assert resp["statusCode"] == 502 and json.loads(resp["body"])["error"] == "brief_unavailable"
+
+
 # --- v1.6.0 write-scale: batch ingestion + bulk decisions ---
 
 def test_presign_batch_returns_upload_url(console_api):

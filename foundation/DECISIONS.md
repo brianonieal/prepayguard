@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 19 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 20 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -255,4 +255,17 @@ Section-level detail:
 
 ---
 
-# 19 decisions logged. 19 LOCKED, 0 OPEN.
+## DEC-20 - Advisory LLM Adjudication Brief (v2.3.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** Reviewer briefs are generated ON-DEMAND (`GET /reviews/{id}/brief`), READ-ONLY from the audit record, via Bedrock `amazon.nova-lite-v1:0` through the Converse API, and grounded ONLY in that record's evidence. The brief is **never written to S3, the audit record, or the decision**, and never influences scoring - it accelerates human review; the human makes and owns the decision. It is labeled "AI-generated, advisory, not part of the audit record" in the UI. A Bedrock error returns a graceful 502 (the brief is optional; the case is fully reviewable without it). No caching in v0.1 (human-click volume, ~$0.0001/brief on Nova Lite).
+**Alternatives considered:** precompute at disposition (Component D) and store the brief (rejected - writes LLM output into the audit path, muddying the advisory boundary, and generates briefs for payments no human ever reviews). Auto-generate on case open (rejected for v0.1 - a reviewer-triggered button is cost-controlled and makes the on-demand/advisory nature explicit). Caching in a briefs table / the reviews item (deferred - negligible cost at click volume; add if usage grows). Claude / Titan Text (Nova Lite chosen - the only text model with access enabled on the account; the Converse API keeps it a one-line swap).
+**Rationale:** speed adjudication with a grounded plain-English summary while keeping the immutable record purely evidence-based and the decision purely human. Proven live: the brief for a flagged "Acme Shell LLC" payment cited the SAM-exclusions exact-name match (severity high, confidence 80), the risk score 60, and recommended INVESTIGATE; a follow-up confirmed the audit record has no brief field and the brief prose never entered it.
+**Risk acknowledged:** (1) LLM hallucination - mitigated by hard grounding ("reason ONLY from the provided record"), low temperature, the human as decision-maker, and the brief never entering the record; residual risk is a misleading brief, bounded because it is advisory only. (2) No cache -> repeat opens re-invoke (negligible cost; follow-on). (3) Availability - brief unavailable on a Bedrock error, degrading to "no brief".
+**Confidence:** HIGH. **Reversibility:** HIGH - one read-only endpoint + one UI panel; removable without touching the pipeline or the audit.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 20 decisions logged. 20 LOCKED, 0 OPEN.

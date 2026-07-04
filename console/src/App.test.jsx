@@ -33,6 +33,7 @@ vi.mock("./lib/api.js", () => {
     submitPayment: async () => ({ message_id: "m1", idempotent_replay: false }),
     listReviews: async () => ({ reviews, count: reviews.length, next_cursor: null }),
     getAudit: async () => ({ key: "k", record }),
+    getBrief: async () => ({ brief: "Flagged on a semantic match to an OIG-excluded entity. Recommend INVESTIGATE.", model: "amazon.nova-lite-v1:0", generated_at: "2026-07-04T18:00:00+00:00" }),
     decide: async () => ({ status: "approved" }),
     listAttachments: async () => ({ attachments: [] }),
     presignAttachment: async () => ({ upload_url: "http://x", key: "k" }),
@@ -115,6 +116,16 @@ test("audit detail: evidence, verify button, decision flips status", async () =>
   expect(screen.getByRole("button", { name: "Verify integrity" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Approve payment" }));
   expect(await screen.findByText("approved")).toBeInTheDocument();
+});
+
+test("audit detail: AI brief is advisory and shows on demand", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review →" }));
+  expect(await screen.findByText(/not part of the audit record/)).toBeInTheDocument();  // disclaimer
+  fireEvent.click(screen.getByRole("button", { name: "Get AI brief" }));
+  expect(await screen.findByText(/Recommend INVESTIGATE/)).toBeInTheDocument();
 });
 
 test("deep link routes to a case", async () => {

@@ -35,6 +35,10 @@ locals {
   # v2.2.0: Bedrock embedding model for semantic payee matching (cosine-in-store).
   embed_model     = "amazon.titan-embed-text-v2:0"
   embed_model_arn = "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-embed-text-v2:0"
+
+  # v2.3.0: Bedrock text model for advisory reviewer briefs (Converse).
+  brief_model     = "amazon.nova-lite-v1:0"
+  brief_model_arn = "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0"
 }
 
 # ---------------------------------------------------------------------------
@@ -206,6 +210,9 @@ module "console_api" {
   # v2.2.0: embed entries on publish for semantic matching.
   embed_model     = local.embed_model
   embed_model_arn = local.embed_model_arn
+  # v2.3.0: advisory LLM adjudication briefs.
+  brief_model     = local.brief_model
+  brief_model_arn = local.brief_model_arn
   stage           = var.environment
 }
 

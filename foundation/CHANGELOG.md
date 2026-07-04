@@ -1,5 +1,22 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.3.0 — LLM Adjudication Briefs (2026-07-04, Phase 3)
+
+**Reviewers can get an AI-written, evidence-grounded brief for a flagged case — advisory only, never part of the immutable audit record.**
+
+### Backend
+- **console_api** `GET /reviews/{payment_id}/brief`: **read-only** — loads the audit record, builds a prompt grounded strictly in its evidence (disposition, score, reasons, matches incl. semantic similarity, payee/amount, list version), and calls Bedrock **`amazon.nova-lite-v1:0`** via the **Converse API** (temp 0.2). Returns `{brief, model, generated_at}`; **404** if no audit record; graceful **502** on a model error (the case is fully reviewable without it). `_get_audit` refactored to a shared `_load_audit`.
+- **The advisory boundary is structural** (**DEC-20**): no code path writes the brief to S3, the audit record, or the decision — the human's approve/reject writes the audit exactly as before. Bedrock IAM scoped to just the two foundation models the API uses.
+
+### Frontend (deployed)
+- AuditDetail: a reviewer-triggered **"Get AI brief"** panel, rendered with a clear **"AI-generated · advisory · not part of the audit record"** disclaimer.
+
+### Verified
+- `pytest` 82/82 · `vitest` 21/21 · `checkov` 0-failed (133 resources) · `tflint` clean · `plan` 0-drift · `check_cors.py` green.
+- **LIVE PASS**: a flagged `Acme Shell LLC` payment's brief cited the **SAM-exclusions exact-name match** (severity high, confidence 80), risk score 60, and recommended **INVESTIGATE** — then a follow-up confirmed the audit record has **no `brief` field** and the brief prose never entered it.
+
+**DEC-20 LOCKED** — advisory LLM brief: on-demand, read-only, grounded, never in the audit record.
+
 ## v2.2.0 — Semantic Payee Matching (2026-07-04, Phase 3)
 
 **Screening now catches payee name variants that exact + fuzzy string matching miss — via Bedrock embeddings, with no vector database and no change to the ~$2/mo idle cost.**

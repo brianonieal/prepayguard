@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.3.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:24:12Z
 ESTIMATION: gate=v2.2.0 estimated=4h actual=2.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:11:40Z
 ESTIMATION: gate=v2.1.2 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T17:51:18Z
 ESTIMATION: gate=v2.1.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T16:55:42Z
@@ -21,6 +22,28 @@ ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog e
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
 
+### REFLEXION - v2.3.0 LLM Adjudication Briefs (2026-07-04, Phase 3)
+
+**What went well**
+- The advisory boundary is enforced by CONSTRUCTION, not discipline: the brief
+  endpoint only reads (GetObject + Converse) and returns in the HTTP response -
+  no code path writes it to the audit. Live-verified the record has no brief
+  field and the prose never leaked in.
+- Grounding held: the live brief cited the ACTUAL evidence (SAM name match,
+  severity high, confidence 80, score 60) and recommended INVESTIGATE - no
+  invented facts, because the prompt feeds only the record and says "reason
+  ONLY from it".
+- Converse API = model-agnostic, so Nova Lite is a one-line swap later.
+- Refactoring _get_audit into _load_audit reused the exact index->S3 lookup.
+
+**What bit (my test, not the system)**
+- My live boundary check false-positived: I named the payment "brief-{seed}", so
+  `"brief" in json.dumps(record)` matched the PAYMENT_ID, not a field. Re-checked
+  with a distinctive phrase + top-level-key inspection -> clean PASS. Lesson:
+  don't put the token you're grepping-for-absence into the identifier you search.
+
+**Estimated vs actual**
+Est ~2-3h -> actual ~1.5h. Contained; the Bedrock plumbing was warm from v2.2.0.
 ### REFLEXION - v2.2.0 Semantic Payee Matching (2026-07-04, Phase 3)
 
 **What went well**

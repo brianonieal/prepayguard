@@ -113,13 +113,13 @@ data "aws_iam_policy_document" "api" {
     }
   }
 
-  # v2.2.0: embed reference entries on publish (semantic matching). Scoped to the
-  # one embedding model.
+  # v2.2.0 embeddings (publish) + v2.3.0 briefs (Converse). Scoped to exactly the
+  # two foundation models this API uses, nothing else in Bedrock.
   statement {
-    sid       = "InvokeEmbeddingModel"
+    sid       = "InvokeBedrockModels"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel"]
-    resources = [var.embed_model_arn]
+    resources = [var.embed_model_arn, var.brief_model_arn]
   }
 
   # v1.6.0 batch ingestion: presign the CSV upload (PutObject) and poll the
@@ -191,6 +191,7 @@ resource "aws_lambda_function" "api" {
       REFERENCE_BUCKET    = var.reference_bucket_name
       ADMIN_ROLE_NAME     = local.admin_role_name
       EMBED_MODEL         = var.embed_model
+      BRIEF_MODEL         = var.brief_model
       CONSOLE_ORIGIN      = var.console_origin
     }
   }

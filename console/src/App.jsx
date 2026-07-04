@@ -100,7 +100,7 @@ export default function App() {
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v2.2.0</span>
+        <span>Treasury Console · v2.3.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>
