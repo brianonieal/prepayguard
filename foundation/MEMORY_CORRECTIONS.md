@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v1.3.0 estimated=4h actual=1.60h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T01:23:40Z
 ESTIMATION: gate=v1.2.0 estimated=2h actual=0.70h variance=-65% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:27:09Z
 ESTIMATION: gate=v1.1.0 estimated=2h actual=0.80h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:18:36Z
 ESTIMATION: gate=v1.0.0 estimated=16h actual=1.50h variance=-91% source=timelog errors_open=0 errors_close=0 date=2026-07-03T23:45:59Z
@@ -12,6 +13,38 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v1.3.0 Console UI (2026-07-04, Phase 2)
+
+**What went well**
+- First UI gate on this project and it went clean: React/Vite SPA, 4 screens,
+  hash routing (right call for S3+CloudFront static hosting — no error-page
+  rewrites), 15/15 vitest. Fake-data shapes mirror the real API exactly, so
+  v1.4.0 swaps the source, not the components.
+- The two live-verification loops in the browser (preview_eval) caught what
+  jsdom can't: the hash-verify crypto actually computing ✓/✗, deep links
+  surviving login, the user menu + density persistence. Verifying UI in a real
+  browser, not just jsdom, is the difference between "tests pass" and "it works."
+- Design-review discipline paid off: Brian's "looks basic / empty void" and
+  "needs profile+settings+logout" were real gaps; the polish pass (footer,
+  full-height shell, density, user menu) moved it from prototype to product.
+
+**What bit**
+- Two stale tests after refactors (plural heading; integrity text moved behind a
+  button). Both my own assertions lagging the UI — cheap fixes, but a reminder to
+  update tests in the same edit as the component.
+- The login handler clobbered deep links by always nav-ing to #/submit — caught
+  by the deep-link test. Fixed to preserve the requested hash across login.
+
+**Lesson**
+- For UI, jsdom proves logic; a real browser proves the feature. Run both. And
+  scope-growth in UI is cheap when the data layer is a clean seam (fake→live) —
+  batch upload + profile/settings + tier-1 all folded into one gate without churn.
+
+**Estimated vs actual**
+Est 2–4h (loose, first UI gate) → actual ~1.6h, even with the folded-in scope.
+UI on this stack is landing faster than the loose estimate; v1.4.0 (wiring) is
+the real integration-risk gate.
 
 ### REFLEXION — v1.1.0 Console Foundation (2026-07-03, Phase 2)
 

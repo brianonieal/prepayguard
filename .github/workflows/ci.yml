@@ -53,3 +53,20 @@ jobs:
         run: pytest
       - name: checkov (DEC-9)
         run: checkov --config-file .checkov.yaml
+
+  console:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: install
+        working-directory: console
+        run: npm ci --no-fund --no-audit
+      - name: vitest
+        working-directory: console
+        run: npm test
+      - name: build
+        working-directory: console
+        run: npm run build

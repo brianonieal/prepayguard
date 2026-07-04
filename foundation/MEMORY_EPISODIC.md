@@ -16,6 +16,8 @@
 
 | 2026-07-04 | v1.2.0 Console Read/Action API (Phase 2) | CLOSED (tagged) | ~1–2h | ~0.7h | Router Lambda + IAM REST API (console role only). Reviewer decisions audited to Object Lock. Deployed (18 res) + prod smoke 200s. pytest 37/37, checkov 410/0. |
 
+| 2026-07-04 | v1.3.0 Console UI (Phase 2) | CLOSED (tagged) | 2–4h | ~1.6h | React/Vite SPA, 4 screens + batch CSV + profile/settings/user-menu + tier-1 (client hash-verify, deep links, search, score explainability) + polish. vitest 15/15, build clean. Static (fake data); wiring is v1.4.0. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

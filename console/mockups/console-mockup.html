@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Treasury Console — Mockups (v1.3.0)</title>
+<style>
+  :root{
+    --navy:#0f2440; --navy-2:#16324f; --paper:#f7f5f0; --ink:#1c2530;
+    --copper:#2e7d6b; --amber:#b7791f; --red:#b3403a; --green:#2f7d3b;
+    --line:#d9d4c9; --mono:ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:#e9e6df;color:var(--ink);padding:32px}
+  .label{max-width:1000px;margin:40px auto 8px;font:600 13px var(--mono);color:#6b6455;text-transform:uppercase;letter-spacing:.08em}
+  .screen{max-width:1000px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(15,36,64,.12)}
+  /* chrome */
+  .topbar{background:var(--navy);color:#e8ecf2;display:flex;align-items:center;gap:14px;padding:12px 20px}
+  .topbar .seal{width:26px;height:26px;border-radius:50%;background:var(--copper);display:grid;place-items:center;font:700 13px var(--mono);color:#fff}
+  .topbar b{font-size:15px;letter-spacing:.02em}
+  .topbar .env{margin-left:auto;font:600 11px var(--mono);background:var(--navy-2);padding:3px 10px;border-radius:99px;color:#9db4cc}
+  .topbar .user{font-size:13px;color:#9db4cc}
+  nav{background:var(--navy-2);padding:0 20px;display:flex;gap:4px}
+  nav a{color:#b9c8da;text-decoration:none;padding:9px 14px;font-size:13.5px;border-bottom:2px solid transparent}
+  nav a.on{color:#fff;border-color:var(--copper);background:rgba(255,255,255,.04)}
+  .body{padding:24px 28px}
+  h2{font-size:19px;margin-bottom:4px}
+  .sub{color:#6b6455;font-size:13px;margin-bottom:18px}
+  /* login */
+  .login-wrap{display:grid;place-items:center;padding:56px 0}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:28px;width:360px}
+  .card h2{text-align:center;margin-bottom:2px}
+  .card .sub{text-align:center}
+  label{display:block;font:600 12px var(--mono);color:#5a5347;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.05em}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inherit;background:#fff}
+  .btn{display:inline-block;border:0;border-radius:5px;padding:10px 18px;font:600 14px inherit;cursor:pointer}
+  .btn-primary{background:var(--navy);color:#fff;width:100%;margin-top:18px}
+  .btn-green{background:var(--green);color:#fff}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-ghost{background:transparent;border:1px solid var(--line)}
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  th{background:#efece4;text-align:left;font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:#5a5347;padding:10px 14px;border-bottom:1px solid var(--line)}
+  td{padding:11px 14px;border-bottom:1px solid #eee9df;font-size:14px}
+  tr:last-child td{border-bottom:0}
+  td.mono,.mono{font-family:var(--mono);font-size:12.5px}
+  .pill{font:600 11px var(--mono);padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+  .p-pending{background:#f6e8cc;color:var(--amber)}
+  .p-approved{background:#ddefdb;color:var(--green)}
+  .p-rejected{background:#f3dcda;color:var(--red)}
+  .score{font:700 13px var(--mono)}
+  .s-mid{color:var(--amber)} .s-high{color:var(--red)} .s-low{color:var(--green)}
+  .filters{display:flex;gap:8px;margin-bottom:14px}
+  .chip{font:600 12px var(--mono);border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 14px;cursor:pointer}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .rowlink{color:var(--navy);font-weight:600;text-decoration:none}
+  /* submit */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;max-width:640px}
+  .note{background:#eef3f1;border-left:3px solid var(--copper);padding:10px 14px;font-size:13px;margin-top:18px;max-width:640px}
+  .result-ok{background:#ddefdb;border-left:3px solid var(--green);padding:10px 14px;font-size:13.5px;margin-top:16px;max-width:640px}
+  /* audit detail */
+  .detail-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:20px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px}
+  .panel h3{font:600 13px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:#5a5347;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  dl{display:grid;grid-template-columns:130px 1fr;gap:7px 10px;font-size:13.5px}
+  dt{color:#6b6455;font:600 12px var(--mono)}
+  dd{overflow-wrap:anywhere}
+  .hashbox{background:#f3f1ea;border:1px dashed var(--line);border-radius:5px;padding:8px 10px;font:12px var(--mono);overflow-wrap:anywhere;margin-top:6px}
+  .verified{color:var(--green);font:600 12px var(--mono)}
+  .matchcard{border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:5px;padding:10px 12px;margin-bottom:8px;font-size:13.5px;background:#fffdf8}
+  .decide{margin-top:16px;display:flex;gap:10px;align-items:flex-start}
+  .decide textarea{height:64px}
+</style>
+</head>
+<body>
+
+<div class="label">Screen 1 — Login</div>
+<div class="screen">
+  <div class="topbar"><div class="seal">T</div><b>Treasury Console</b><span class="env">DEV · us-east-2</span></div>
+  <div class="login-wrap">
+    <div class="card">
+      <h2>Sign in</h2><div class="sub">PrePayGuard payment integrity console</div>
+      <label>Email</label><input value="brian.onieal@gmail.com">
+      <label>Password</label><input type="password" value="············">
+      <button class="btn btn-primary">Sign in</button>
+      <div class="sub" style="margin-top:14px">Access is provisioned by the operator.<br>Authentication via Amazon Cognito → temporary AWS credentials.</div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Screen 2 — Submit Payment</div>
+<div class="screen">
+  <div class="topbar"><div class="seal">T</div><b>Treasury Console</b><span class="env">DEV · us-east-2</span><span class="user">brian.onieal@gmail.com ▾</span></div>
+  <nav><a class="on">Submit Payment</a><a>Review Queue <span style="background:var(--amber);color:#fff;border-radius:99px;padding:1px 7px;font-size:11px">1</span></a></nav>
+  <div class="body">
+    <h2>Submit a payment for screening</h2>
+    <div class="sub">Screened against Do-Not-Pay reference sources before disbursement. Duplicates replay the original result (idempotent).</div>
+    <div class="grid2">
+      <div><label>Payment ID</label><input value="PAY-2026-0342" class="mono"></div>
+      <div><label>Amount (USD)</label><input value="1,250.00"></div>
+      <div><label>Payee name</label><input value="Acme Shell LLC"></div>
+      <div><label>Payee TIN <span style="color:#999">(optional)</span></label><input value="90-0000002" class="mono"></div>
+    </div>
+    <button class="btn btn-primary" style="width:auto;margin-top:20px">Submit for screening</button>
+    <div class="result-ok"><b>Queued.</b> <span class="mono">message_id 751f199b…</span> — screening runs asynchronously; flagged payments appear in the Review Queue.</div>
+    <div class="note">Requests are SigV4-signed with your temporary credentials and validated at the API edge (schema + payment-ID idempotency).</div>
+  </div>
+</div>
+
+<div class="label">Screen 3 — Review Queue</div>
+<div class="screen">
+  <div class="topbar"><div class="seal">T</div><b>Treasury Console</b><span class="env">DEV · us-east-2</span><span class="user">brian.onieal@gmail.com ▾</span></div>
+  <nav><a>Submit Payment</a><a class="on">Review Queue</a></nav>
+  <div class="body">
+    <h2>Human review queue</h2>
+    <div class="sub">Payments the risk engine could not clear or reject with confidence. Each decision is written to the immutable audit log.</div>
+    <div class="filters"><span class="chip on">Pending (1)</span><span class="chip">Approved (3)</span><span class="chip">Rejected (1)</span><span class="chip">All (5)</span></div>
+    <table>
+      <tr><th>Payment</th><th>Payee</th><th>Match</th><th>Score</th><th>Received</th><th>Status</th><th></th></tr>
+      <tr><td class="mono">console-smoke-1</td><td>Umbrella Holdings Group</td><td>name · treasury_offset</td><td class="score s-mid">48</td><td>2h ago</td><td><span class="pill p-pending">pending</span></td><td><a class="rowlink" href="#">Review →</a></td></tr>
+      <tr><td class="mono">e2e-review-1</td><td>Acme Shell LLC</td><td>name · sam_exclusions</td><td class="score s-mid">60</td><td>1d ago</td><td><span class="pill p-approved">approved</span></td><td><a class="rowlink" href="#">View →</a></td></tr>
+      <tr><td class="mono">PAY-2026-0298</td><td>Globex Offshore Inc</td><td>fuzzy · oig_leie</td><td class="score s-mid">54</td><td>2d ago</td><td><span class="pill p-rejected">rejected</span></td><td><a class="rowlink" href="#">View →</a></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="label">Screen 4 — Audit Detail + Decision</div>
+<div class="screen">
+  <div class="topbar"><div class="seal">T</div><b>Treasury Console</b><span class="env">DEV · us-east-2</span><span class="user">brian.onieal@gmail.com ▾</span></div>
+  <nav><a>Submit Payment</a><a class="on">Review Queue</a></nav>
+  <div class="body">
+    <h2 class="mono" style="font-size:17px">console-smoke-1 <span class="pill p-pending" style="vertical-align:3px">pending</span></h2>
+    <div class="sub">Umbrella Holdings Group · $75.00 · received 2026-07-03 23:52 UTC</div>
+    <div class="detail-grid">
+      <div>
+        <div class="panel">
+          <h3>Screening evidence</h3>
+          <div class="matchcard"><b>name match</b> — treasury_offset <span style="color:#6b6455">(severity medium, confidence 80)</span><br>
+          <span style="font-size:12.5px;color:#6b6455">Payee "Umbrella Holdings Group" matched a Treasury Offset Program debtor record.</span></div>
+          <dl>
+            <dt>disposition</dt><dd><b>review</b> — potential match, human adjudication required</dd>
+            <dt>risk score</dt><dd class="score s-mid">48</dd>
+            <dt>reasons</dt><dd>name_exact match on treasury_offset (severity medium)</dd>
+          </dl>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>Decision</h3>
+          <div class="decide">
+            <textarea placeholder="Adjudication note (recorded in the decision audit record)…">Verified with payee — debt satisfied 2026-06; documentation attached to case file.</textarea>
+            <div style="display:grid;gap:8px"><button class="btn btn-green">Approve payment</button><button class="btn btn-red">Reject payment</button></div>
+          </div>
+          <div class="note" style="max-width:none;margin-top:14px">Your decision writes an immutable, integrity-hashed audit record before the status changes. Decisions cannot be edited — a reversal is a new audited decision.</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h3>Audit record</h3>
+          <dl>
+            <dt>audit_id</dt><dd class="mono">277248ad-ba26-…</dd>
+            <dt>audited_at</dt><dd class="mono">2026-07-03T23:52:41Z</dd>
+            <dt>pipeline</dt><dd class="mono">intake → enrichment → risk_scoring → disposition</dd>
+            <dt>storage</dt><dd>S3 Object Lock · COMPLIANCE</dd>
+          </dl>
+          <div style="margin-top:10px"><span class="verified">✓ integrity verified</span>
+          <div class="hashbox">sha256: 9a923f0f7838ed8a41c02be1…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label" style="margin-bottom:60px">— end of mockups · Treasury Console v1.3.0 —</div>
+</body>
+</html>

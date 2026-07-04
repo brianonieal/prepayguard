@@ -35,3 +35,7 @@ grype-report*
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Console SPA
+console/node_modules/
+console/dist/
