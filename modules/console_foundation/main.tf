@@ -255,6 +255,47 @@ resource "aws_dynamodb_table" "reviews" {
     name = "payment_id"
     type = "S"
   }
+  attribute {
+    name = "status"
+    type = "S"
+  }
+  attribute {
+    name = "received_at"
+    type = "S"
+  }
+
+  # v1.5.0: query pending items by age without a full-table Scan.
+  global_secondary_index {
+    name            = "status-received_at-index"
+    hash_key        = "status"
+    range_key       = "received_at"
+    projection_type = "ALL"
+    read_capacity   = 5
+    write_capacity  = 5
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+}
+
+# v1.5.0: payment_id -> audit S3 key, so GET /audit is O(1) instead of an S3
+# prefix scan. Component D writes one entry per disposition.
+resource "aws_dynamodb_table" "audit_index" {
+  name           = "${var.name_prefix}-audit-index"
+  billing_mode   = "PROVISIONED"
+  hash_key       = "payment_id"
+  read_capacity  = 5
+  write_capacity = 5
+
+  attribute {
+    name = "payment_id"
+    type = "S"
+  }
 
   point_in_time_recovery {
     enabled = true

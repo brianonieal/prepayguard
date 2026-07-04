@@ -143,6 +143,17 @@ data "aws_iam_policy_document" "worker" {
     }
   }
 
+  # Console (v1.5.0): audit index write (payment_id -> audit key), every disposition.
+  dynamic "statement" {
+    for_each = var.audit_index_table_arn == null ? [] : [var.audit_index_table_arn]
+    content {
+      sid       = "WriteAuditIndex"
+      effect    = "Allow"
+      actions   = ["dynamodb:PutItem"]
+      resources = [statement.value]
+    }
+  }
+
   # Companion to WriteAuditRecords: the audit bucket is SSE-KMS with a CMK, so
   # the WRITER principal needs key usage rights or PutObject fails at runtime
   # (caught during the v0.1.0 checkov triage, before it could bite at v0.4.0).

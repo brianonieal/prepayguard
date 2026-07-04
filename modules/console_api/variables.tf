@@ -19,6 +19,18 @@ variable "reviews_table_arn" {
   type = string
 }
 
+variable "reviews_status_index_arn" {
+  type = string
+}
+
+variable "audit_index_table_name" {
+  type = string
+}
+
+variable "audit_index_table_arn" {
+  type = string
+}
+
 variable "audit_bucket_name" {
   type = string
 }

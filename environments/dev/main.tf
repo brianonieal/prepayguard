@@ -150,6 +150,9 @@ module "console_api" {
   allowed_invoker_role_arn = module.console.authenticated_role_arn
   reviews_table_name       = module.console.reviews_table_name
   reviews_table_arn        = module.console.reviews_table_arn
+  reviews_status_index_arn = module.console.reviews_status_index_arn
+  audit_index_table_name   = module.console.audit_index_table_name
+  audit_index_table_arn    = module.console.audit_index_table_arn
   audit_bucket_name        = module.audit_store.bucket_name
   audit_bucket_arn         = module.audit_store.bucket_arn
   audit_kms_key_arn        = module.audit_store.kms_key_arn
@@ -212,16 +215,17 @@ resource "aws_sqs_queue" "risk_scoring_out" {
 locals {
   stages = {
     enrichment = {
-      input_queue_arn   = module.api_intake.output_queue_arn
-      input_queue_url   = module.api_intake.output_queue_url
-      output_queue_arn  = aws_sqs_queue.enrichment_out.arn
-      memory_size       = 512
-      timeout           = local.stage_timeouts.enrichment
-      max_concurrency   = 10
-      secrets_arn       = null
-      audit_bucket_arn  = null
-      audit_kms_key_arn = null
-      reviews_table_arn = null
+      input_queue_arn       = module.api_intake.output_queue_arn
+      input_queue_url       = module.api_intake.output_queue_url
+      output_queue_arn      = aws_sqs_queue.enrichment_out.arn
+      memory_size           = 512
+      timeout               = local.stage_timeouts.enrichment
+      max_concurrency       = 10
+      secrets_arn           = null
+      audit_bucket_arn      = null
+      audit_kms_key_arn     = null
+      reviews_table_arn     = null
+      audit_index_table_arn = null
       env_vars = {
         STAGE            = "enrichment"
         OUTPUT_QUEUE_URL = aws_sqs_queue.enrichment_out.url
@@ -229,16 +233,17 @@ locals {
     }
 
     risk_scoring = {
-      input_queue_arn   = aws_sqs_queue.enrichment_out.arn
-      input_queue_url   = aws_sqs_queue.enrichment_out.url
-      output_queue_arn  = aws_sqs_queue.risk_scoring_out.arn
-      memory_size       = 512
-      timeout           = local.stage_timeouts.risk_scoring
-      max_concurrency   = 10
-      secrets_arn       = null
-      audit_bucket_arn  = null
-      audit_kms_key_arn = null
-      reviews_table_arn = null
+      input_queue_arn       = aws_sqs_queue.enrichment_out.arn
+      input_queue_url       = aws_sqs_queue.enrichment_out.url
+      output_queue_arn      = aws_sqs_queue.risk_scoring_out.arn
+      memory_size           = 512
+      timeout               = local.stage_timeouts.risk_scoring
+      max_concurrency       = 10
+      secrets_arn           = null
+      audit_bucket_arn      = null
+      audit_kms_key_arn     = null
+      reviews_table_arn     = null
+      audit_index_table_arn = null
       env_vars = {
         STAGE            = "risk_scoring"
         OUTPUT_QUEUE_URL = aws_sqs_queue.risk_scoring_out.url
@@ -257,14 +262,16 @@ locals {
       # Commitment 4: the ONLY stage that writes the audit log (+ its CMK).
       audit_bucket_arn  = module.audit_store.bucket_arn
       audit_kms_key_arn = module.audit_store.kms_key_arn
-      # Console v1.1.0: D also writes the dashboard's reviews table.
-      reviews_table_arn = module.console.reviews_table_arn
+      # Console v1.1.0/v1.5.0: D writes the reviews table + the audit index.
+      reviews_table_arn     = module.console.reviews_table_arn
+      audit_index_table_arn = module.console.audit_index_table_arn
       env_vars = {
         STAGE              = "disposition"
         REVIEW_QUEUE_URL   = module.review_queue.queue_url
         AUDIT_BUCKET_NAME  = module.audit_store.bucket_name
         WEBHOOK_SECRET_ARN = aws_secretsmanager_secret.review_webhook.arn
         REVIEWS_TABLE_NAME = module.console.reviews_table_name
+        AUDIT_INDEX_TABLE  = module.console.audit_index_table_name
       }
     }
   }
@@ -274,18 +281,19 @@ module "worker" {
   source   = "../../modules/queue_worker_stage"
   for_each = local.stages
 
-  name_prefix       = local.name_prefix
-  stage_name        = each.key
-  image_uri         = "${module.ecr[each.key].repository_url}:${var.placeholder_image_tag}"
-  input_queue_arn   = each.value.input_queue_arn
-  input_queue_url   = each.value.input_queue_url
-  output_queue_arn  = each.value.output_queue_arn
-  memory_size       = each.value.memory_size
-  timeout           = each.value.timeout
-  max_concurrency   = each.value.max_concurrency
-  env_vars          = each.value.env_vars
-  secrets_arn       = each.value.secrets_arn
-  audit_bucket_arn  = each.value.audit_bucket_arn
-  audit_kms_key_arn = each.value.audit_kms_key_arn
-  reviews_table_arn = each.value.reviews_table_arn
+  name_prefix           = local.name_prefix
+  stage_name            = each.key
+  image_uri             = "${module.ecr[each.key].repository_url}:${var.placeholder_image_tag}"
+  input_queue_arn       = each.value.input_queue_arn
+  input_queue_url       = each.value.input_queue_url
+  output_queue_arn      = each.value.output_queue_arn
+  memory_size           = each.value.memory_size
+  timeout               = each.value.timeout
+  max_concurrency       = each.value.max_concurrency
+  env_vars              = each.value.env_vars
+  secrets_arn           = each.value.secrets_arn
+  audit_bucket_arn      = each.value.audit_bucket_arn
+  audit_kms_key_arn     = each.value.audit_kms_key_arn
+  reviews_table_arn     = each.value.reviews_table_arn
+  audit_index_table_arn = each.value.audit_index_table_arn
 }

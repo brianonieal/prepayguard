@@ -16,6 +16,24 @@ def console_api(monkeypatch):
         table = ddb.create_table(
             TableName="treasury-dev-reviews",
             KeySchema=[{"AttributeName": "payment_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[
+                {"AttributeName": "payment_id", "AttributeType": "S"},
+                {"AttributeName": "status", "AttributeType": "S"},
+                {"AttributeName": "received_at", "AttributeType": "S"},
+            ],
+            GlobalSecondaryIndexes=[{
+                "IndexName": "status-received_at-index",
+                "KeySchema": [
+                    {"AttributeName": "status", "KeyType": "HASH"},
+                    {"AttributeName": "received_at", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            }],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        index = ddb.create_table(
+            TableName="treasury-dev-audit-index",
+            KeySchema=[{"AttributeName": "payment_id", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "payment_id", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST",
         )
@@ -27,6 +45,7 @@ def console_api(monkeypatch):
         s3.create_bucket(Bucket=uploads, CreateBucketConfiguration={"LocationConstraint": REGION})
         monkeypatch.setenv("REVIEWS_TABLE_NAME", "treasury-dev-reviews")
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
+        monkeypatch.setenv("AUDIT_INDEX_TABLE", "treasury-dev-audit-index")
         monkeypatch.setenv("UPLOADS_BUCKET_NAME", uploads)
         monkeypatch.setenv("CONSOLE_ORIGIN", "https://console.example.test")
 
@@ -40,13 +59,14 @@ def console_api(monkeypatch):
             Body=json.dumps({"audit_id": "a-111", "payment_id": "r1",
                              "decision": {"disposition": "review"}}).encode(),
         )
-        yield {"app": _load("console_api"), "table": table, "s3": s3, "bucket": bucket, "uploads": uploads}
+        yield {"app": _load("console_api"), "table": table, "index": index, "s3": s3, "bucket": bucket, "uploads": uploads}
 
 
-def _event(method, path, body=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
+def _event(method, path, body=None, qs=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
     return {
         "httpMethod": method, "path": path,
         "body": json.dumps(body) if body else None,
+        "queryStringParameters": qs,
         "requestContext": {"identity": {"userArn": caller}},
     }
 
@@ -116,3 +136,32 @@ def test_list_attachments(console_api):
     resp = console_api["app"].handler(_event("GET", "/reviews/r1/attachments"))
     body = json.loads(resp["body"])
     assert body["count"] == 1 and body["attachments"][0]["name"] == "note.pdf"
+
+
+def test_reviews_paginated_by_status(console_api):
+    # v1.5.0: GSI query by status, paginated with a cursor round-trip.
+    app, t = console_api["app"], console_api["table"]
+    for i in range(3):
+        t.put_item(Item={"payment_id": f"pg{i}", "status": "pending",
+                         "received_at": f"2026-07-0{i + 1}T00:00:00+00:00", "score": 50, "payee": "X", "audit_id": "a"})
+    p1 = json.loads(app.handler(_event("GET", "/reviews", qs={"status": "pending", "limit": "2"}))["body"])
+    assert len(p1["reviews"]) == 2 and p1["next_cursor"]
+    p2 = json.loads(app.handler(_event("GET", "/reviews", qs={"status": "pending", "limit": "2", "cursor": p1["next_cursor"]}))["body"])
+    assert len(p2["reviews"]) >= 1
+    ids1 = {r["payment_id"] for r in p1["reviews"]}
+    ids2 = {r["payment_id"] for r in p2["reviews"]}
+    assert ids1.isdisjoint(ids2)  # no overlap across pages
+
+
+def test_get_audit_uses_index(console_api):
+    # v1.5.0: index hit → O(1), no prefix scan.
+    console_api["index"].put_item(Item={"payment_id": "r1", "audit_key": "audit/2026/07/03/r1-a-111.json"})
+    resp = console_api["app"].handler(_event("GET", "/audit/r1"))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200 and body["key"] == "audit/2026/07/03/r1-a-111.json"
+
+
+def test_get_audit_falls_back_without_index(console_api):
+    # No index entry → prefix-scan fallback still finds it (backward compat).
+    resp = console_api["app"].handler(_event("GET", "/audit/r1"))
+    assert resp["statusCode"] == 200

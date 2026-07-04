@@ -35,3 +35,15 @@ output "reviews_table_name" {
 output "reviews_table_arn" {
   value = aws_dynamodb_table.reviews.arn
 }
+
+output "reviews_status_index_arn" {
+  value = "${aws_dynamodb_table.reviews.arn}/index/status-received_at-index"
+}
+
+output "audit_index_table_name" {
+  value = aws_dynamodb_table.audit_index.name
+}
+
+output "audit_index_table_arn" {
+  value = aws_dynamodb_table.audit_index.arn
+}

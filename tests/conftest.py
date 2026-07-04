@@ -100,11 +100,19 @@ def disposition(monkeypatch):
             BillingMode="PROVISIONED",
             ProvisionedThroughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
         )
+        ddb.create_table(  # v1.5.0 audit index
+            TableName="treasury-dev-audit-index",
+            KeySchema=[{"AttributeName": "payment_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "payment_id", "AttributeType": "S"}],
+            BillingMode="PROVISIONED",
+            ProvisionedThroughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
+        )
 
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
         monkeypatch.setenv("REVIEW_QUEUE_URL", review_url)
         monkeypatch.setenv("WEBHOOK_SECRET_ARN", secret_arn)
         monkeypatch.setenv("REVIEWS_TABLE_NAME", reviews_table)
+        monkeypatch.setenv("AUDIT_INDEX_TABLE", "treasury-dev-audit-index")
 
         yield {
             "load": _load, "s3": s3, "sqs": sqs, "sm": sm, "ddb": ddb,

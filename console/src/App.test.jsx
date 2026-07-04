@@ -26,7 +26,7 @@ vi.mock("./lib/api.js", () => {
   };
   return {
     submitPayment: async () => ({ message_id: "m1", idempotent_replay: false }),
-    listReviews: async () => ({ reviews, count: reviews.length }),
+    listReviews: async () => ({ reviews, count: reviews.length, next_cursor: null }),
     getAudit: async () => ({ key: "k", record }),
     decide: async () => ({ status: "approved" }),
     listAttachments: async () => ({ attachments: [] }),

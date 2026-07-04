@@ -11,6 +11,7 @@ status flips.
 """
 from __future__ import annotations
 
+import base64
 import datetime
 import hashlib
 import json
@@ -18,18 +19,23 @@ import os
 import uuid
 
 import boto3
+from boto3.dynamodb.conditions import Key
 
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "1.4.0"
+COMPONENT_VERSION = "1.5.0"
 
 
-def _table():
+def _resource():
     global _dynamodb
     if _dynamodb is None:
         _dynamodb = boto3.resource("dynamodb")
-    return _dynamodb.Table(os.environ["REVIEWS_TABLE_NAME"])
+    return _dynamodb
+
+
+def _table():
+    return _resource().Table(os.environ["REVIEWS_TABLE_NAME"])
 
 
 def _s3_client():
@@ -66,15 +72,46 @@ def _find_audit_key(bucket: str, payment_id: str) -> str | None:
     return newest[0] if newest else None
 
 
-def _list_reviews() -> dict:
-    items = _table().scan().get("Items", [])
-    items.sort(key=lambda i: i.get("received_at", ""), reverse=True)
-    return _response(200, {"reviews": items, "count": len(items)})
+def _list_reviews(event: dict) -> dict:
+    params = event.get("queryStringParameters") or {}
+    status = params.get("status")
+    try:
+        limit = max(1, min(int(params.get("limit", 25)), 100))
+    except (TypeError, ValueError):
+        limit = 25
+    kwargs = {"Limit": limit}
+    cursor = params.get("cursor")
+    if cursor:
+        try:
+            kwargs["ExclusiveStartKey"] = json.loads(base64.urlsafe_b64decode(cursor))
+        except Exception:
+            return _response(400, {"error": "invalid cursor"})
+
+    table = _table()
+    if status and status != "all":
+        # v1.5.0: query the GSI by status, newest-first — no full-table Scan.
+        resp = table.query(IndexName="status-received_at-index",
+                           KeyConditionExpression=Key("status").eq(status),
+                           ScanIndexForward=False, **kwargs)
+    else:
+        resp = table.scan(**kwargs)
+    items = resp.get("Items", [])
+    lek = resp.get("LastEvaluatedKey")
+    next_cursor = base64.urlsafe_b64encode(json.dumps(lek).encode()).decode() if lek else None
+    return _response(200, {"reviews": items, "count": len(items), "next_cursor": next_cursor})
 
 
 def _get_audit(payment_id: str) -> dict:
     bucket = os.environ["AUDIT_BUCKET_NAME"]
-    key = _find_audit_key(bucket, payment_id)
+    key = None
+    # v1.5.0: O(1) index lookup; fall back to the prefix scan for pre-index records.
+    index_table = os.environ.get("AUDIT_INDEX_TABLE")
+    if index_table:
+        item = _resource().Table(index_table).get_item(Key={"payment_id": payment_id}).get("Item")
+        if item:
+            key = item.get("audit_key")
+    if key is None:
+        key = _find_audit_key(bucket, payment_id)
     if key is None:
         return _response(404, {"error": "audit_record_not_found", "payment_id": payment_id})
     body = _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read()
@@ -160,7 +197,7 @@ def handler(event, context=None):
 
     try:
         if method == "GET" and parts == ["reviews"]:
-            return _list_reviews()
+            return _list_reviews(event)
         if method == "GET" and len(parts) == 2 and parts[0] == "audit":
             return _get_audit(parts[1])
         if method == "POST" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision":

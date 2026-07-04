@@ -47,11 +47,19 @@ def _sqs_client():
     return _sqs
 
 
-def _reviews_table():
+def _resource():
     global _dynamodb
     if _dynamodb is None:
         _dynamodb = boto3.resource("dynamodb")
-    return _dynamodb.Table(os.environ["REVIEWS_TABLE_NAME"])
+    return _dynamodb
+
+
+def _reviews_table():
+    return _resource().Table(os.environ["REVIEWS_TABLE_NAME"])
+
+
+def _audit_index_table():
+    return _resource().Table(os.environ["AUDIT_INDEX_TABLE"])
 
 
 def _secrets_client():
@@ -156,12 +164,21 @@ def handler(event, context=None):
             audit = audit_record(payment)
             # Authoritative write first; inherits the bucket's Object Lock
             # COMPLIANCE default retention (no per-request headers).
+            key = _audit_key(audit)
             _s3_client().put_object(
                 Bucket=bucket,
-                Key=_audit_key(audit),
+                Key=key,
                 Body=json.dumps(audit).encode(),
                 ContentType="application/json",
             )
+            # v1.5.0: index EVERY disposition (payment_id -> audit key) so the
+            # console's GET /audit is O(1) instead of an S3 prefix scan.
+            _audit_index_table().put_item(Item={
+                "payment_id": payment.get("payment_id"),
+                "audit_key": key,
+                "disposition": audit["decision"]["disposition"],
+                "audited_at": audit["audited_at"],
+            })
             if audit["routing"]["routed_to_review"]:
                 _route_to_review(payment, audit)
         except Exception:

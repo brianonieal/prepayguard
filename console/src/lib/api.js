@@ -28,9 +28,13 @@ export async function submitPayment(payment) {
   }));
 }
 
-export async function listReviews() {
+export async function listReviews({ status, cursor, limit = 25 } = {}) {
   const c = await client();
-  return unwrap(await c.fetch(`${config.consoleApi}/reviews`));
+  const qs = new URLSearchParams();
+  if (status && status !== "all") qs.set("status", status);
+  if (cursor) qs.set("cursor", cursor);
+  qs.set("limit", String(limit));
+  return unwrap(await c.fetch(`${config.consoleApi}/reviews?${qs}`));
 }
 
 export async function getAudit(paymentId) {

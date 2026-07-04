@@ -40,8 +40,16 @@ data "aws_iam_policy_document" "api" {
   statement {
     sid       = "ReviewsTableReadWrite"
     effect    = "Allow"
-    actions   = ["dynamodb:Scan", "dynamodb:GetItem", "dynamodb:UpdateItem"]
-    resources = [var.reviews_table_arn]
+    actions   = ["dynamodb:Scan", "dynamodb:Query", "dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [var.reviews_table_arn, var.reviews_status_index_arn] # v1.5.0: Query the GSI
+  }
+
+  # v1.5.0: O(1) audit lookup via the payment_id -> key index.
+  statement {
+    sid       = "AuditIndexRead"
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem"]
+    resources = [var.audit_index_table_arn]
   }
 
   statement {
@@ -125,6 +133,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       REVIEWS_TABLE_NAME  = var.reviews_table_name
       AUDIT_BUCKET_NAME   = var.audit_bucket_name
+      AUDIT_INDEX_TABLE   = var.audit_index_table_name
       UPLOADS_BUCKET_NAME = aws_s3_bucket.uploads.id
       CONSOLE_ORIGIN      = var.console_origin
     }

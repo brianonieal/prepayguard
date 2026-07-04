@@ -106,6 +106,12 @@ variable "reviews_table_arn" {
   default     = null
 }
 
+variable "audit_index_table_arn" {
+  description = "Console v1.5.0: ARN of the audit-index table Component D writes payment_id->audit_key to. Null for every stage except disposition."
+  type        = string
+  default     = null
+}
+
 variable "audit_kms_key_arn" {
   description = "ARN of the CMK encrypting the audit bucket. Set together with audit_bucket_arn (Component D only): SSE-KMS writes require key usage rights on the writer principal."
   type        = string

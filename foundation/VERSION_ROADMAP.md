@@ -33,7 +33,8 @@ calibration data yet; first gate recalibrates.
 | v1.2.0 | Read/Action API | GET /reviews, GET /audit/{id}, POST /reviews/{id}/decision (1 router Lambda + API GW + tests) | ~1–2h | DONE (actual: 0.7) |
 | v1.3.0 | Console UI | login, submit (+ batch CSV upload), review dashboard w/ stat cards, audit detail, approve/reject; **tier-1 folded in** (hash-verify, deep-link routing, search/filters, score explainability); **polish + profile/settings/user-menu**. Interactive app reviewed as the mockup artifact. | ~2–4h | DONE (actual: 1.6) |
 | v1.4.0 | Integrate + Deploy → Console GA | SPA wired to Cognito+APIs, CloudFront deploy, live e2e (login → submit → flag → review); attachments backend (presigned S3 uploads) | ~2–3h | DONE (actual: 2.5) |
-| v1.5.0 | Bulk Hardening (NOTED — deferred) | Reviews-list pagination + server-side search; `payment_id`-indexed audit lookup (replace the S3 prefix scan); S3-based batch-file ingestion (replace the client-side row loop); bulk review actions. Course-scale is fine without it; this is production-scale hardening. | ~2–4h | noted |
+| v1.5.0 | Read-Scale Hardening | Reviews GSI (status/received_at) + paginated `GET /reviews?status=&limit=&cursor=`; `payment_id`-indexed audit lookup (audit_index table; D writes for every disposition) → O(1) `GET /audit`; frontend pagination + server-side status filter. | ~1–2h | DONE (actual: 1.0) |
+| v1.6.0 | Write-Scale Hardening | S3 batch-file ingestion (presigned upload → S3-triggered Lambda → idempotent enqueue + batch summary, replacing the client-side loop); bulk review actions (batch decision endpoint + multi-select UI). | ~2–3h | pending |
 
 ## NOTES
 - v0.1.0 fully green: fmt/validate/tflint/checkov + `terraform plan` all clean. Plan ran in us-east-2 against account <ACCOUNT_ID>: **74 to add, 0 to change, 0 to destroy**, no errors/warnings. Region aligned us-east-1 → us-east-2 to match the operator's account before planning.

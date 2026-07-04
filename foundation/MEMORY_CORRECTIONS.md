@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v1.5.0 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T12:31:57Z
 ESTIMATION: gate=v1.4.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T11:58:03Z
 ESTIMATION: gate=v1.3.0 estimated=4h actual=1.60h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T01:23:40Z
 ESTIMATION: gate=v1.2.0 estimated=2h actual=0.70h variance=-65% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:27:09Z
@@ -14,6 +15,26 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v1.5.0 Read-Scale Hardening (2026-07-04, Phase 2)
+
+**What went well**
+- The conditional-var module pattern (audit_index_table_arn, like reviews_table_arn
+  and secrets_arn before it) made adding a per-stage capability to Component D a
+  known, low-risk move — DEC-1's shared module keeps absorbing new needs cleanly.
+- Audit index with a prefix-scan FALLBACK = backward compatible: pre-index audit
+  records still resolve, new ones are O(1). No migration needed.
+- Split call (v1.5.0 read-scale / v1.6.0 write-scale) was right — this was a clean,
+  low-risk gate; batching it with the new ingestion Lambda would have muddied it.
+
+**What bit**
+- DynamoDB returns a LastEvaluatedKey whenever it stops at the Limit, even if the
+  next page is empty — so next_cursor can be present with a following empty page.
+  The client must stop on an empty page, not only on a null cursor. Noted for the UI.
+
+**Estimated vs actual**
+Est 1-2h -> actual ~1.0h. Read-scale hardening is cheap when the seams (module
+conditional vars, api module) already exist.
 
 ### REFLEXION — v1.4.0 Console GA (2026-07-04, Phase 2)
 

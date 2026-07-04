@@ -20,6 +20,8 @@
 
 | 2026-07-04 | v1.4.0 Console GA (Phase 2) | CLOSED (tagged) — CONSOLE LIVE | ~2–3h | ~2.5h | Amplify+aws4fetch auth (DEC-15), attachments backend, CORS, D v1.4.1. Deployed to CloudFront (d2rbxaf6pqgvb1). LIVE e2e PASS (Cognito→creds→SigV4→submit→review→decide). Fixed tf-manages-index.html drift. |
 
+| 2026-07-04 | v1.5.0 Read-Scale Hardening (Phase 2) | CLOSED (tagged) | ~1–2h | ~1.0h | Reviews GSI + paginated query (cursor); audit_index table (D writes every disposition) -> O(1) GET /audit w/ prefix-scan fallback; frontend Load-more. Redeployed D+console_api. Live e2e PASS + pagination verified. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

@@ -1,5 +1,24 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v1.5.0 — Read-Scale Hardening (2026-07-04, Phase 2)
+
+**Reviews list and audit lookup now scale: GSI-backed pagination + an O(1) audit index.**
+
+### Backend
+- `reviews` table: new GSI `status-received_at-index`. `GET /reviews` **queries by status** (paginated, newest-first) instead of a full-table Scan — `?status=&limit=&cursor=`, returns `next_cursor` (base64 `LastEvaluatedKey`). No-status requests still Scan.
+- New `audit_index` table (`payment_id`→`audit_key`). Component D **v1.5.0** writes it for **every** disposition, so `GET /audit/{id}` is a GetItem→GetObject (**O(1)**); a `payment_id`-prefix Scan fallback keeps pre-index records resolvable.
+- IAM/env wiring: D gains `dynamodb:PutItem` on the index; `console_api` gains `dynamodb:Query` on the GSI + `GetItem` on the index. All 5 images rebuilt (v1.5.0), deployed (alias repoints, DEC-10).
+
+### Frontend (deployed)
+- Review queue: **server-side status filter** (chips refetch page 1) + **"Load more"** cursor paginator; search stays client-side over the loaded page.
+
+### Verified
+- Backend `pytest` 43/43 · console `vitest` 12/12 · `checkov` 423/0 · `plan` 0-drift.
+- **LIVE**: e2e still PASS (submit→review→decide, audit via index); paginated `GET /reviews?status=pending&limit=1` returns a page + `next_cursor`.
+
+### Deferred → v1.6.0 (Write-Scale)
+- S3 batch-file ingestion (S3-triggered Lambda) + bulk review actions (batch decision endpoint + multi-select UI).
+
 ## v1.4.0 — Treasury Console GA (2026-07-04, Phase 2)
 
 **The console is LIVE: real Cognito login, live data, deployed to CloudFront, end-to-end verified.**
