@@ -287,6 +287,22 @@ resource "aws_api_gateway_integration_response" "proxy_options" {
 }
 
 data "aws_iam_policy_document" "resource_policy" {
+  # CORS preflight: the browser sends an UNSIGNED (anonymous) OPTIONS before every
+  # SigV4 call. Without an explicit allow it 403s with no CORS headers and the
+  # whole browser surface fails. OPTIONS is a MOCK returning only CORS headers
+  # (no Lambda, no data), so allowing it to any principal is safe + standard. The
+  # DenyAllButNamedRoles below already exempts the anonymous type.
+  statement {
+    sid    = "AllowCorsPreflight"
+    effect = "Allow"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/OPTIONS/*"]
+  }
+
   # Reviewers + admins: the whole API (reviewer reference-writes carved out below).
   statement {
     sid    = "AllowReviewerAdminAllPaths"

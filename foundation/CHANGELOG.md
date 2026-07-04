@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.1.1 — Hotfix: browser CORS preflight (2026-07-04)
+
+**Every browser API call was failing.** The unsigned CORS preflight (`OPTIONS`) was denied by both APIs' resource policies (403, no `Access-Control-Allow-Origin`), so no `fetch` from the SPA ever completed. Latent since the resource policies were introduced (v1.2.0/v1.4.0) and undetected across six console gates because all live e2e used SigV4/boto3, which does not send a CORS preflight. Surfaced when the owner clicked "Submit 24 payments" in a real browser.
+
+- Both API resource policies now explicitly **Allow the anonymous OPTIONS preflight** (`*/OPTIONS/*`, any principal — OPTIONS is a MOCK returning only CORS headers, no data path). Intake's catch-all Deny also now exempts `aws:PrincipalType = Anonymous` (the console's already did).
+- New **`scripts/check_cors.py`** deploy guard: probes the real OPTIONS preflight on every route and fails if ACAO is missing — the exact gap SigV4 tests cannot cover.
+- Infra-only (no Lambda/image/SPA change). Verified live: all 8 preflights 200 + correct ACAO; signed `POST /batches` returns 200 + ACAO + batch_id (the full browser path).
+
+
 ## v2.1.0 — Reference-Data Lifecycle (2026-07-04, Phase 3)
 
 **The screening lists are now managed and versioned — every screening decision cites the exact list version it matched against.**

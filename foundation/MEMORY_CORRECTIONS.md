@@ -19,6 +19,30 @@ ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog e
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
 
+### REFLEXION - v2.1.1 Hotfix: browser CORS preflight (2026-07-04)
+
+The console was NEVER actually usable in a browser - every authenticated call
+403'd on its CORS preflight - and I missed it across SIX console gates (v1.2 ->
+v2.1) because every "live e2e" used boto3/SigV4, which does not send a browser
+CORS preflight. The owner found it in ~30 seconds of real clicking.
+
+Root cause: API Gateway resource policies (DEC-5) deny everything not matching a
+named-role Allow. The browser's UNSIGNED OPTIONS preflight is anonymous, matches
+no Allow, and is denied - 403 with no Access-Control-Allow-Origin, so the browser
+never sends the real request. Fix: an explicit Allow for */OPTIONS/* to any
+principal (safe - OPTIONS is a MOCK, no data), plus exempting aws:PrincipalType
+Anonymous from the catch-all Deny.
+
+LESSONS
+1. SigV4/boto3 e2e and browser fetch are DIFFERENT surfaces. A signed client
+   proves the API + IAM and says NOTHING about CORS. For any IAM-authed SPA the
+   preflight must be tested with a real OPTIONS request. scripts/check_cors.py is
+   now a standing deploy gate - run it every console deploy.
+2. "Live-verified" was overclaimed for every console gate: it meant "verified via
+   SigV4," not "works in a browser." State WHICH surface was verified.
+3. Propagation: the guard failed on the first run right after apply, then passed
+   ~30s later. Re-probe after a short settle before concluding a fix failed.
+
 ### REFLEXION - v2.1.0 Reference-Data Lifecycle (2026-07-04, Phase 3)
 
 **What went well**

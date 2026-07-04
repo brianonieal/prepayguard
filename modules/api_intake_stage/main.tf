@@ -322,6 +322,24 @@ data "aws_iam_policy_document" "api_resource_policy" {
     resources = ["${aws_api_gateway_rest_api.intake.execution_arn}/*"]
   }
 
+  # CORS preflight: browsers send an UNSIGNED (anonymous) OPTIONS before the real
+  # SigV4 request. Without an explicit allow it is denied and the preflight 403s
+  # with no CORS headers, so every browser call fails. OPTIONS is a MOCK that
+  # returns only CORS headers (no Lambda, no data), so allowing it to any
+  # principal is the standard, safe pattern. The Deny below exempts it too.
+  statement {
+    sid    = "AllowCorsPreflight"
+    effect = "Allow"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.intake.execution_arn}/*/OPTIONS/*"]
+  }
+
   statement {
     sid    = "DenyAllButNamedRoles"
     effect = "Deny"
@@ -338,6 +356,13 @@ data "aws_iam_policy_document" "api_resource_policy" {
       test     = "StringNotEquals"
       variable = "aws:PrincipalArn"
       values   = var.allowed_invoker_role_arns # deny unless the caller is ANY of the named roles
+    }
+
+    # ...but never deny the anonymous CORS preflight (no PrincipalArn to match).
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:PrincipalType"
+      values   = ["Anonymous"]
     }
   }
 }
