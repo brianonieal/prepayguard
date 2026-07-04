@@ -143,6 +143,18 @@ data "aws_iam_policy_document" "worker" {
     }
   }
 
+  # Reference data (v2.1.0): added ONLY when reference_bucket_arn is non-null
+  # (Component B). Read-only - the publish path is console_api's, admin-gated.
+  dynamic "statement" {
+    for_each = var.reference_bucket_arn == null ? [] : [var.reference_bucket_arn]
+    content {
+      sid       = "ReadReferenceData"
+      effect    = "Allow"
+      actions   = ["s3:GetObject"]
+      resources = ["${statement.value}/reference/*"]
+    }
+  }
+
   # Console (v1.5.0): audit index write (payment_id -> audit key), every disposition.
   dynamic "statement" {
     for_each = var.audit_index_table_arn == null ? [] : [var.audit_index_table_arn]

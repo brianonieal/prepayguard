@@ -16,16 +16,20 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import uuid
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "1.6.0"
+COMPONENT_VERSION = "2.1.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
+REFERENCE_KEY = "reference/current.json"
+VALID_SEVERITIES = {"high", "medium", "low"}
 
 
 def _resource():
@@ -54,6 +58,17 @@ def _caller_identity(event) -> str:
     return ident.get("cognitoIdentityId") or ident.get("userArn") or "unknown"
 
 
+def _is_admin(event) -> bool:
+    # v2.1.0: reference publishes are admin-only. The assumed-role session ARN is
+    # arn:aws:sts::acct:assumed-role/ROLE_NAME/session — compare ROLE_NAME to the
+    # admin role Terraform injected. (The edge also denies the reviewer role on
+    # PUT /reference; this is the matching app-layer check.)
+    arn = ((event.get("requestContext") or {}).get("identity") or {}).get("userArn") or ""
+    admin_role = os.environ.get("ADMIN_ROLE_NAME", "")
+    parts = arn.split("/")
+    return bool(admin_role) and len(parts) >= 2 and parts[0].endswith(":assumed-role") and parts[1] == admin_role
+
+
 def _response(code: int, payload) -> dict:
     return {
         "statusCode": code,
@@ -62,7 +77,7 @@ def _response(code: int, payload) -> dict:
             # SPA origin (CloudFront) — SigV4-signed browser calls still need CORS.
             "Access-Control-Allow-Origin": os.environ.get("CONSOLE_ORIGIN", "*"),
             "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token",
-            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
         },
         "body": json.dumps(payload, default=str),
     }
@@ -269,6 +284,116 @@ def _list_batches() -> dict:
     return _response(200, {"batches": items, "count": len(items)})
 
 
+# --- v2.1.0: reference-data lifecycle -------------------------------------
+
+def _get_reference() -> dict:
+    try:
+        body = _s3_client().get_object(
+            Bucket=os.environ["REFERENCE_BUCKET"], Key=REFERENCE_KEY)["Body"].read()
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            return _response(404, {"error": "reference_not_seeded",
+                                   "detail": "run scripts/seed_reference_data.py"})
+        raise
+    return _response(200, json.loads(body))
+
+
+def _validate_entries(entries) -> list[str]:
+    if not isinstance(entries, list) or not entries:
+        return ["entries must be a non-empty list"]
+    errors = []
+    for i, e in enumerate(entries):
+        if not isinstance(e, dict):
+            errors.append(f"entry {i}: must be an object")
+            continue
+        if not str(e.get("name") or "").strip():
+            errors.append(f"entry {i}: name is required")
+        tin = re.sub(r"\D", "", str(e.get("tin") or ""))
+        if (e.get("tin") or "") and len(tin) != 9:
+            errors.append(f"entry {i}: tin must be blank or 9 digits")
+        if not str(e.get("source") or "").strip():
+            errors.append(f"entry {i}: source is required")
+        if e.get("severity") not in VALID_SEVERITIES:
+            errors.append(f"entry {i}: severity must be one of high|medium|low")
+    return errors
+
+
+def _put_reference(event, caller: str) -> dict:
+    if not _is_admin(event):
+        return _response(403, {"error": "admin_only",
+                               "detail": "publishing screening lists requires the admin role"})
+    body = json.loads(event.get("body") or "{}")
+    entries = body.get("entries")
+    errors = _validate_entries(entries)
+    if errors:
+        return _response(400, {"error": "invalid_entries", "detail": errors})
+
+    bucket = os.environ["REFERENCE_BUCKET"]
+    s3 = _s3_client()
+    try:
+        current = json.loads(s3.get_object(Bucket=bucket, Key=REFERENCE_KEY)["Body"].read())
+        cur_version, sources = int(current.get("version", 0)), current.get("sources", {})
+    except ClientError:
+        cur_version, sources = 0, {}
+
+    # Claim the next version number with a conditional put (If-None-Match) so two
+    # concurrent publishes can never mint the same immutable versions/{N}.json.
+    doc = None
+    for attempt in range(3):
+        n = cur_version + 1 + attempt
+        doc = {
+            "version": n,
+            "updated_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            "updated_by": caller,
+            "sources": body.get("sources", sources),
+            "entries": entries,
+        }
+        try:
+            s3.put_object(Bucket=bucket, Key=f"reference/versions/{n}.json",
+                          Body=json.dumps(doc).encode(), ContentType="application/json",
+                          IfNoneMatch="*")
+            break
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] not in ("PreconditionFailed", "412"):
+                raise
+    else:
+        return _response(409, {"error": "publish_conflict", "detail": "concurrent publishes; retry"})
+
+    # History claimed; now flip the active pointer. B's TTL cache picks it up
+    # within REFERENCE_TTL_SECONDS.
+    s3.put_object(Bucket=bucket, Key=REFERENCE_KEY,
+                  Body=json.dumps(doc).encode(), ContentType="application/json")
+    return _response(200, {"version": doc["version"], "entry_count": len(entries),
+                           "updated_by": caller})
+
+
+def _list_reference_versions() -> dict:
+    resp = _s3_client().list_objects_v2(
+        Bucket=os.environ["REFERENCE_BUCKET"], Prefix="reference/versions/")
+    versions = []
+    for o in resp.get("Contents", []):
+        m = re.fullmatch(r"reference/versions/(\d+)\.json", o["Key"])
+        if m:
+            versions.append({"version": int(m.group(1)),
+                             "published_at": o["LastModified"].isoformat(),
+                             "size": o["Size"]})
+    versions.sort(key=lambda v: v["version"], reverse=True)
+    return _response(200, {"versions": versions, "count": len(versions)})
+
+
+def _get_reference_version(n: str) -> dict:
+    if not n.isdigit():
+        return _response(400, {"error": "version must be an integer"})
+    try:
+        body = _s3_client().get_object(
+            Bucket=os.environ["REFERENCE_BUCKET"], Key=f"reference/versions/{int(n)}.json")["Body"].read()
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            return _response(404, {"error": "version_not_found", "version": int(n)})
+        raise
+    return _response(200, json.loads(body))
+
+
 def handler(event, context=None):
     method = event.get("httpMethod", "")
     path = event.get("path", "")
@@ -289,6 +414,15 @@ def handler(event, context=None):
             return _list_attachments(parts[1])
         if method == "POST" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "attachments":
             return _presign_attachment(parts[1], json.loads(event.get("body") or "{}"))
+        # Reference-data lifecycle (v2.1.0)
+        if method == "GET" and parts == ["reference"]:
+            return _get_reference()
+        if method == "PUT" and parts == ["reference"]:
+            return _put_reference(event, caller)
+        if method == "GET" and parts == ["reference", "versions"]:
+            return _list_reference_versions()
+        if method == "GET" and len(parts) == 3 and parts[0] == "reference" and parts[1] == "versions":
+            return _get_reference_version(parts[2])
         # Batch ingestion (v1.6.0)
         if method == "POST" and parts == ["batches"]:
             return _presign_batch(json.loads(event.get("body") or "{}"))

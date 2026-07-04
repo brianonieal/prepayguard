@@ -6,11 +6,17 @@ variable "image_uri" {
   type = string
 }
 
-# v2.0.0 role-scoped access: reviewers/admins get the whole API; submitters are
-# scoped (at the edge) to the batch-upload routes only.
-variable "reviewer_admin_role_arns" {
-  description = "Roles allowed to invoke every route (reviewer + admin)."
-  type        = list(string)
+# v2.0.0/v2.1.0 role-scoped access: reviewers/admins get the API; submitters are
+# edge-scoped to the batch-upload routes; reference WRITES are admin-only (the
+# reviewer role is edge-denied on PUT /reference, and the handler checks too).
+variable "admin_role_arn" {
+  description = "Admin group role — every route, including reference-data publishes."
+  type        = string
+}
+
+variable "reviewer_role_arn" {
+  description = "Reviewer group role — every route EXCEPT reference-data writes."
+  type        = string
 }
 
 variable "submitter_role_arn" {
@@ -75,6 +81,16 @@ variable "batches_table_name" {
 }
 
 variable "batches_table_arn" {
+  type = string
+}
+
+# v2.1.0 reference-data lifecycle: console_api reads the current list and
+# publishes new versions (admin-only).
+variable "reference_bucket_name" {
+  type = string
+}
+
+variable "reference_bucket_arn" {
   type = string
 }
 

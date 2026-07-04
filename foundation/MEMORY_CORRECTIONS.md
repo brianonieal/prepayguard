@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.1.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T16:55:42Z
 ESTIMATION: gate=v2.0.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:54:51Z
 ESTIMATION: gate=v1.6.0 estimated=3h actual=2.00h variance=-33% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:25:22Z
 ESTIMATION: gate=v1.5.0 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T12:31:57Z
@@ -17,6 +18,41 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION - v2.1.0 Reference-Data Lifecycle (2026-07-04, Phase 3)
+
+**What went well**
+- The versioned-document design (current.json pointer + immutable versions/N.json)
+  delivered the whole citation story in ~a page of handler code, and the live
+  proof was airtight: a payment matched an entry that exists ONLY in v2, so the
+  audit's reference_list_version=2 could not have come from the bundle.
+- If-None-Match version claim worked under moto AND live - optimistic
+  concurrency for pennies.
+- Both prior lessons applied cleanly: seed via script, never Terraform-managed
+  (v1.4.0 index.html) and admin-only enforced at edge + handler (v2.0.0 DEC-17
+  pattern). No IAM propagation error this time because the roles named in the
+  new Deny already existed - creating principals in an EARLIER gate than the
+  policies that name them is the painless ordering.
+
+**What bit**
+- checkov's passed-count DROPPED 502 -> 429 while resources grew. Investigated
+  before trusting it: quiet/compact in .checkov.yaml strip detail from ALL
+  output (even JSON, even other CWDs - checkov auto-discovers the config), so
+  coverage had to be proven by resource_count (133) vs repo resource blocks
+  (123) + parsing_errors: 0. Root cause of the drop: after terraform init
+  refreshed .terraform/modules/modules.json, checkov attributes module
+  definitions once through the root evaluation instead of double-counting
+  standalone + evaluated copies. LESSON: the checkov PASS COUNT is not a
+  coverage metric across runs; compare resource_count and parsing_errors
+  instead. Burned ~20 min of JSON-plumbing before stepping back to the
+  decisive simple check (grep resource blocks).
+- The permission classifier (correctly) refused a composite command that
+  provisioned a new Cognito identity mid-deploy. Splitting infra steps from
+  identity grants and asking the user explicitly was the right shape anyway.
+
+**Estimated vs actual**
+Est ~2-3h -> actual ~1.5h. Under band: the store pattern + conditional-IAM
+seams are now muscle memory; the only novel work was the publish endpoint.
 
 ### REFLEXION - v2.0.0 Roles & Segregation of Duties (2026-07-04, Phase 3)
 

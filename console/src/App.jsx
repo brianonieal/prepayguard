@@ -5,6 +5,7 @@ import ReviewQueue from "./screens/ReviewQueue.jsx";
 import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
+import ReferenceData from "./screens/ReferenceData.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
 
@@ -50,10 +51,13 @@ export default function App() {
   }, [user]);
 
   const canReview = role === "reviewer" || role === "admin";
-  // A submitter (or an unassigned user) landing on the review queue is bounced home.
+  const isAdmin = role === "admin";
+  // Role guards: submitters bounce off the review queue; only admins reach
+  // the reference-data screen (v2.1.0).
   useEffect(() => {
     if (user && role && !canReview && parts[0] === "reviews") nav("#/submit");
-  }, [user, role, canReview, parts]);
+    if (user && role && !isAdmin && parts[0] === "reference") nav("#/submit");
+  }, [user, role, canReview, isAdmin, parts]);
 
   if (user === undefined) {
     return <div className="login-page"><div className="login-wrap"><div className="sub">Loading…</div></div></div>;
@@ -83,16 +87,20 @@ export default function App() {
         {canReview && (
           <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
         )}
+        {isAdmin && (
+          <button className={route === "reference" ? "on" : ""} onClick={() => nav("#/reference")}>Reference Data</button>
+        )}
       </nav>
       <main className="content">
         {route === "submit" && <Submit />}
         {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} onBack={() => nav("#/reviews")} />}
+        {route === "reference" && isAdmin && <ReferenceData />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v2.0.0</span>
+        <span>Treasury Console · v2.1.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

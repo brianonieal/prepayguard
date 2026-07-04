@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 17 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 18 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -229,4 +229,17 @@ Section-level detail:
 
 ---
 
-# 17 decisions logged. 17 LOCKED, 0 OPEN.
+## DEC-18 - Reference-Data Lifecycle: Versioned S3 Document (v2.1.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** The Do Not Pay screening lists live in a dedicated versioned S3 store, not in Component B's container image: `reference/current.json` (active pointer, fetched by B with a 60s warm-cache TTL) plus immutable `reference/versions/{N}.json` history. Each doc carries `{version, updated_at, updated_by, sources, entries}`. B stamps `reference_version` on the enrichment block and D writes it into the audit record's provenance - every screening cites the exact list version it matched. Publishing is admin-only (edge Deny on the reviewer role for `PUT /reference` + an ADMIN_ROLE_NAME check in the handler), validates entries, and claims the next version number with an S3 conditional put (`If-None-Match: *`) so concurrent publishes cannot mint the same version. Terraform owns the bucket, never the documents; version 1 is seeded out-of-band from the bundled list. Failure posture in B: S3 error with a warm cache serves the cached copy; with no cache it raises into the retry/DLQ path - never screen against unknown data.
+**Alternatives considered:** DynamoDB rows per entry (rejected - versioning a whole-list snapshot in item-per-entry form is clunky; B needs the full list per screening anyway, and a single JSON doc is the natural substrate for v2.2.0 per-entry embeddings). S3 native VersionIds as the citation (rejected - opaque strings; a monotonic integer is human-readable in audit records and trivially resolvable). Terraform-managed seed object (rejected - Terraform would fight the admin publish path; exact lesson of the v1.4.0 SPA index.html drift).
+**Rationale:** the citation requirement ("what list said so?") demands immutable, resolvable history; a versioned document store delivers it in ~one page of handler code. Proven live: published v2, screened a payment against a v2-only entry, audit record cites reference_list_version=2, v1 history intact, reviewer publish 403.
+**Risk acknowledged:** B's 60s TTL means a publish takes up to a minute to reach warm containers - acceptable for list updates (documented in the admin UI). The stale-cache-on-S3-error fallback favors availability over freshness for up to one container lifetime; flagged for the v2.4.0 analytics/alarm follow-on. Entry validation is structural (name/tin/source/severity), not semantic - garbage names still publish; the human admin is the control.
+**Confidence:** HIGH. **Reversibility:** HIGH - the store is read through one function in B and one module in the console; swapping backends never touches the pipeline shape.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 18 decisions logged. 18 LOCKED, 0 OPEN.

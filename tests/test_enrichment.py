@@ -1,5 +1,9 @@
-"""Component B — reference-match enrichment (DEC-14)."""
+"""Component B — reference-match enrichment (DEC-14) + versioned store (v2.1.0)."""
 import json
+
+import boto3
+
+REGION = "us-east-2"
 
 
 def _sqs_event(*payments):
@@ -38,6 +42,47 @@ def test_name_match_survives_normalization(worker):
     out = _drain(worker["sqs"], worker["out_url"])[0]
     assert out["enrichment"]["match_count"] >= 1
     assert out["enrichment"]["matches"][0]["matched_on"] in ("name_exact", "name_fuzzy")
+
+
+# --- v2.1.0: versioned reference store ---
+
+def _seed_store(monkeypatch, doc, bucket="treasury-dev-reference-test"):
+    s3 = boto3.client("s3", region_name=REGION)
+    s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
+    s3.put_object(Bucket=bucket, Key="reference/current.json", Body=json.dumps(doc).encode())
+    monkeypatch.setenv("REFERENCE_BUCKET", bucket)
+
+
+def test_screening_cites_store_version(worker, monkeypatch):
+    # B fetches the ACTIVE list from the store and stamps its version on the
+    # enrichment block — the citation D carries into the audit record.
+    _seed_store(monkeypatch, {
+        "version": 7,
+        "entries": [{"name": "Newly Listed Corp", "tin": "900000099",
+                     "source": "sam_exclusions", "severity": "high"}],
+    })
+    app = worker["load"]("component_b_enrichment")
+    app.handler(_sqs_event({"payment_id": "p5", "amount": 10, "payee": "Newly Listed Corp"}))
+    out = _drain(worker["sqs"], worker["out_url"])[0]
+    assert out["enrichment"]["reference_version"] == 7
+    assert out["enrichment"]["match_count"] >= 1  # matched from STORE content, not the bundle
+
+
+def test_bundled_fallback_reports_version_zero(worker):
+    # No store configured (tests/local): bundled seed, cited as version 0.
+    app = worker["load"]("component_b_enrichment")
+    app.handler(_sqs_event({"payment_id": "p6", "amount": 10, "payee": "Clean Vendor"}))
+    assert _drain(worker["sqs"], worker["out_url"])[0]["enrichment"]["reference_version"] == 0
+
+
+def test_store_failure_with_no_cache_fails_the_message(worker, monkeypatch):
+    # Never screen blind: store configured but unreadable + no warm cache ->
+    # the message fails the batch (retry/DLQ path, commitment 2).
+    monkeypatch.setenv("REFERENCE_BUCKET", "does-not-exist-treasury-ref")
+    app = worker["load"]("component_b_enrichment")
+    result = app.handler(_sqs_event({"payment_id": "p7", "amount": 10, "payee": "Anyone"}))
+    assert [f["itemIdentifier"] for f in result["batchItemFailures"]] == ["m0"]
+    assert _drain(worker["sqs"], worker["out_url"]) == []
 
 
 def test_partial_batch_failure_isolates_bad_record(worker):

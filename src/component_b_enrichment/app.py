@@ -1,9 +1,18 @@
 """Component B - Enrichment & Reference-Match Service.
 
 SQS-triggered worker (shared queue_worker_stage module). For each payment it
-matches the payee against a bundled synthetic reference list modeling the real
-Treasury Do Not Pay sources (DEC-14), attaches an `enrichment` block, and
-forwards the enriched payment to the output queue (consumed by Component C).
+matches the payee against the Do Not Pay reference list (DEC-14), attaches an
+`enrichment` block, and forwards the enriched payment to the output queue
+(consumed by Component C).
+
+Reference data (v2.1.0): the list lives in the versioned reference store
+(s3://REFERENCE_BUCKET/reference/current.json), fetched with a short warm-cache
+TTL so admin publishes take effect within a minute. The version screened
+against rides the enrichment block into the audit record (the citation).
+Failure posture: an S3 error with a warm cache serves the cached copy; with NO
+cache it raises, so the message takes the retry/DLQ path (commitment 2) rather
+than screening against unknown data. The bundled reference_data.json remains
+only as the version-1 seed source and the no-store test/local fallback.
 
 Matching (DEC-14):
 - TIN exact (normalized)         -> confidence 95
@@ -17,15 +26,19 @@ import difflib
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any
 
 import boto3
 
 _sqs = None
+_s3 = None
 _reference: dict | None = None
+_reference_fetched = 0.0
 
 FUZZY_THRESHOLD = 0.90
+REFERENCE_KEY = "reference/current.json"
 
 
 def _sqs_client():
@@ -35,11 +48,36 @@ def _sqs_client():
     return _sqs
 
 
+def _s3_client():
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3")
+    return _s3
+
+
 def _reference_data() -> dict:
-    global _reference
+    global _reference, _reference_fetched
+    ttl = int(os.environ.get("REFERENCE_TTL_SECONDS", "60"))
+    if _reference is not None and time.time() - _reference_fetched < ttl:
+        return _reference
+
+    bucket = os.environ.get("REFERENCE_BUCKET")
+    if bucket:
+        try:
+            body = _s3_client().get_object(Bucket=bucket, Key=REFERENCE_KEY)["Body"].read()
+            _reference = json.loads(body)
+            _reference_fetched = time.time()
+        except Exception:
+            if _reference is None:
+                raise  # no known list at all -> retry/DLQ, never screen blind
+            # stale-but-known beats unknown; the next TTL expiry retries the fetch
+        return _reference
+
+    # No store configured (tests/local): the bundled seed copy.
     if _reference is None:
         with open(Path(__file__).resolve().parent / "reference_data.json", encoding="utf-8") as fh:
             _reference = json.load(fh)
+        _reference_fetched = time.time()
     return _reference
 
 
@@ -78,6 +116,8 @@ def enrich(payment: dict) -> dict:
         "matches": matches,
         "match_count": len(matches),
         "highest_confidence": max((m["confidence"] for m in matches), default=0),
+        # v2.1.0: cite the exact list version screened against (0 = bundled seed).
+        "reference_version": _reference_data().get("version", 0),
     }
     return payment
 

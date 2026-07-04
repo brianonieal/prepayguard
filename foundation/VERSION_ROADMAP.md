@@ -48,7 +48,7 @@ most uncertainty (unfamiliar API + mocking LLM/embeddings in tests).
 | Version | Name | Goal | Est | Status |
 |---|---|---|---|---|
 | v2.0.0 | Roles & Segregation of Duties | Cognito groups (submitter/reviewer/admin) → per-group IAM roles; intake + console APIs authorize by group; **app-level SoD: an approver cannot approve a payment they submitted**. Console gates nav/actions by role. | ~2–3h | DONE (actual: 2.5) |
-| v2.1.0 | Reference-Data Lifecycle | Screening lists move from bundled to a managed, **versioned** store (DynamoDB/S3); admin-gated update path; each screening record cites the reference list version it matched. | ~2–3h | pending |
+| v2.1.0 | Reference-Data Lifecycle | Screening lists move from bundled to a managed, **versioned** store (DynamoDB/S3); admin-gated update path; each screening record cites the reference list version it matched. | ~2–3h | DONE (actual: 1.5) |
 | v2.2.0 | Semantic Payee Matching | Bedrock embeddings in enrichment: a match is exact-rule OR semantic similarity ≥ threshold over the managed reference set. Vector store settled at gate (cosine-in-DDB proposed vs OpenSearch Serverless). | ~3–4h | pending |
 | v2.3.0 | LLM Adjudication Briefs | Bedrock generates an evidence-grounded "why flagged / recommended action" for reviewers. **Advisory only — NOT part of the immutable decision record; the human still decides.** | ~2–3h | pending |
 | v2.4.0 | Analytics & Compliance Reporting | Throughput / hit-rate / disposition / aging dashboard + auditor export & legal-hold view over the audit log; role-gated (admin/auditor). | ~2–4h | pending |

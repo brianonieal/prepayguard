@@ -125,6 +125,7 @@ export default function AuditDetail({ paymentId, onBack }) {
               <dt>audit_id</dt><dd className="mono">{record.audit_id}</dd>
               <dt>audited_at</dt><dd className="mono">{record.audited_at}</dd>
               <dt>pipeline</dt><dd className="mono">{record.provenance.pipeline.join(" → ")}</dd>
+              <dt>reference list</dt><dd className="mono">v{record.provenance?.reference_list_version ?? 0} (list version screened against)</dd>
               <dt>storage</dt><dd>S3 Object Lock · COMPLIANCE</dd>
             </dl>
             <div className="hashbox">stored sha-256: {record.integrity?.sha256}</div>

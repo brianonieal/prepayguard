@@ -30,7 +30,7 @@ _secrets = None
 _dynamodb = None
 _webhook_url = None
 
-COMPONENT_VERSION = "1.1.0"
+COMPONENT_VERSION = "2.1.0"
 
 
 def _s3_client():
@@ -100,6 +100,9 @@ def audit_record(payment: dict) -> dict:
         "provenance": {
             "pipeline": ["intake", "enrichment", "risk_scoring", "disposition"],
             "component_versions": {"disposition": COMPONENT_VERSION},
+            # v2.1.0: the exact reference-list version B screened against — the
+            # citation that makes "what list said so?" answerable forever.
+            "reference_list_version": payment.get("enrichment", {}).get("reference_version", 0),
         },
         "routing": {"routed_to_review": disposition == "review"},
     }

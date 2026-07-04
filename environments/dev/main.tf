@@ -63,6 +63,15 @@ module "review_queue" {
   name_prefix = local.name_prefix
 }
 
+# Versioned Do Not Pay screening lists (v2.1.0). Terraform owns the bucket only;
+# v1 is seeded by scripts/seed_reference_data.py, later versions published by
+# admins via console_api PUT /reference.
+module "reference_store" {
+  source = "../../modules/reference_store"
+
+  bucket_name = "${local.name_prefix}-reference-${data.aws_caller_identity.current.account_id}"
+}
+
 # ---------------------------------------------------------------------------
 # DEC-7: webhook secret SHELL. The secret VALUE is set out-of-band at v0.4.0
 # (aws secretsmanager put-secret-value) — never in Terraform state, tfvars,
@@ -169,7 +178,8 @@ module "console_api" {
 
   name_prefix              = local.name_prefix
   image_uri                = "${module.ecr["console_api"].repository_url}:${var.placeholder_image_tag}"
-  reviewer_admin_role_arns = [module.console.reviewer_role_arn, module.console.admin_role_arn]
+  admin_role_arn           = module.console.admin_role_arn
+  reviewer_role_arn        = module.console.reviewer_role_arn
   submitter_role_arn       = module.console.submitter_role_arn
   reviews_table_name       = module.console.reviews_table_name
   reviews_table_arn        = module.console.reviews_table_arn
@@ -186,7 +196,10 @@ module "console_api" {
   batch_bucket_arn   = module.batch_ingest.batch_bucket_arn
   batches_table_name = module.batch_ingest.batches_table_name
   batches_table_arn  = module.batch_ingest.batches_table_arn
-  stage              = var.environment
+  # v2.1.0: reference-data lifecycle (read + admin publish).
+  reference_bucket_name = module.reference_store.bucket_name
+  reference_bucket_arn  = module.reference_store.bucket_arn
+  stage                 = var.environment
 }
 
 # ---------------------------------------------------------------------------
@@ -288,9 +301,12 @@ locals {
       audit_kms_key_arn     = null
       reviews_table_arn     = null
       audit_index_table_arn = null
+      # v2.1.0: B reads the versioned screening lists (the ONLY stage that does).
+      reference_bucket_arn = module.reference_store.bucket_arn
       env_vars = {
         STAGE            = "enrichment"
         OUTPUT_QUEUE_URL = aws_sqs_queue.enrichment_out.url
+        REFERENCE_BUCKET = module.reference_store.bucket_name
       }
     }
 
@@ -306,6 +322,7 @@ locals {
       audit_kms_key_arn     = null
       reviews_table_arn     = null
       audit_index_table_arn = null
+      reference_bucket_arn  = null
       env_vars = {
         STAGE            = "risk_scoring"
         OUTPUT_QUEUE_URL = aws_sqs_queue.risk_scoring_out.url
@@ -327,6 +344,7 @@ locals {
       # Console v1.1.0/v1.5.0: D writes the reviews table + the audit index.
       reviews_table_arn     = module.console.reviews_table_arn
       audit_index_table_arn = module.console.audit_index_table_arn
+      reference_bucket_arn  = null
       env_vars = {
         STAGE              = "disposition"
         REVIEW_QUEUE_URL   = module.review_queue.queue_url
@@ -358,4 +376,5 @@ module "worker" {
   audit_kms_key_arn     = each.value.audit_kms_key_arn
   reviews_table_arn     = each.value.reviews_table_arn
   audit_index_table_arn = each.value.audit_index_table_arn
+  reference_bucket_arn  = each.value.reference_bucket_arn
 }

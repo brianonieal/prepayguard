@@ -51,6 +51,16 @@ def console_api(monkeypatch):
         s3.create_bucket(Bucket=uploads, CreateBucketConfiguration={"LocationConstraint": REGION})
         batch_bucket = "treasury-dev-batch-imports-test"
         s3.create_bucket(Bucket=batch_bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
+        reference_bucket = "treasury-dev-reference-test"  # v2.1.0
+        s3.create_bucket(Bucket=reference_bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
+        seed = json.dumps({"version": 1, "updated_at": "2026-07-04T00:00:00+00:00",
+                           "updated_by": "seed", "sources": {"sam_exclusions": "test"},
+                           "entries": [{"name": "Acme Shell LLC", "tin": "900000002",
+                                        "source": "sam_exclusions", "severity": "high"}]}).encode()
+        s3.put_object(Bucket=reference_bucket, Key="reference/current.json", Body=seed)
+        s3.put_object(Bucket=reference_bucket, Key="reference/versions/1.json", Body=seed)
+        monkeypatch.setenv("REFERENCE_BUCKET", reference_bucket)
+        monkeypatch.setenv("ADMIN_ROLE_NAME", "treasury-dev-console-admin")
         monkeypatch.setenv("REVIEWS_TABLE_NAME", "treasury-dev-reviews")
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
         monkeypatch.setenv("AUDIT_INDEX_TABLE", "treasury-dev-audit-index")
@@ -70,7 +80,8 @@ def console_api(monkeypatch):
                              "decision": {"disposition": "review"}}).encode(),
         )
         yield {"app": _load("console_api"), "table": table, "index": index, "batches": batches,
-               "s3": s3, "bucket": bucket, "uploads": uploads, "batch_bucket": batch_bucket}
+               "s3": s3, "bucket": bucket, "uploads": uploads, "batch_bucket": batch_bucket,
+               "reference_bucket": reference_bucket}
 
 
 def _event(method, path, body=None, qs=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
@@ -247,6 +258,58 @@ def test_bulk_decide_caps_batch_size(console_api):
     resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
                                              body={"payment_ids": [f"p{i}" for i in range(51)], "decision": "approved"}))
     assert resp["statusCode"] == 400
+
+
+# --- v2.1.0 reference-data lifecycle ---
+
+ADMIN = "arn:aws:sts::1:assumed-role/treasury-dev-console-admin/brian"
+REVIEWER = "arn:aws:sts::1:assumed-role/treasury-dev-console-reviewer/kim"
+NEW_ENTRIES = [
+    {"name": "Acme Shell LLC", "tin": "900000002", "source": "sam_exclusions", "severity": "high"},
+    {"name": "Fresh Fraud Front LLC", "tin": "900000042", "source": "sam_exclusions", "severity": "high"},
+]
+
+
+def test_get_reference_returns_current_version(console_api):
+    body = json.loads(console_api["app"].handler(_event("GET", "/reference"))["body"])
+    assert body["version"] == 1 and len(body["entries"]) == 1
+
+
+def test_admin_publish_bumps_version_and_keeps_history(console_api):
+    app = console_api["app"]
+    resp = app.handler(_event("PUT", "/reference", body={"entries": NEW_ENTRIES}, caller=ADMIN))
+    assert resp["statusCode"] == 200
+    assert json.loads(resp["body"])["version"] == 2
+    # current.json is now v2, stamped with the publisher...
+    cur = json.loads(console_api["s3"].get_object(
+        Bucket=console_api["reference_bucket"], Key="reference/current.json")["Body"].read())
+    assert cur["version"] == 2 and cur["updated_by"] == ADMIN and len(cur["entries"]) == 2
+    # ...and v1 remains resolvable (the audit-citation target).
+    v1 = json.loads(app.handler(_event("GET", "/reference/versions/1"))["body"])
+    assert v1["version"] == 1 and len(v1["entries"]) == 1
+
+
+def test_reviewer_publish_403(console_api):
+    resp = console_api["app"].handler(
+        _event("PUT", "/reference", body={"entries": NEW_ENTRIES}, caller=REVIEWER))
+    assert resp["statusCode"] == 403
+    assert json.loads(resp["body"])["error"] == "admin_only"
+
+
+def test_publish_validates_entries(console_api):
+    bad = [{"name": "", "tin": "12345", "source": "", "severity": "extreme"}]
+    resp = console_api["app"].handler(_event("PUT", "/reference", body={"entries": bad}, caller=ADMIN))
+    assert resp["statusCode"] == 400
+    detail = json.loads(resp["body"])["detail"]
+    assert len(detail) == 4  # name, tin, source, severity all flagged
+
+
+def test_version_history_lists_newest_first(console_api):
+    app = console_api["app"]
+    app.handler(_event("PUT", "/reference", body={"entries": NEW_ENTRIES}, caller=ADMIN))
+    body = json.loads(app.handler(_event("GET", "/reference/versions"))["body"])
+    assert [v["version"] for v in body["versions"]] == [2, 1]
+    assert app.handler(_event("GET", "/reference/versions/9"))["statusCode"] == 404
 
 
 # --- v2.0.0 segregation of duties ---

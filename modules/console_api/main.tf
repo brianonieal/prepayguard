@@ -7,6 +7,11 @@
 
 locals {
   function_name = "${var.name_prefix}-console-api"
+  # v2.1.0: role groupings for the resource policy; ADMIN_ROLE_NAME lets the
+  # handler distinguish admin from reviewer (both may invoke most routes).
+  reviewer_admin_role_arns = [var.reviewer_role_arn, var.admin_role_arn]
+  all_named_role_arns      = [var.reviewer_role_arn, var.admin_role_arn, var.submitter_role_arn]
+  admin_role_name          = element(split("/", var.admin_role_arn), 1)
 }
 
 # ---------------------------------------------------------------------------
@@ -87,6 +92,27 @@ data "aws_iam_policy_document" "api" {
     resources = [aws_s3_bucket.uploads.arn, "${aws_s3_bucket.uploads.arn}/*"]
   }
 
+  # v2.1.0 reference-data lifecycle: read the current list + history, publish
+  # new versions (handler enforces admin-only; the edge denies reviewer writes).
+  statement {
+    sid       = "ReferenceStoreReadWrite"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${var.reference_bucket_arn}/reference/*"]
+  }
+
+  statement {
+    sid       = "ReferenceStoreListVersions"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [var.reference_bucket_arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["reference/*"]
+    }
+  }
+
   # v1.6.0 batch ingestion: presign the CSV upload (PutObject) and poll the
   # batch summary Component E writes (GetItem/Scan). Enqueue + dedup stay on E.
   statement {
@@ -153,6 +179,8 @@ resource "aws_lambda_function" "api" {
       UPLOADS_BUCKET_NAME = aws_s3_bucket.uploads.id
       BATCH_BUCKET        = var.batch_bucket_name
       BATCHES_TABLE       = var.batches_table_name
+      REFERENCE_BUCKET    = var.reference_bucket_name
+      ADMIN_ROLE_NAME     = local.admin_role_name
       CONSOLE_ORIGIN      = var.console_origin
     }
   }
@@ -252,23 +280,36 @@ resource "aws_api_gateway_integration_response" "proxy_options" {
   response_parameters = {
     "method.response.header.Access-Control-Allow-Origin"  = "'${var.console_origin}'"
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token'"
-    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,PUT,OPTIONS'"
   }
 
   depends_on = [aws_api_gateway_integration.proxy_options]
 }
 
 data "aws_iam_policy_document" "resource_policy" {
-  # Reviewers + admins: the whole API.
+  # Reviewers + admins: the whole API (reviewer reference-writes carved out below).
   statement {
     sid    = "AllowReviewerAdminAllPaths"
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = var.reviewer_admin_role_arns
+      identifiers = local.reviewer_admin_role_arns
     }
     actions   = ["execute-api:Invoke"]
     resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*"]
+  }
+
+  # v2.1.0: publishing a new screening list is admin-only. Edge-deny the reviewer
+  # role on the write route (defense in depth with the handler's admin check).
+  statement {
+    sid    = "DenyReviewerReferenceWrites"
+    effect = "Deny"
+    principals {
+      type        = "AWS"
+      identifiers = [var.reviewer_role_arn]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/PUT/reference"]
   }
 
   # Submitters: ONLY the batch-upload routes (upload a CSV + poll its summary).
@@ -301,7 +342,7 @@ data "aws_iam_policy_document" "resource_policy" {
     condition {
       test     = "StringNotEquals"
       variable = "aws:PrincipalArn"
-      values   = concat(var.reviewer_admin_role_arns, [var.submitter_role_arn])
+      values   = local.all_named_role_arns
     }
     # OPTIONS preflight is unauthenticated by necessity; exempt it from the deny.
     condition {

@@ -112,6 +112,12 @@ variable "audit_index_table_arn" {
   default     = null
 }
 
+variable "reference_bucket_arn" {
+  description = "v2.1.0: ARN of the versioned reference-data bucket this stage may READ (current.json). Null for every stage except enrichment (Component B). Controls a conditional IAM statement."
+  type        = string
+  default     = null
+}
+
 variable "audit_kms_key_arn" {
   description = "ARN of the CMK encrypting the audit bucket. Set together with audit_bucket_arn (Component D only): SSE-KMS writes require key usage rights on the writer principal."
   type        = string

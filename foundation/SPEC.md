@@ -1,6 +1,21 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.1.0 — Reference-Data Lifecycle (2026-07-04, live) · Phase 3 gate 2/5
+Every screening cites the exact list version it matched.
+
+- **Versioned S3 store** (`reference/current.json` + immutable `versions/{N}.json`);
+  Terraform owns the bucket, publishes own the documents; v1 seeded by script.
+- **B** fetches with a 60s TTL and stamps `reference_version`; **D** writes
+  `provenance.reference_list_version` into every audit record.
+- **console_api:** GET/PUT `/reference` (admin-only: edge Deny + handler check,
+  If-None-Match version claim) + version history endpoints.
+- **Console:** admin-only Reference Data screen (edit + publish + history);
+  AuditDetail shows the citation. Reviewer demo account added (owner-approved).
+- Verified: pytest 69/69, vitest 18/18, checkov 0-failed (coverage re-verified),
+  plan 0-drift; **LIVE**: v2-only entry flagged, audit cites v2, reviewer 403.
+- 18 decisions LOCKED (DEC-18: versioned S3 reference document).
+
 ## v2.0.0 — Roles & Segregation of Duties (2026-07-04, live) · Phase 3 gate 1/5
 Who submits ≠ who approves.
 
@@ -60,12 +75,13 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Phase 3 in progress (gate 1/5 done).** Next: **v2.1.0 — Reference-Data
-  Lifecycle** (screening lists → managed, versioned store; admin-gated update path;
-  each screening cites the list version it matched). Then v2.2.0 semantic matching,
-  v2.3.0 LLM briefs, v2.4.0 analytics.
+- **Phase 3 in progress (gate 2/5 done).** Next: **v2.2.0 — Semantic Payee
+  Matching** (Bedrock embeddings in enrichment; match = exact rule OR similarity
+  ≥ threshold over the v2.1.0 store; vector-store decision at gate — cosine-in-
+  store proposed vs OpenSearch Serverless, which would ~350x the ~$2/mo idle
+  cost). Then v2.3.0 LLM briefs, v2.4.0 analytics.
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-17 of 17 LOCKED.
+18 of 18 LOCKED.

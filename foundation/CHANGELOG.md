@@ -1,5 +1,26 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.1.0 — Reference-Data Lifecycle (2026-07-04, Phase 3)
+
+**The screening lists are now managed and versioned — every screening decision cites the exact list version it matched against.**
+
+### Backend
+- New **`reference_store`** module: private versioned S3 bucket holding `reference/current.json` (active) + immutable `reference/versions/{N}.json` history. Terraform owns the bucket, never the documents; v1 seeded from the bundled list by `scripts/seed_reference_data.py` (idempotent).
+- **Component B** fetches the list from the store (60s warm-cache TTL) and stamps **`reference_version`** on the enrichment block. Failure posture: warm cache on S3 error, else raise → retry/DLQ (never screen blind). Bundled JSON remains only as the seed source / no-store test fallback.
+- **Component D** writes **`provenance.reference_list_version`** into every immutable audit record — the citation.
+- **console_api:** `GET /reference`, `PUT /reference` (**admin-only**: edge Deny on the reviewer role + `ADMIN_ROLE_NAME` handler check; entry validation; `If-None-Match` conditional put claims the next version so concurrent publishes can't collide), `GET /reference/versions[/{n}]`. CORS gains PUT.
+- All 6 images rebuilt **v2.1.0** (D `COMPONENT_VERSION` 2.1.0).
+
+### Frontend (deployed)
+- Admin-only **Reference Data** screen: active-version stats, editable entries table (add/remove/edit, severity select), **Publish new version**, version history with view. **AuditDetail** shows "reference list vN (list version screened against)".
+- Second demo account **brian.onieal+reviewer@gmail.com** (reviewer group) provisioned with the owner's explicit approval — also enables the cross-account SoD approve path for manual testing.
+
+### Verified
+- `pytest` 69/69 · `vitest` 18/18 · checkov 0 failed (**coverage re-verified**: 133 resources scanned, 0 parse errors — the passed-count drop vs v2.0.0 is checkov module-attribution dedup after init, not lost coverage) · `tflint` clean · `plan` 0-drift.
+- **LIVE PASS**: seeded v1 (8 entries) → admin published v2 (+1 entry) → payment matching the **v2-only** entry flagged to review → **audit record cites `reference_list_version: 2`** → reviewer `PUT /reference` 403 (normal reviewer access intact) → v1 history still resolvable with its original 8 entries.
+
+**DEC-18 LOCKED** — versioned S3 document store, admin-only publish, seeded out-of-band.
+
 ## v2.0.0 — Roles & Segregation of Duties (2026-07-04, Phase 3)
 
 **The console now separates who may submit from who may approve — and an approver can't clear a payment they submitted.**

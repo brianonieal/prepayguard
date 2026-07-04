@@ -37,6 +37,21 @@ def test_webhook_posted_with_secret_url_on_review(disposition, monkeypatch):
     assert spy.calls[0]["body"]["payment_id"] == "p1"
 
 
+def test_audit_record_cites_reference_list_version(disposition, monkeypatch):
+    # v2.1.0: the list version B screened against lands in the immutable audit
+    # record's provenance — "what list said so?" stays answerable forever.
+    app = disposition["load"]("component_d_disposition")
+    monkeypatch.setattr(app.urlrequest, "urlopen", _WebhookSpy())
+    scored = _scored("p-ref", "approve")
+    scored["enrichment"]["reference_version"] = 42
+    app.handler(_sqs_event(scored))
+    key = disposition["s3"].list_objects_v2(
+        Bucket=disposition["bucket"], Prefix="audit/")["Contents"][0]["Key"]
+    record = json.loads(disposition["s3"].get_object(
+        Bucket=disposition["bucket"], Key=key)["Body"].read())
+    assert record["provenance"]["reference_list_version"] == 42
+
+
 def test_review_item_records_submitter_for_sod(disposition, monkeypatch):
     # v2.0.0: the submitter identity Component A stamped must reach the reviews
     # table so the console can enforce segregation of duties.

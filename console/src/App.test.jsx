@@ -23,7 +23,7 @@ vi.mock("./lib/api.js", () => {
     decision: { disposition: "review", risk_score: 48, reasons: ["name_exact match on treasury_offset (severity medium)"] },
     evidence: { matches: [{ source: "treasury_offset", matched_on: "name_exact", confidence: 80, severity: "medium" }], match_count: 1, highest_confidence: 80 },
     payment: { payee: "Umbrella Holdings Group", amount: 75 },
-    provenance: { pipeline: ["intake", "enrichment", "risk_scoring", "disposition"], component_versions: { disposition: "1.4.1" } },
+    provenance: { pipeline: ["intake", "enrichment", "risk_scoring", "disposition"], component_versions: { disposition: "2.1.0" }, reference_list_version: 3 },
     integrity: { algorithm: "sha256", sha256: "deadbeef" },
   };
   return {
@@ -38,10 +38,17 @@ vi.mock("./lib/api.js", () => {
     getBatch: async () => ({ batch_id: "b1", status: "complete", queued: 2, duplicate: 0, rejected: 0, errors: [] }),
     listBatches: async () => ({ batches: [] }),
     bulkDecide: vi.fn(async () => ({ decision: "approved", applied: 1, results: [] })),
+    getReference: async () => ({
+      version: 1, updated_at: "2026-07-04T00:00:00+00:00", updated_by: "seed", sources: {},
+      entries: [{ name: "Acme Shell LLC", tin: "900000002", source: "sam_exclusions", severity: "high" }],
+    }),
+    putReference: vi.fn(async () => ({ version: 2, entry_count: 2 })),
+    listReferenceVersions: async () => ({ versions: [{ version: 1, published_at: "2026-07-04T00:00:00+00:00", size: 500 }] }),
+    getReferenceVersion: async () => ({ version: 1, updated_by: "seed", entries: [] }),
   };
 });
 
-import { bulkDecide } from "./lib/api.js";
+import { bulkDecide, putReference } from "./lib/api.js";
 import { currentGroups } from "./lib/auth.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
@@ -171,6 +178,37 @@ test("admin role sees both tabs and the role chip", async () => {
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
   expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
+});
+
+test("admin edits the reference list and publishes a new version", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Reference Data" }));
+  expect(await screen.findByText("Reference data")).toBeInTheDocument();
+  expect((await screen.findAllByText("v1")).length).toBeGreaterThan(0); // stat card + history pill
+  // Edit an entry name -> the working copy is dirty -> publish becomes available.
+  fireEvent.change(screen.getByLabelText("entry 0 name"), { target: { value: "Acme Shell Holdings LLC" } });
+  fireEvent.click(screen.getByRole("button", { name: /Publish new version/ }));
+  expect(await screen.findByText(/Published version 2/)).toBeInTheDocument();
+  expect(putReference).toHaveBeenCalledWith(expect.objectContaining({
+    entries: [expect.objectContaining({ name: "Acme Shell Holdings LLC" })],
+  }));
+});
+
+test("reviewer role has no Reference Data tab", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Reference Data" })).toBeNull();
+});
+
+test("audit detail cites the reference list version", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review →" }));
+  expect(await screen.findByText(/v3 \(list version screened against\)/)).toBeInTheDocument();
 });
 
 test("review queue multi-select applies a bulk decision", async () => {

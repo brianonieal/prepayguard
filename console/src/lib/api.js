@@ -85,6 +85,30 @@ export async function listBatches() {
   return unwrap(await c.fetch(`${config.consoleApi}/batches`));
 }
 
+// v2.1.0 reference-data lifecycle: view the active screening list, publish new
+// versions (admin-only), browse the immutable version history.
+export async function getReference() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reference`));
+}
+
+export async function putReference(doc) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reference`, {
+    method: "PUT", body: JSON.stringify(doc), headers: { "Content-Type": "application/json" },
+  }));
+}
+
+export async function listReferenceVersions() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reference/versions`));
+}
+
+export async function getReferenceVersion(n) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/reference/versions/${n}`));
+}
+
 // v1.6.0 bulk review actions: one decision applied to many payments.
 export async function bulkDecide(paymentIds, decision, note = "") {
   const c = await client();
