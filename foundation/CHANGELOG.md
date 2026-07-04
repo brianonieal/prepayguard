@@ -1,5 +1,22 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.1.2 — Multi-Format Batch Ingestion (2026-07-04, Phase 3)
+
+**The batch upload now takes CSV, Excel (.xlsx), and JSON — anything else is reported "unsupported," never silently dropped.**
+
+### Backend
+- **Component E**: format dispatch by extension → `_parse_csv` / `_parse_xlsx` (openpyxl) / `_parse_json`, all feeding **one shared `_build_row` validator** (identical contract across formats: payment_id + payee required, amount numeric ≥ 0, payee_tin optional). Unsupported extension → summary `format: unsupported`, rows rejected with a readable message. `openpyxl` added to E's image; `format` added to the batch summary.
+- **JSON contract**: a top-level array of `{payment_id, payee, payee_tin?, amount}` (also accepts `{"payments": [...]}`).
+- **S3 trigger** now fires on *all* `batch-imports/` uploads (dropped the `.csv` suffix filter) so non-CSV files reach E.
+- **console_api** `_presign_batch`: accepts any safe filename (dropped the `.csv`-only check; kept the path-traversal guard).
+
+### Frontend (deployed)
+- Picker accepts all files. **CSV + JSON** preview client-side (`parseJsonPayments` mirrors the backend contract); **XLSX** shows a "parsed server-side on upload" state — no heavy Excel library in the bundle. Summary shows the detected `format`.
+
+### Verified
+- `pytest` 74/74 · `vitest` 20/20 · `checkov` 0-failed (133 resources) · `tflint` clean · `plan` 0-drift · `check_cors.py` green.
+- **LIVE PASS** (real presigned-PUT browser path): `.xlsx` → 2 queued, `.json` → 2 queued, `.pdf` → `unsupported` (0 queued, 1 rejected). Cross-format idempotency covered (a payment_id via CSV then JSON dedupes on the shared table).
+
 ## v2.1.1 — Hotfix: browser CORS preflight (2026-07-04)
 
 **Every browser API call was failing.** The unsigned CORS preflight (`OPTIONS`) was denied by both APIs' resource policies (403, no `Access-Control-Allow-Origin`), so no `fetch` from the SPA ever completed. Latent since the resource policies were introduced (v1.2.0/v1.4.0) and undetected across six console gates because all live e2e used SigV4/boto3, which does not send a CORS preflight. Surfaced when the owner clicked "Submit 24 payments" in a real browser.

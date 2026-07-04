@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.1.2 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T17:51:18Z
 ESTIMATION: gate=v2.1.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T16:55:42Z
 ESTIMATION: gate=v2.0.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:54:51Z
 ESTIMATION: gate=v1.6.0 estimated=3h actual=2.00h variance=-33% source=timelog errors_open=0 errors_close=0 date=2026-07-04T13:25:22Z
@@ -19,6 +20,30 @@ ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog e
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
 
+### REFLEXION - v2.1.2 Multi-Format Batch Ingestion (2026-07-04, Phase 3, inserted)
+
+**What went well**
+- One shared _build_row validator behind three thin format parsers (csv/xlsx/json)
+  kept the contract identical across formats - the cross-format dedup test (a
+  payment_id via CSV then re-sent via JSON dedupes on the shared table) proves it.
+- Dropping the S3 notification .csv suffix filter (fire on ALL batch-imports/
+  uploads) is what lets non-CSV files reach E at all - the frontend accept="" and
+  presign relaxation are cosmetic without it. Easy to forget the trigger layer.
+- Kept the browser bundle light: no SheetJS. XLSX has no client preview (server-
+  parsed); CSV/JSON preview client-side. The batch flow already round-trips to a
+  server summary, so the preview is a courtesy, not load-bearing.
+- Live-verified through the ACTUAL presigned-PUT path (post-CORS-fix), not just
+  SigV4 - the browser leg now genuinely works end to end.
+
+**What bit**
+- Fat-fingered an Edit anchor (idx["payee_tin"] where the file had idx["amount"]),
+  the replace failed loudly. Re-read the exact line and redid it. Cheap because
+  Edit fails closed on a bad anchor rather than mangling.
+- openpyxl must be pip-installed in the LOCAL test env too (not just E's image) -
+  the test both builds and parses xlsx.
+
+**Estimated vs actual**
+Est ~1-2h -> actual ~1.0h. Small, well-scoped, and the parser seams were clean.
 ### REFLEXION - v2.1.1 Hotfix: browser CORS preflight (2026-07-04)
 
 The console was NEVER actually usable in a browser - every authenticated call

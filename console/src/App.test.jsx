@@ -164,6 +164,26 @@ test("batch upload parses rows then ingests server-side and shows a summary", as
   expect(screen.getByText(/2 queued for screening/)).toBeInTheDocument();
 });
 
+test("batch upload accepts a JSON file and previews rows client-side", async () => {
+  render(<App />);
+  await signIn();
+  const file = new File([JSON.stringify([{ payment_id: "J-1", payee: "Beta Vendor", amount: 25 }])],
+    "vendors.json", { type: "application/json" });
+  fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
+  expect(await screen.findByText("J-1")).toBeInTheDocument();
+  expect(screen.getByText("Beta Vendor")).toBeInTheDocument();
+});
+
+test("batch upload accepts an Excel file (server-parsed, no client preview)", async () => {
+  render(<App />);
+  await signIn();
+  const file = new File([new Uint8Array([1, 2, 3])], "payroll.xlsx",
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
+  expect(await screen.findByText(/parsed server-side on upload/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Upload payroll\.xlsx/ })).toBeInTheDocument();
+});
+
 test("submitter role sees Submit but not the Review Queue", async () => {
   currentGroups.mockResolvedValue(["submitter"]);
   render(<App />);

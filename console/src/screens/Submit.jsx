@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { parseCsv } from "../lib/csv.js";
+import { parseCsv, parseJsonPayments } from "../lib/csv.js";
 import { submitPayment, presignBatch, uploadFile, getBatch } from "../lib/api.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -16,12 +16,18 @@ export default function Submit() {
   const onFile = (file) => {
     if (!file) return;
     setBatchState(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const { rows, errors } = parseCsv(String(reader.result));
-      setBatch({ name: file.name, file, rows, errors });
-    };
-    reader.readAsText(file);
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (ext === "csv" || ext === "json") {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const { rows, errors } = (ext === "csv" ? parseCsv : parseJsonPayments)(String(reader.result));
+        setBatch({ name: file.name, file, rows, errors, preview: true });
+      };
+      reader.readAsText(file);
+    } else {
+      // Excel (.xlsx) and anything else are parsed server-side by Component E.
+      setBatch({ name: file.name, file, rows: [], errors: [], preview: false });
+    }
   };
 
   // Server-side ingestion (v1.6.0): presign → upload the raw CSV to S3 →
@@ -72,42 +78,48 @@ export default function Submit() {
       <div className="dropzone" onClick={() => fileRef.current.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files[0]); }}>
-        <input ref={fileRef} type="file" accept=".csv" data-testid="csv-input"
+        <input ref={fileRef} type="file" data-testid="csv-input"
           onChange={(e) => onFile(e.target.files[0])} />
-        <b>Upload a batch payment file</b> — drag a CSV here or click to browse
+        <b>Upload a batch payment file</b> — drag CSV, Excel, or JSON here or click to browse
         <div style={{ fontSize: 12, marginTop: 4 }}>
-          columns: <span className="mono">payment_id, payee, payee_tin (optional), amount</span>
+          fields: <span className="mono">payment_id, payee, payee_tin (optional), amount</span> · other file types are reported, not screened
         </div>
       </div>
 
       {batch && (
         <div style={{ maxWidth: 760, marginTop: 16 }}>
           <div className="sub" style={{ marginBottom: 8 }}>
-            <b>{batch.name}</b> — {batch.rows.length} payment{batch.rows.length === 1 ? "" : "s"} parsed
-            {batch.errors.length > 0 && <span style={{ color: "var(--red)" }}> · {batch.errors.length} skipped</span>}
+            <b>{batch.name}</b>
+            {batch.preview
+              ? <> — {batch.rows.length} payment{batch.rows.length === 1 ? "" : "s"} parsed
+                {batch.errors.length > 0 && <span style={{ color: "var(--red)" }}> · {batch.errors.length} skipped</span>}</>
+              : <> — parsed server-side on upload</>}
           </div>
-          <table>
-            <thead><tr><th>Payment</th><th>Payee</th><th>TIN</th><th>Amount</th></tr></thead>
-            <tbody>
-              {batch.rows.map((r) => (
-                <tr key={r.payment_id}>
-                  <td className="mono">{r.payment_id}</td><td>{r.payee}</td>
-                  <td className="mono">{r.payee_tin || "—"}</td><td>${r.amount.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
 
-          {batch.errors.length > 0 && !summary && (
+          {batch.preview && batch.rows.length > 0 && (
+            <table>
+              <thead><tr><th>Payment</th><th>Payee</th><th>TIN</th><th>Amount</th></tr></thead>
+              <tbody>
+                {batch.rows.slice(0, 100).map((r) => (
+                  <tr key={r.payment_id}>
+                    <td className="mono">{r.payment_id}</td><td>{r.payee}</td>
+                    <td className="mono">{r.payee_tin || "—"}</td><td>${r.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {batch.preview && batch.errors.length > 0 && !summary && (
             <ul className="note" style={{ marginTop: 8 }}>
               {batch.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
             </ul>
           )}
 
-          {!summary && batch.rows.length > 0 && (
+          {!summary && (!batch.preview || batch.rows.length > 0) && (
             <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={submitBatch}>
               {batchState === "uploading" ? "Uploading…" : batchState === "processing" ? "Ingesting…"
-                : `Submit ${batch.rows.length} payment${batch.rows.length === 1 ? "" : "s"}`}
+                : batch.preview ? `Submit ${batch.rows.length} payment${batch.rows.length === 1 ? "" : "s"}` : `Upload ${batch.name}`}
             </button>
           )}
 
@@ -117,9 +129,11 @@ export default function Submit() {
 
           {summary && (
             <div className="result-ok" style={{ marginTop: 12 }}>
-              <b>Batch ingested.</b> {summary.queued} queued for screening
-              {Number(summary.duplicate) > 0 && <> · {summary.duplicate} duplicate{summary.duplicate === 1 ? "" : "s"} (already screened)</>}
+              <b>{summary.format === "unsupported" ? "Unsupported file format." : "Batch ingested."}</b>{" "}
+              {summary.format !== "unsupported" && <>{summary.queued} queued for screening</>}
+              {Number(summary.duplicate) > 0 && <> · {summary.duplicate} duplicate{Number(summary.duplicate) === 1 ? "" : "s"} (already screened)</>}
               {Number(summary.rejected) > 0 && <> · <span style={{ color: "var(--red)" }}>{summary.rejected} rejected</span></>}
+              {summary.format && summary.format !== "unsupported" && <> · <span className="mono" style={{ fontSize: 12 }}>{summary.format}</span></>}
               . Flagged payments appear in the Review Queue.
               {Array.isArray(summary.errors) && summary.errors.length > 0 && (
                 <ul style={{ marginTop: 6 }}>{summary.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}</ul>

@@ -254,12 +254,12 @@ def _bulk_decide(body: dict, caller_arn: str) -> dict:
 
 def _presign_batch(body: dict) -> dict:
     """Mint a batch_id and a presigned PUT into the batch-imports bucket. The
-    console uploads the CSV there; the ObjectCreated event drives Component E."""
+    console uploads the file there; the ObjectCreated event drives Component E,
+    which parses by extension (CSV/XLSX/JSON) and reports anything else as
+    unsupported (v2.1.2). Any safe filename is accepted here."""
     filename = (body.get("filename") or "").strip()
     if not filename or "/" in filename or ".." in filename:
         return _response(400, {"error": "invalid filename"})
-    if not filename.lower().endswith(".csv"):
-        return _response(400, {"error": "must be a .csv file"})
     batch_id = str(uuid.uuid4())
     key = f"batch-imports/{batch_id}/{filename}"
     url = _s3_client().generate_presigned_url(

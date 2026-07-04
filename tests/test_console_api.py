@@ -199,9 +199,14 @@ def test_presign_batch_returns_upload_url(console_api):
     assert "X-Amz-Signature" in body["upload_url"]
 
 
-def test_presign_batch_rejects_non_csv(console_api):
-    resp = console_api["app"].handler(_event("POST", "/batches", body={"filename": "payroll.xlsx"}))
-    assert resp["statusCode"] == 400
+def test_presign_batch_accepts_any_safe_filename(console_api):
+    # v2.1.2: CSV/XLSX/JSON (and anything) presign; Component E decides format.
+    for name in ("payroll.xlsx", "vendors.json", "data.csv", "scan.pdf"):
+        r = console_api["app"].handler(_event("POST", "/batches", body={"filename": name}))
+        assert r["statusCode"] == 200 and json.loads(r["body"])["key"].endswith(name)
+    # path-traversal is still rejected
+    bad = console_api["app"].handler(_event("POST", "/batches", body={"filename": "../etc/passwd"}))
+    assert bad["statusCode"] == 400
 
 
 def test_get_batch_processing_then_complete(console_api):

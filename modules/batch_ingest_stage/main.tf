@@ -246,7 +246,8 @@ resource "aws_s3_bucket_notification" "batch" {
     lambda_function_arn = aws_lambda_alias.live.arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "batch-imports/"
-    filter_suffix       = ".csv"
+    # v2.1.2: no suffix filter - E handles CSV/XLSX/JSON and reports anything
+    # else as "unsupported", so every uploaded file must reach it.
   }
 
   depends_on = [aws_lambda_permission.allow_s3]

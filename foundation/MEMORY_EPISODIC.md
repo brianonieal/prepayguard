@@ -28,6 +28,8 @@
 
 | 2026-07-04 | v2.1.0 Reference-Data Lifecycle (Phase 3) | CLOSED (tagged) | ~2–3h | ~1.5h | Versioned S3 reference store + admin publish path + audit citation (reference_list_version). Live: v2-only entry flagged, audit cites v2, reviewer 403, v1 history intact. checkov count drop investigated -> module-attribution dedup, coverage verified by resource count. |
 
+| 2026-07-04 | v2.1.2 Multi-Format Batch Ingestion (Phase 3, inserted) | CLOSED (tagged) | ~1–2h | ~1.0h | CSV+XLSX+JSON batch parsing (shared validator), unsupported reported; S3 trigger on all uploads; multi-format Submit. Live PASS via real presigned-PUT browser path (xlsx/json ingest, pdf unsupported). |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

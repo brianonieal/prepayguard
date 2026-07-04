@@ -1,6 +1,19 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.1.2 — Multi-Format Batch Ingestion (2026-07-04, live) · Phase 3 (inserted)
+Batch upload takes CSV + Excel + JSON; unsupported files are reported.
+
+- **Component E**: one shared `_build_row` validator behind `_parse_csv` /
+  `_parse_xlsx` (openpyxl) / `_parse_json`; unsupported extension → `format:
+  unsupported`, rejected (never dropped). `format` added to the batch summary.
+- **S3 trigger** fires on all `batch-imports/` uploads (no suffix filter);
+  `_presign_batch` accepts any safe filename.
+- **Console**: picker accepts all files; CSV/JSON preview client-side, XLSX
+  server-parsed; summary shows the format.
+- Verified: pytest 74/74, vitest 20/20, checkov 0-failed, plan 0-drift, CORS
+  guard green; **LIVE** xlsx/json ingest + pdf→unsupported via presigned-PUT.
+
 ## v2.1.0 — Reference-Data Lifecycle (2026-07-04, live) · Phase 3 gate 2/5
 Every screening cites the exact list version it matched.
 

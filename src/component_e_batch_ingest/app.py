@@ -1,7 +1,9 @@
-"""Component E - Batch Ingest (v1.6.0, write-scale hardening).
+"""Component E - Batch Ingest (v2.1.2, multi-format).
 
-An S3 upload to the batch-imports bucket triggers this handler. It parses each
-CSV row and performs the SAME payment-ID idempotency claim + enqueue as
+An S3 upload to the batch-imports bucket triggers this handler. It parses the
+file by extension - CSV, Excel (.xlsx), or JSON; anything else is accepted but
+reported "unsupported" in the summary, never silently dropped - and performs the
+SAME payment-ID idempotency claim + enqueue as
 Component A (DEC-13), against the SAME idempotency table and intake queue
 (DEC-16) - so a payment submitted via both the single API and a batch file
 dedupes correctly. Sends are batched (SendMessageBatch, chunks of 10) for
@@ -30,9 +32,11 @@ _dynamodb = None
 _sqs = None
 _s3 = None
 
-COMPONENT_VERSION = "1.6.0"
+COMPONENT_VERSION = "2.1.2"
 _SEND_BATCH = 10  # SQS SendMessageBatch hard limit
 _MAX_ERRORS = 50  # cap per-row errors stored in the summary (keep the item small)
+_SUPPORTED = ("csv", "xlsx", "json")
+_HEADER_ERR = "header must include payment_id, payee, amount (payee_tin optional)"
 
 
 def _resource():
@@ -65,45 +69,112 @@ def _s3_client():
 
 
 def _cell(cells, i):
-    return cells[i].strip() if 0 <= i < len(cells) else ""
+    v = cells[i] if 0 <= i < len(cells) else None
+    return "" if v is None else str(v).strip()  # str(): xlsx cells arrive as numbers/None
 
 
-def _parse_rows(text: str):
-    """Mirror the console CSV contract: payment_id, payee, amount required
-    (payee_tin optional). Returns (valid_rows, errors)."""
+def _header_index(header):
+    idx = {c: (header.index(c) if c in header else -1)
+           for c in ("payment_id", "payee", "payee_tin", "amount")}
+    ok = idx["payment_id"] >= 0 and idx["payee"] >= 0 and idx["amount"] >= 0
+    return idx, ok
+
+
+def _build_row(payment_id, payee, tin, amount_raw, label):
+    """The ONE row contract shared by every format: payment_id + payee required,
+    amount numeric and >= 0, payee_tin optional. Returns (row, None) or (None, error)."""
+    payment_id = "" if payment_id is None else str(payment_id).strip()
+    payee = "" if payee is None else str(payee).strip()
+    if not payment_id or not payee:
+        return None, f"{label}: payment_id and payee are required"
+    try:
+        amount = float(amount_raw)
+    except (TypeError, ValueError):
+        return None, f"{label}: invalid amount"
+    if amount < 0:
+        return None, f"{label}: invalid amount"
+    row = {"payment_id": payment_id, "payee": payee, "amount": amount}
+    tin = "" if tin is None else str(tin).strip()
+    if tin:
+        row["payee_tin"] = tin
+    return row, None
+
+
+def _rows_from_records(records, idx, label_of):
+    """Apply _build_row across an iterable of (n, positional-cell-tuple) - CSV/XLSX."""
+    rows, errors = [], []
+    for n, cells in records:
+        if cells is None or not any(str(c).strip() for c in cells if c is not None):
+            continue  # blank line
+        row, err = _build_row(_cell(cells, idx["payment_id"]), _cell(cells, idx["payee"]),
+                              _cell(cells, idx["payee_tin"]), _cell(cells, idx["amount"]), label_of(n))
+        if err:
+            errors.append(err)
+        else:
+            rows.append(row)
+    return rows, errors
+
+
+def _parse_csv(text):
     reader = csv.reader(io.StringIO(text))
     try:
         header = [h.strip().lower() for h in next(reader)]
     except StopIteration:
         return [], ["file is empty"]
-    idx = {c: (header.index(c) if c in header else -1)
-           for c in ("payment_id", "payee", "payee_tin", "amount")}
-    if idx["payment_id"] < 0 or idx["payee"] < 0 or idx["amount"] < 0:
-        return [], ["header must include payment_id, payee, amount (payee_tin optional)"]
+    idx, ok = _header_index(header)
+    if not ok:
+        return [], [_HEADER_ERR]
+    return _rows_from_records(enumerate(reader, start=2), idx, lambda n: f"row {n}")
 
-    rows, errors = [], []
-    for line_no, cells in enumerate(reader, start=2):
-        if not any(c.strip() for c in cells):
-            continue  # skip blank lines
-        payment_id = _cell(cells, idx["payment_id"])
-        payee = _cell(cells, idx["payee"])
-        if not payment_id or not payee:
-            errors.append(f"row {line_no}: payment_id and payee are required")
-            continue
+
+def _parse_xlsx(raw):
+    import openpyxl  # lazy import: keep cold-start light for the CSV/JSON paths
+    wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+    try:
+        it = wb.active.iter_rows(values_only=True)
         try:
-            amount = float(_cell(cells, idx["amount"]))
-        except ValueError:
-            errors.append(f"row {line_no}: invalid amount")
+            header = [str(h).strip().lower() if h is not None else "" for h in next(it)]
+        except StopIteration:
+            return [], ["file is empty"]
+        idx, ok = _header_index(header)
+        if not ok:
+            return [], [_HEADER_ERR]
+        return _rows_from_records(enumerate(it, start=2), idx, lambda n: f"row {n}")
+    finally:
+        wb.close()
+
+
+def _parse_json(text):
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return [], [f"invalid JSON: {exc}"]
+    if isinstance(data, dict):
+        data = data.get("payments", [])
+    if not isinstance(data, list):
+        return [], ['JSON must be an array of payment objects (or {"payments": [...]})']
+    rows, errors = [], []
+    for n, obj in enumerate(data, start=1):
+        if not isinstance(obj, dict):
+            errors.append(f"item {n}: must be an object")
             continue
-        if amount < 0:
-            errors.append(f"row {line_no}: invalid amount")
-            continue
-        row = {"payment_id": payment_id, "payee": payee, "amount": amount}
-        tin = _cell(cells, idx["payee_tin"])
-        if tin:
-            row["payee_tin"] = tin
-        rows.append(row)
+        row, err = _build_row(obj.get("payment_id"), obj.get("payee"),
+                              obj.get("payee_tin"), obj.get("amount"), f"item {n}")
+        if err:
+            errors.append(err)
+        else:
+            rows.append(row)
     return rows, errors
+
+
+def _parse(fmt, raw):
+    if fmt == "csv":
+        return _parse_csv(raw.decode("utf-8", errors="replace"))
+    if fmt == "xlsx":
+        return _parse_xlsx(raw)
+    if fmt == "json":
+        return _parse_json(raw.decode("utf-8", errors="replace"))
+    return [], [f"unsupported file format (supported: {', '.join(_SUPPORTED)})"]
 
 
 def _claim(payment_id: str, ttl_days: int) -> str:
@@ -127,8 +198,11 @@ def _claim(payment_id: str, ttl_days: int) -> str:
 
 
 def _handle_object(bucket: str, key: str, ttl_days: int) -> dict:
-    text = _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8", errors="replace")
-    rows, errors = _parse_rows(text)
+    raw = _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read()
+    filename = key.split("/")[-1]
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    fmt = ext if ext in _SUPPORTED else "unsupported"
+    rows, errors = _parse(fmt, raw)
 
     to_send, duplicate, seen = [], 0, set()
     for row in rows:
@@ -174,6 +248,7 @@ def _handle_object(bucket: str, key: str, ttl_days: int) -> dict:
         "filename": parts[-1],
         "object_key": key,
         "status": "complete",
+        "format": fmt,
         "total": len(rows) + len(errors),
         "queued": queued,
         "duplicate": duplicate,
