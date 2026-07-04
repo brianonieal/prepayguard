@@ -8,9 +8,9 @@ variable "image_uri" {
   type        = string
 }
 
-variable "allowed_invoker_role_arn" {
-  description = "DEC-5: the ONE IAM role ARN permitted to invoke the API. The resource policy denies every other principal."
-  type        = string
+variable "allowed_invoker_role_arns" {
+  description = "DEC-5 mechanism, list form (v1.1.0): the named IAM roles permitted to invoke the API (payment-submitter + the console authenticated role). The resource policy denies every other principal."
+  type        = list(string)
 }
 
 variable "stage" {

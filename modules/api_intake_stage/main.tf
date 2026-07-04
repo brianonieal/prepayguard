@@ -267,12 +267,12 @@ resource "aws_api_gateway_integration" "lambda" {
 # assumed-role callers, so matching the role ARN is exact.
 data "aws_iam_policy_document" "api_resource_policy" {
   statement {
-    sid    = "AllowSubmitterRoleInvoke"
+    sid    = "AllowNamedRolesInvoke"
     effect = "Allow"
 
     principals {
       type        = "AWS"
-      identifiers = [var.allowed_invoker_role_arn]
+      identifiers = var.allowed_invoker_role_arns
     }
 
     actions   = ["execute-api:Invoke"]
@@ -280,7 +280,7 @@ data "aws_iam_policy_document" "api_resource_policy" {
   }
 
   statement {
-    sid    = "DenyAllButSubmitterRole"
+    sid    = "DenyAllButNamedRoles"
     effect = "Deny"
 
     principals {
@@ -294,7 +294,7 @@ data "aws_iam_policy_document" "api_resource_policy" {
     condition {
       test     = "StringNotEquals"
       variable = "aws:PrincipalArn"
-      values   = [var.allowed_invoker_role_arn]
+      values   = var.allowed_invoker_role_arns # deny unless the caller is ANY of the named roles
     }
   }
 }

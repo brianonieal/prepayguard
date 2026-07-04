@@ -1,5 +1,23 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v1.1.0 — Treasury Console Foundation (2026-07-03, Phase 2)
+
+**Everything the console UI stands on, deployed live.**
+
+### Added
+- `modules/console_foundation/` — Cognito User Pool (admin-create-only, strong password policy) + SPA client + Identity Pool → **authenticated IAM role** (temp creds → SigV4, reusing the DEC-5 mechanism for humans); private S3 site bucket + CloudFront (OAC, explicit security-headers policy, US-only geo, HTTPS); `treasury-dev-reviews` DynamoDB table (queryable dashboard view; SQS stays the durable hand-off).
+- Component D v1.1.0: writes each review item to the reviews table (audit → queue → **table** → webhook); conditional `dynamodb:PutItem` via the shared module's DEC-1 pattern; +2 tests.
+- `api_intake_stage`: resource policy now takes a **list** of allowed roles (submitter + console authenticated) — same DEC-5 deny-all-but-named mechanism, one more named principal. Console invoke policy attached at env level (breaks the module cycle, PAT-T1 class).
+
+### Deployed
+- Full apply (17 add / 11 change / 1 destroy after image bump). **DEC-10 exercised for real:** all 4 images rebuilt as `v1.1.0`, new Lambda versions published, `live` aliases repointed (disposition → version 2). One IAM-propagation retry on the API policy (known first-deploy class).
+- Console shell live: https://d2rbxaf6pqgvb1.cloudfront.net (placeholder until v1.3.0).
+
+### Verified
+- pytest **31/31** · checkov **265/0** (3 console fixes: security-headers policy w/ HSTS preload, site lifecycle, US geo whitelist; 8 justified skips) · ruff/tflint clean.
+- **Live smoke:** `console-smoke-1` (name match, score 48 → review) landed in the reviews table with `status=pending` via the redeployed Component D.
+
+
 ## v1.0.0 — Capstone Deliverable (2026-07-03)
 
 **Full live deployment + end-to-end run + DEC-11 handoff package. Project complete.**

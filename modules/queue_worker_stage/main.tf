@@ -131,6 +131,18 @@ data "aws_iam_policy_document" "worker" {
     }
   }
 
+  # Console (v1.1.0): added ONLY when reviews_table_arn is non-null (Component D).
+  # Writes the queryable review item the dashboard lists.
+  dynamic "statement" {
+    for_each = var.reviews_table_arn == null ? [] : [var.reviews_table_arn]
+    content {
+      sid       = "WriteReviewItems"
+      effect    = "Allow"
+      actions   = ["dynamodb:PutItem"]
+      resources = [statement.value]
+    }
+  }
+
   # Companion to WriteAuditRecords: the audit bucket is SSE-KMS with a CMK, so
   # the WRITER principal needs key usage rights or PutObject fails at runtime
   # (caught during the v0.1.0 checkov triage, before it could bite at v0.4.0).

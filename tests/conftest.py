@@ -91,12 +91,23 @@ def disposition(monkeypatch):
             Name="treasury-dev/review-webhook-url",
             SecretString="https://hooks.example.test/T000/B000/xyz",
         )["ARN"]
+        ddb = boto3.client("dynamodb", region_name=REGION)
+        reviews_table = "treasury-dev-reviews"
+        ddb.create_table(
+            TableName=reviews_table,
+            KeySchema=[{"AttributeName": "payment_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "payment_id", "AttributeType": "S"}],
+            BillingMode="PROVISIONED",
+            ProvisionedThroughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
+        )
 
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
         monkeypatch.setenv("REVIEW_QUEUE_URL", review_url)
         monkeypatch.setenv("WEBHOOK_SECRET_ARN", secret_arn)
+        monkeypatch.setenv("REVIEWS_TABLE_NAME", reviews_table)
 
         yield {
-            "load": _load, "s3": s3, "sqs": sqs, "sm": sm,
+            "load": _load, "s3": s3, "sqs": sqs, "sm": sm, "ddb": ddb,
             "bucket": bucket, "review_url": review_url, "secret_arn": secret_arn,
+            "reviews_table": reviews_table,
         }

@@ -41,6 +41,16 @@ skip-check:
   - CKV2_AWS_57 # Automatic rotation doesn't apply: a webhook URL is not an expiring credential and has no rotation Lambda semantics. Compromise response = regenerate at provider + put-secret-value. DEC-7 risk note covers the fallback alarm.
   - CKV_AWS_149 # Default aws/secretsmanager KMS encryption is real at-rest encryption; a dedicated CMK for one webhook URL adds key-management surface without threat-model benefit at course scope. Residual-risk entry.
 
+  # Treasury Console (v1.1.0) — static SPA on CloudFront default domain, course scope:
+  - CKV2_AWS_42 # Custom SSL certificate requires a custom domain + ACM cert; the console runs on the CloudFront default domain (no domain purchased for course scope).
+  - CKV_AWS_174 # TLS version is not configurable with cloudfront_default_certificate — same root cause as CKV2_AWS_42; resolves together if a custom domain is ever added.
+  - CKV_AWS_68  # WAF on CloudFront: static public assets only (the SPA); the data surface is the IAM-authed APIs. Same proportionality rationale as CKV2_AWS_29.
+  - CKV2_AWS_47 # Log4j AMR requires the WAF skipped above.
+  - CKV_AWS_86  # CloudFront access logging: caller-audit story lives at the API layer (access logs + CloudTrail); a CF log bucket adds cost for public asset requests.
+  - CKV_AWS_310 # Origin failover: single-region course scope (same rationale as CKV_AWS_144).
+  - CKV_AWS_21  # Site-bucket versioning: SPA assets are rebuilt artifacts; rollback = redeploy the build, not object versions.
+  - CKV_AWS_145 # Site-bucket KMS: assets are public-by-design web files served via CloudFront; SSE-S3 suffices, KMS adds key-policy surface for zero confidentiality gain.
+
   # Audit bucket, evaluated and deferred:
   - CKV2_AWS_62 # S3 event notifications have no consumer in this design. Noted as follow-on work (EventBridge-based audit-write reconciliation).
 

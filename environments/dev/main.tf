@@ -120,13 +120,40 @@ resource "aws_iam_role_policy" "submitter_invoke" {
 # Component A — Payment Intake API
 # ---------------------------------------------------------------------------
 
+module "console" {
+  source = "../../modules/console_foundation"
+
+  name_prefix      = local.name_prefix
+  site_bucket_name = "${local.name_prefix}-console-${data.aws_caller_identity.current.account_id}"
+}
+
+# Console users' invoke policy lives HERE (not in the console module) to break
+# the console<->api_intake reference cycle. v1.2.0 adds the read-API ARNs.
+data "aws_iam_policy_document" "console_invoke" {
+  statement {
+    sid       = "InvokePaymentIntakeApi"
+    effect    = "Allow"
+    actions   = ["execute-api:Invoke"]
+    resources = ["${module.api_intake.api_execution_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "console_invoke" {
+  name   = "${local.name_prefix}-console-invoke"
+  role   = module.console.authenticated_role_name
+  policy = data.aws_iam_policy_document.console_invoke.json
+}
+
 module "api_intake" {
   source = "../../modules/api_intake_stage"
 
-  name_prefix              = local.name_prefix
-  image_uri                = "${module.ecr["intake"].repository_url}:${var.placeholder_image_tag}"
-  allowed_invoker_role_arn = aws_iam_role.payment_submitter.arn
-  stage                    = var.environment
+  name_prefix = local.name_prefix
+  image_uri   = "${module.ecr["intake"].repository_url}:${var.placeholder_image_tag}"
+  allowed_invoker_role_arns = [
+    aws_iam_role.payment_submitter.arn,
+    module.console.authenticated_role_arn, # Treasury Console users (v1.1.0)
+  ]
+  stage = var.environment
 
   # A→B queue visibility must cover its consumer (B, enrichment).
   output_queue_visibility_timeout = 6 * local.stage_timeouts.enrichment
@@ -172,6 +199,7 @@ locals {
       secrets_arn       = null
       audit_bucket_arn  = null
       audit_kms_key_arn = null
+      reviews_table_arn = null
       env_vars = {
         STAGE            = "enrichment"
         OUTPUT_QUEUE_URL = aws_sqs_queue.enrichment_out.url
@@ -188,6 +216,7 @@ locals {
       secrets_arn       = null
       audit_bucket_arn  = null
       audit_kms_key_arn = null
+      reviews_table_arn = null
       env_vars = {
         STAGE            = "risk_scoring"
         OUTPUT_QUEUE_URL = aws_sqs_queue.risk_scoring_out.url
@@ -206,11 +235,14 @@ locals {
       # Commitment 4: the ONLY stage that writes the audit log (+ its CMK).
       audit_bucket_arn  = module.audit_store.bucket_arn
       audit_kms_key_arn = module.audit_store.kms_key_arn
+      # Console v1.1.0: D also writes the dashboard's reviews table.
+      reviews_table_arn = module.console.reviews_table_arn
       env_vars = {
         STAGE              = "disposition"
         REVIEW_QUEUE_URL   = module.review_queue.queue_url
         AUDIT_BUCKET_NAME  = module.audit_store.bucket_name
         WEBHOOK_SECRET_ARN = aws_secretsmanager_secret.review_webhook.arn
+        REVIEWS_TABLE_NAME = module.console.reviews_table_name
       }
     }
   }
@@ -233,4 +265,5 @@ module "worker" {
   secrets_arn       = each.value.secrets_arn
   audit_bucket_arn  = each.value.audit_bucket_arn
   audit_kms_key_arn = each.value.audit_kms_key_arn
+  reviews_table_arn = each.value.reviews_table_arn
 }

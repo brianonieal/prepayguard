@@ -43,6 +43,25 @@ output "intake_function_name" {
   value       = module.api_intake.function_name
 }
 
+output "console_url" {
+  description = "Treasury Console (CloudFront). Placeholder page until v1.3.0."
+  value       = module.console.console_url
+}
+
+output "console_cognito" {
+  description = "Cognito wiring for the SPA (v1.3.0/v1.4.0)."
+  value = {
+    user_pool_id     = module.console.user_pool_id
+    client_id        = module.console.user_pool_client_id
+    identity_pool_id = module.console.identity_pool_id
+  }
+}
+
+output "reviews_table_name" {
+  description = "Queryable review items (console dashboard source)."
+  value       = module.console.reviews_table_name
+}
+
 output "ecr_repository_urls" {
   description = "Per-component ECR repository URLs, keyed by component."
   value       = { for k, m in module.ecr : k => m.repository_url }

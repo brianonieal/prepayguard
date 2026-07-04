@@ -100,6 +100,12 @@ variable "audit_bucket_arn" {
   default     = null
 }
 
+variable "reviews_table_arn" {
+  description = "Console v1.1.0: ARN of the reviews DynamoDB table Component D writes review items to. Null for every other stage. Controls a conditional IAM statement."
+  type        = string
+  default     = null
+}
+
 variable "audit_kms_key_arn" {
   description = "ARN of the CMK encrypting the audit bucket. Set together with audit_bucket_arn (Component D only): SSE-KMS writes require key usage rights on the writer principal."
   type        = string

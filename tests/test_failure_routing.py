@@ -39,6 +39,28 @@ def test_rejected_payment_is_audited_not_routed(disposition):
     assert len(disposition["s3"].list_objects_v2(Bucket=disposition["bucket"]).get("Contents", [])) == 1
 
 
+def test_review_item_written_to_reviews_table(disposition, monkeypatch):
+    # Console v1.1.0: a review disposition also lands in the queryable reviews
+    # table (status=pending) that the dashboard lists.
+    app = disposition["load"]("component_d_disposition")
+    monkeypatch.setattr(app.urlrequest, "urlopen", lambda *a, **k: None)
+    app.handler(_sqs_event(_scored("p5", "review", score=60)))
+    item = disposition["ddb"].get_item(
+        TableName=disposition["reviews_table"], Key={"payment_id": {"S": "p5"}}
+    ).get("Item")
+    assert item and item["status"]["S"] == "pending"
+    assert item["audit_id"]["S"]
+
+
+def test_approved_payment_not_in_reviews_table(disposition):
+    app = disposition["load"]("component_d_disposition")
+    app.handler(_sqs_event(_scored("p6", "approve")))
+    item = disposition["ddb"].get_item(
+        TableName=disposition["reviews_table"], Key={"payment_id": {"S": "p6"}}
+    ).get("Item")
+    assert item is None
+
+
 def test_processing_failure_is_reported_for_redrive(disposition):
     # A malformed record fails -> reported in batchItemFailures so SQS re-drives
     # it and (after maxReceiveCount) routes it to the DLQ (commitment 2).

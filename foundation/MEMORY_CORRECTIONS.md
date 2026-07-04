@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v1.1.0 estimated=2h actual=0.80h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:18:36Z
 ESTIMATION: gate=v1.0.0 estimated=16h actual=1.50h variance=-91% source=timelog errors_open=0 errors_close=0 date=2026-07-03T23:45:59Z
 ESTIMATION: gate=v0.6.0 estimated=12h actual=0.70h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T23:16:12Z
 ESTIMATION: gate=v0.5.0 estimated=9h actual=0.40h variance=-96% source=timelog errors_open=0 errors_close=0 date=2026-07-03T22:51:56Z
@@ -10,6 +11,31 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v1.1.0 Console Foundation (2026-07-03, Phase 2)
+
+**What went well**
+- Cognito Identity Pool → temp IAM creds → SigV4 cleanly REUSES the DEC-5 auth
+  mechanism for humans (one more named principal in the API resource policy)
+  instead of bolting on a second scheme. The module cycle (console needs API arn,
+  API needs console role) was broken by attaching the invoke policy at env level
+  — PAT-T1's lesson generalized to policies, not just queues.
+- DEC-10 exercised for real: image tag bump → publish → alias repoint to v2, and
+  the live smoke (review payment → reviews-table item) proved the redeploy.
+- checkov console findings: 3 real fixes (explicit security-headers policy with
+  HSTS preload, lifecycle rule, US geo whitelist) + 8 justified skips.
+
+**What bit**
+- CKV2_AWS_32 is a GRAPH check: it needs an actual aws_cloudfront_response_headers_policy
+  resource, not a managed-policy ID string. And CKV_AWS_259 wants HSTS preload=true.
+- The API resource-policy update failed once on IAM propagation for the
+  just-created console role (known first-deploy class) — 45s wait + re-apply fixed.
+- pytest's plan-parsing tests skipped until `terraform init` registered the new
+  module — the skip-guard masking a stale init; re-ran green after init.
+
+**Estimated vs actual**
+Est ~1–2h (loose, first frontend-phase gate) → actual ~0.8h. In range; still no
+UI-code data (that's v1.3.0's calibration point).
 
 ### REFLEXION — v1.0.0 Capstone Deliverable / Full Deploy (2026-07-03)
 

@@ -12,6 +12,7 @@
 | 2026-07-03 | v0.5.0 Queue-Depth Scaling & DLQ Hardening | CLOSED (tagged) | 5–9h / ~0.5h (proj-cal) | ~0.4h | Commitment 3 (config proof via terraform show -json). ALL 4 commitments now done. pytest 29/29. No .tf change. |
 | 2026-07-03 | v0.6.0 CI/CD & Security Scanning | CLOSED (tagged) | 6–12h / ~0.7h (proj-cal) | ~0.7h | DEC-6/8/9/10. Private repo github.com/brianonieal/prepayguard. CI GREEN on Actions (both jobs). ruff+pip-audit clean. Push needed explicit user authorization (publish guardrail). |
 | 2026-07-03 | v1.0.0 Capstone Deliverable / Full Deploy | CLOSED (tagged) — PROJECT COMPLETE | 8–16h / ~1.5h (proj-cal) | ~1.5h | Full live deploy (us-east-2), e2e run demonstrated all 4 commitments LIVE. DEC-11 handoff package (md+docx). 2 deploy-only fixes (OCI manifest, API GW account role). Guardrails handled: publish, blind-apply, external secret write. |
+| 2026-07-03 | v1.1.0 Console Foundation (Phase 2) | CLOSED (tagged) | ~1–2h | ~0.8h | Cognito→IdentityPool→authed role (DEC-5 reuse), CloudFront shell live (d2rbxaf6pqgvb1.cloudfront.net), reviews table, D v1.1.0 redeployed (alias→v2, DEC-10 real). Live smoke: review→table pending. pytest 31/31, checkov 265/0. |
 
 ## SESSIONS
 

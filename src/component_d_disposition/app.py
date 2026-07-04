@@ -27,9 +27,10 @@ import boto3
 _s3 = None
 _sqs = None
 _secrets = None
+_dynamodb = None
 _webhook_url = None
 
-COMPONENT_VERSION = "0.4.0"
+COMPONENT_VERSION = "1.1.0"
 
 
 def _s3_client():
@@ -44,6 +45,13 @@ def _sqs_client():
     if _sqs is None:
         _sqs = boto3.client("sqs")
     return _sqs
+
+
+def _reviews_table():
+    global _dynamodb
+    if _dynamodb is None:
+        _dynamodb = boto3.resource("dynamodb")
+    return _dynamodb.Table(os.environ["REVIEWS_TABLE_NAME"])
 
 
 def _secrets_client():
@@ -112,6 +120,16 @@ def _route_to_review(payment: dict, record: dict) -> None:
             "risk": payment.get("risk"),
         }),
     )
+    # Console (v1.1.0): queryable view for the reviewer dashboard. Ordering per
+    # the gate scope: audit -> queue -> TABLE -> webhook. Item stays PII-light
+    # (ids/score/status only); the full context lives in the audit record.
+    _reviews_table().put_item(Item={
+        "payment_id": payment.get("payment_id"),
+        "audit_id": record["audit_id"],
+        "score": payment.get("risk", {}).get("score", 0),
+        "status": "pending",
+        "received_at": record["audited_at"],
+    })
     body = json.dumps({
         "text": f"Payment {payment.get('payment_id')} routed to human review "
                 f"(score {payment.get('risk', {}).get('score')})",
