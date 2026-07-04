@@ -1,5 +1,22 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.0.0 — Executive Showcase (2026-07-04, Phase 4 · gate 1/3)
+
+**A new "Overview" console tab that tells the PrePayGuard story — mission, how it decides, what it has actually done — with hand-built SVG charts, balanced for a Treasury exec and an academic reviewer, over live data.**
+
+### Backend
+- **console_api** `GET /showcase` (any signed-in reviewer/admin/auditor; submitters are edge-scoped to batch routes): one lean read returning the shared aggregate summary + a **match-type tally** (tin / name_exact / name_fuzzy / name_semantic / none) + one **worked example per disposition** (approve/review/reject). Match-types and examples are derived from a **bounded sample** (`SHOWCASE_SAMPLE=40`) of the most recent audit records, whose full match detail lives only in S3 (audit_index carries disposition, not the reasons); a missing disposition is backfilled from the full index so all three examples always render.
+- Refactored the analytics aggregation into a shared **`_compute_summary()`** so `/analytics` and `/showcase` report identical numbers from one source of truth.
+- **No new IAM** — reuses console_api's existing table scans + audit-object reads. Route rides the existing reviewer/admin `/*` and auditor `*/GET/*` resource-policy grants; no Terraform authz change.
+
+### Frontend (deployed)
+- **Overview** tab (`#/showcase`, gated to `canReview` = reviewer/admin/auditor): sectioned narrative — hero + live stats, an SVG **pipeline-flow diagram**, the approve/review/reject decision model with the harm-asymmetry rationale, live **metrics** (disposition **donut**, hit-rate **gauge**, throughput **timeline**, **match-type bars**), three real **worked examples** with evidence, the semantic + LLM intelligence, and the trust/compliance story. All charts hand-built SVG/CSS — no chart library; page is fully responsive with no horizontal overflow.
+- `api.js` `getShowcase()`; footer → v3.0.0.
+
+### Verified
+- pytest **87/87** (+2), console vitest **26/26** (+2), `vite build` clean, `terraform plan` **0-drift**, CORS guard green (`/showcase` preflight added). Isolated-harness visual check confirmed every chart + grid renders correctly.
+- **LIVE** (us-east-2, all 6 images repointed v2.4.0 → v3.0.0, 12 in-place changes, 0 add/0 destroy): `GET /showcase` → **200**, 178 screened, mix 136/31/11, hit rate 23.6%, match-type tally over the 40-record sample, all three worked examples resolved (approve *Larkspur Rebuild Partners* / review *Acme Shell LLC* name_exact 60 / reject *Delta Regional Workforce Board* tin 95).
+
 ## v2.4.0 — Analytics & Compliance Reporting (2026-07-04, Phase 3 · FINAL)
 
 **Admins and auditors get an oversight dashboard + an auditor export over the immutable audit log. This gate completes the locked roadmap.**

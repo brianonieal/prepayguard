@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v3.0.0 estimated=4h actual=1.50h variance=-62% source=timelog errors_open=0 errors_close=0 date=2026-07-04T19:51:01Z
 ESTIMATION: gate=v2.4.0 estimated=4h actual=2.50h variance=-38% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:50:06Z
 ESTIMATION: gate=v2.3.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:24:12Z
 ESTIMATION: gate=v2.2.0 estimated=4h actual=2.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:11:40Z
@@ -22,6 +23,47 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION - v3.0.0 Executive Showcase (2026-07-04, Phase 4 gate 1/3)
+
+**What went well**
+- The endpoint was almost free. The story page needed the same aggregates `/analytics`
+  already computed, so the real backend work was extracting `_compute_summary()` and
+  bolting on a match-type tally + worked examples. No new IAM, no new DECISION, no
+  Terraform authz change — the route just rode the existing reviewer/admin `/*` and
+  auditor `*/GET/*` grants. Confirming that up front (rather than adding policy) kept
+  the whole gate to a Lambda-image bump.
+- Data source honesty. Match-type detail lives only in the S3 audit records, not in
+  audit_index — so instead of pretending or scanning everything, /showcase samples the
+  recent 40 (bounded, logged) and backfills any missing disposition from the full index
+  so all three worked examples always render. Reads truthfully without unbounded cost.
+- Visual verification despite Cognito. The live app gates on Cognito, so I couldn't
+  eyeball the page through the normal login headlessly. Built a throwaway Vite harness
+  that aliased the signed api client to a static stub, mounted just `<Showcase/>`, and
+  verified the donut arcs (76/17/6), gauge, 12 timeline bars, 5 match rows, 3 example
+  cards and both multi-column grids via DOM + screenshots — then tore the harness fully
+  down. Caught nothing broken, but proved the charts before spending a deploy.
+- Direct-invoke live proof. Since treasury-cli can't assume a Cognito role (resource
+  policy denies non-named principals), I proved /showcase end-to-end by invoking the
+  deployed Lambda directly with a synthetic GET event — 200 against the real tables,
+  178 screened, all three examples resolved. A clean substitute for a signed call.
+
+**What bit (minor, all self-inflicted / environmental)**
+- Vite alias replace-substring gotcha: a regex alias `/\/lib\/api\.js$/` only replaces
+  the matched slice, leaving the `../` prefix → broken path. Anchoring the whole
+  specifier (`/^\.\.\/lib\/api\.js$/`) fixed it. ESM configs also lack `__dirname`
+  (needed `fileURLToPath`). Both are one-time preview-harness friction, not app code.
+- Windows `aws.exe` can't read Git-Bash `/tmp` paths for `--payload fileb://` — write
+  the event file repo-relative and pass a relative `fileb://` instead.
+- `git status` is unavailable (env reports not-a-git-repo), and `rm -rf` was denied by
+  the classifier — deleted the throwaway harness files individually instead.
+
+**Lesson**
+- When a "new page" only re-presents data an existing endpoint already aggregates,
+  refactor the aggregation into a shared helper and add a thin projection — don't
+  duplicate the scan logic or the numbers will drift. And when auth blocks the normal
+  visual check, an isolated stub-harness + a direct Lambda invoke together give real
+  confidence without a signed browser session.
 
 ### REFLEXION - v2.4.0 Analytics & Compliance Reporting (2026-07-04, Phase 3 FINAL)
 

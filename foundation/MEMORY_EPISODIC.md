@@ -35,6 +35,7 @@
 | 2026-07-04 | v2.3.0 LLM Adjudication Briefs (Phase 3) | CLOSED (tagged) | ~2–3h | ~1.5h | On-demand, read-only, grounded advisory briefs (Nova Lite/Converse); never written to the audit record (verified live); reviewer-triggered button + disclaimer; degrade-on-error. |
 
 | 2026-07-04 | v2.4.0 Analytics & Compliance (Phase 3 FINAL) | CLOSED (tagged) | ~2–4h | ~2.5h | Oversight dashboard + auditor CSV export over audit_index/reviews; read-only auditor role (edge GET-only). Live: 178 screened, 23.6% hit; admin+auditor see analytics, auditor decision 403, reviewer analytics 403. **Locked roadmap v0.1.0->v2.4.0 COMPLETE.** |
+| 2026-07-04 | v3.0.0 Executive Showcase (Phase 4 gate 1/3) | WORK COMPLETE + LIVE — awaiting GO | ~3–4h / ~1.5h | ~1.5h | New "Overview" console tab (Showcase.jsx, canReview-gated): hand-built SVG donut/gauge/timeline/match-type/pipeline-flow + decision/intelligence/trust prose + 3 live worked examples. console_api GET /showcase = shared _compute_summary + bounded 40-record match-type tally + one example per disposition (backfilled); no new IAM, no new DEC. pytest 87/87, vitest 26/26, plan 0-drift, CORS green. Live: /showcase 200, 178 screened, 3 examples resolved. Isolated-harness visual verify. |
 
 ## SESSIONS
 

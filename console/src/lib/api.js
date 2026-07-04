@@ -129,6 +129,13 @@ export async function getAuditLog({ disposition, limit = 200 } = {}) {
   return unwrap(await c.fetch(`${config.consoleApi}/audit-log?${qs}`));
 }
 
+// v3.0.0 executive showcase: the narrative Overview tab's single data call
+// (summary + match-type tally + one worked example per disposition, live).
+export async function getShowcase() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/showcase`));
+}
+
 // v1.6.0 bulk review actions: one decision applied to many payments.
 export async function bulkDecide(paymentIds, decision, note = "") {
   const c = await client();

@@ -51,6 +51,17 @@ vi.mock("./lib/api.js", () => {
     putReference: vi.fn(async () => ({ version: 2, entry_count: 2 })),
     listReferenceVersions: async () => ({ versions: [{ version: 1, published_at: "2026-07-04T00:00:00+00:00", size: 500 }] }),
     getReferenceVersion: async () => ({ version: 1, updated_by: "seed", entries: [] }),
+    getShowcase: async () => ({
+      summary: { total_screened: 178, disposition_mix: { approve: 136, review: 31, reject: 11 }, hit_rate: 23.6,
+        throughput: [{ day: "2026-07-04", count: 42 }], queue: { pending: 31, avg_pending_score: 55, oldest_pending: "2026-07-03" }, reviewer_productivity: [] },
+      match_types: { none: 20, tin: 6, name_semantic: 8, name_fuzzy: 4, name_exact: 2 },
+      match_sample_size: 40,
+      examples: {
+        approve: { payment_id: "APP-1", payee: "Clean Vendor LLC", amount: 1200, disposition: "approve", risk_score: 0, reasons: [], matches: [], reference_list_version: 3 },
+        review: { payment_id: "REV-1", payee: "Globex Overseas Incorporated", amount: 48000, disposition: "review", risk_score: 60, reasons: ["name_semantic match"], matches: [{ matched_on: "name_semantic", source: "sam_exclusions", severity: "medium", confidence: 86, similarity: 0.857 }], reference_list_version: 3 },
+        reject: { payment_id: "REJ-1", payee: "Zeta Shell Holdings LLC", amount: 250000, disposition: "reject", risk_score: 95, reasons: ["tin match"], matches: [{ matched_on: "tin", source: "sam_exclusions", severity: "high", confidence: 95 }], reference_list_version: 3 },
+      },
+    }),
   };
 });
 
@@ -276,6 +287,25 @@ test("audit detail cites the reference list version", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Review Queue" }));
   fireEvent.click(await screen.findByRole("button", { name: "Review →" }));
   expect(await screen.findByText(/v3 \(list version screened against\)/)).toBeInTheDocument();
+});
+
+test("Overview showcase renders the live story, charts and worked examples", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Overview" }));
+  expect(await screen.findByText(/payments screened/)).toBeInTheDocument();       // hero live stat
+  expect(screen.getByText("How a payment moves through the pipeline")).toBeInTheDocument();
+  expect(screen.getByText("Three real decisions")).toBeInTheDocument();
+  expect(screen.getByText("Globex Overseas Incorporated")).toBeInTheDocument();   // review example
+  expect(screen.getByText("Zeta Shell Holdings LLC")).toBeInTheDocument();        // reject example
+});
+
+test("submitter role does not see the Overview tab", async () => {
+  currentGroups.mockResolvedValue(["submitter"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Submit Payment" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Overview" })).toBeNull();
 });
 
 test("review queue multi-select applies a bulk decision", async () => {

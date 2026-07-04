@@ -7,6 +7,7 @@ import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
 import ReferenceData from "./screens/ReferenceData.jsx";
 import Analytics from "./screens/Analytics.jsx";
+import Showcase from "./screens/Showcase.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
 
@@ -62,7 +63,8 @@ export default function App() {
     if (!user || !role) return;
     const r = parts[0];
     if ((r === "submit" && !canSubmit) || (r === "reviews" && !canReview) ||
-        (r === "reference" && !isAdmin) || (r === "analytics" && !canAnalytics)) {
+        (r === "reference" && !isAdmin) || (r === "analytics" && !canAnalytics) ||
+        (r === "showcase" && !canReview)) {
       nav(landing);
     }
   }, [user, role, parts]); // eslint-disable-line
@@ -97,6 +99,9 @@ export default function App() {
         {canReview && (
           <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
         )}
+        {canReview && (
+          <button className={route === "showcase" ? "on" : ""} onClick={() => nav("#/showcase")}>Overview</button>
+        )}
         {canAnalytics && (
           <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Analytics</button>
         )}
@@ -105,6 +110,7 @@ export default function App() {
         )}
       </nav>
       <main className="content">
+        {route === "showcase" && canReview && <Showcase />}
         {route === "submit" && canSubmit && <Submit />}
         {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} canDecide={canDecide} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
@@ -114,7 +120,7 @@ export default function App() {
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v2.4.0</span>
+        <span>Treasury Console · v3.0.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

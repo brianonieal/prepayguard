@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "2.4.0"
+COMPONENT_VERSION = "3.0.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
 REFERENCE_KEY = "reference/current.json"
 VALID_SEVERITIES = {"high", "medium", "low"}
@@ -503,12 +503,11 @@ def _scan_all(table, cap=10000):
     return items
 
 
-def _analytics(event) -> dict:
-    if not _is_admin_or_auditor(event):
-        return _response(403, {"error": "admin_or_auditor_only"})
-    # Disposition mix + throughput come from audit_index (one row per EVERY
-    # disposition since v1.5.0). Scan-based - fine at course scale; a materialized
-    # rollup is the follow-on for production volumes.
+def _compute_summary() -> dict:
+    """Pipeline-wide aggregate (mix / hit-rate / throughput / queue / reviewer
+    productivity) over audit_index + reviews. Shared by /analytics and /showcase
+    so both report identical numbers. Scan-based - fine at course scale; a
+    materialized rollup is the follow-on for production volumes."""
     index_items = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
     mix = {"approve": 0, "review": 0, "reject": 0}
     by_day = {}
@@ -534,12 +533,18 @@ def _analytics(event) -> dict:
             reviewers[r["decided_by"]] = reviewers.get(r["decided_by"], 0) + 1
     productivity = sorted(({"reviewer": k, "decisions": v} for k, v in reviewers.items()),
                           key=lambda x: -x["decisions"])
-    return _response(200, {
+    return {
         "total_screened": total, "disposition_mix": mix, "hit_rate": hit_rate,
         "throughput": throughput,
         "queue": {"pending": len(pending), "avg_pending_score": avg_score, "oldest_pending": oldest},
         "reviewer_productivity": productivity,
-    })
+    }
+
+
+def _analytics(event) -> dict:
+    if not _is_admin_or_auditor(event):
+        return _response(403, {"error": "admin_or_auditor_only"})
+    return _response(200, _compute_summary())
 
 
 def _audit_log(event) -> dict:
@@ -558,6 +563,88 @@ def _audit_log(event) -> dict:
     rows = [{"payment_id": i.get("payment_id"), "disposition": i.get("disposition"),
              "audited_at": i.get("audited_at"), "key": i.get("audit_key")} for i in items[:limit]]
     return _response(200, {"entries": rows, "count": len(rows), "truncated": len(items) > limit})
+
+
+# --- v3.0.0: executive showcase (the narrative "Overview" tab) -----------------
+# One lean read that feeds the whole story page: the shared summary, a match-type
+# tally, and one real worked example per disposition. Match-types + examples come
+# from the FULL match detail, which lives only in the S3 audit records (audit_index
+# carries disposition, not the match reasons) - so we sample the most recent N and
+# read those records. Bounded on purpose; visible to reviewer/admin/auditor (the
+# edge already blocks submitters from non-batch console routes).
+
+SHOWCASE_SAMPLE = 40
+
+
+def _primary_match_type(record: dict) -> str:
+    matches = (record.get("evidence") or {}).get("matches") or []
+    if not matches:
+        return "none"
+    top = max(matches, key=lambda m: m.get("confidence", 0))
+    return top.get("matched_on") or "none"
+
+
+def _example(record: dict) -> dict:
+    dec = record.get("decision") or {}
+    pay = record.get("payment") or {}
+    matches = (record.get("evidence") or {}).get("matches") or []
+    return {
+        "payment_id": record.get("payment_id"),
+        "payee": pay.get("payee"),
+        "amount": pay.get("amount"),
+        "disposition": dec.get("disposition"),
+        "risk_score": dec.get("risk_score"),
+        "reasons": dec.get("reasons", []),
+        "matches": [{"matched_on": m.get("matched_on"), "source": m.get("source"),
+                     "severity": m.get("severity"), "confidence": m.get("confidence"),
+                     "similarity": m.get("similarity")} for m in matches],
+        "reference_list_version": (record.get("provenance") or {}).get("reference_list_version"),
+    }
+
+
+def _load_audit_record(key: str) -> dict:
+    body = _s3_client().get_object(Bucket=os.environ["AUDIT_BUCKET_NAME"], Key=key)["Body"].read()
+    return json.loads(body)
+
+
+def _showcase(event) -> dict:
+    summary = _compute_summary()
+    index = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
+    index.sort(key=lambda i: str(i.get("audited_at", "")), reverse=True)
+
+    match_types, examples = {}, {}
+    for it in index[:SHOWCASE_SAMPLE]:
+        key = it.get("audit_key")
+        if not key:
+            continue
+        try:
+            rec = _load_audit_record(key)
+        except ClientError:
+            continue
+        mt = _primary_match_type(rec)
+        match_types[mt] = match_types.get(mt, 0) + 1
+        disp = (rec.get("decision") or {}).get("disposition")
+        if disp in ("approve", "review", "reject") and disp not in examples:
+            examples[disp] = _example(rec)
+
+    # If a disposition never appeared in the recent sample (e.g. rejects are rare),
+    # backfill one from the full index so all three worked examples always render.
+    for disp in ("approve", "review", "reject"):
+        if disp in examples:
+            continue
+        hit = next((i for i in index if i.get("disposition") == disp and i.get("audit_key")), None)
+        if hit:
+            try:
+                examples[disp] = _example(_load_audit_record(hit["audit_key"]))
+            except ClientError:
+                pass
+
+    return _response(200, {
+        "summary": summary,
+        "match_types": match_types,
+        "match_sample_size": min(len(index), SHOWCASE_SAMPLE),
+        "examples": examples,
+    })
 
 
 def handler(event, context=None):
@@ -597,6 +684,9 @@ def handler(event, context=None):
             return _analytics(event)
         if method == "GET" and parts == ["audit-log"]:
             return _audit_log(event)
+        # Executive showcase (v3.0.0, any signed-in reviewer/admin/auditor)
+        if method == "GET" and parts == ["showcase"]:
+            return _showcase(event)
         # Batch ingestion (v1.6.0)
         if method == "POST" and parts == ["batches"]:
             return _presign_batch(json.loads(event.get("body") or "{}"))

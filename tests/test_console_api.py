@@ -434,3 +434,56 @@ def test_bulk_decide_respects_sod(console_api):
     by_id = {r["payment_id"]: r for r in body["results"]}
     assert by_id["theirs"]["ok"] is True
     assert by_id["mine"]["ok"] is False and by_id["mine"]["error"] == "segregation_of_duties"
+
+
+# --- v3.0.0 executive showcase ---
+
+def _seed_showcase(console_api):
+    """Seed audit_index rows + their full S3 audit records (with evidence), one
+    per disposition, so /showcase can tally match-types and build worked examples."""
+    idx, s3, bucket = console_api["index"], console_api["s3"], console_api["bucket"]
+    recs = [
+        ("s-app", "approve", "2026-07-01", [], 0, "Clean Vendor LLC", "1200.00"),
+        ("s-rev", "review", "2026-07-02",
+         [{"matched_on": "name_semantic", "source": "sam_exclusions", "severity": "medium",
+           "confidence": 86, "similarity": 0.857}], 60, "Globex Overseas Incorporated", "48000.00"),
+        ("s-rej", "reject", "2026-07-03",
+         [{"matched_on": "tin", "source": "sam_exclusions", "severity": "high", "confidence": 95}],
+         95, "Acme Shell LLC", "250000.00"),
+    ]
+    for pid, disp, day, matches, score, payee, amount in recs:
+        key = f"audit/{day.replace('-', '/')}/{pid}-aud.json"
+        idx.put_item(Item={"payment_id": pid, "audit_key": key, "disposition": disp,
+                           "audited_at": f"{day}T10:00:00+00:00"})
+        s3.put_object(Bucket=bucket, Key=key, Body=json.dumps({
+            "payment_id": pid,
+            "decision": {"disposition": disp, "risk_score": score, "reasons": [f"{disp} path"]},
+            "evidence": {"matches": matches, "match_count": len(matches)},
+            "payment": {"payee": payee, "amount": amount},
+            "provenance": {"reference_list_version": 3},
+        }).encode())
+
+
+def test_showcase_returns_summary_matchtypes_and_examples(console_api):
+    _seed_showcase(console_api)
+    body = json.loads(console_api["app"].handler(_event("GET", "/showcase", caller=REV))["body"])
+    # shared summary (same computation as /analytics)
+    assert body["summary"]["total_screened"] == 3
+    assert body["summary"]["disposition_mix"] == {"approve": 1, "review": 1, "reject": 1}
+    # match-type tally, derived from the sampled S3 records' evidence
+    assert body["match_types"]["none"] == 1
+    assert body["match_types"]["name_semantic"] == 1
+    assert body["match_types"]["tin"] == 1
+    # one worked example per disposition, evidence preserved
+    ex = body["examples"]
+    assert ex["approve"]["payee"] == "Clean Vendor LLC" and ex["approve"]["matches"] == []
+    assert ex["review"]["matches"][0]["matched_on"] == "name_semantic"
+    assert ex["review"]["matches"][0]["similarity"] == 0.857
+    assert ex["reject"]["disposition"] == "reject" and ex["reject"]["risk_score"] == 95
+    assert ex["reject"]["reference_list_version"] == 3
+
+
+def test_showcase_visible_to_reviewer_admin_and_auditor(console_api):
+    _seed_showcase(console_api)
+    for caller in (ADMIN, AUDITOR, REV):
+        assert console_api["app"].handler(_event("GET", "/showcase", caller=caller))["statusCode"] == 200

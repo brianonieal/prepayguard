@@ -26,6 +26,7 @@ CASES = [
     ("console GET  /reference", "GET", f"{CONSOLE}/reference"),
     ("console PUT  /reference", "PUT", f"{CONSOLE}/reference"),
     ("console GET  /audit/x", "GET", f"{CONSOLE}/audit/x"),
+    ("console GET  /showcase", "GET", f"{CONSOLE}/showcase"),
 ]
 
 

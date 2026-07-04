@@ -1,6 +1,23 @@
 # SPEC.md
 # Current-gate detail.
 
+## v3.0.0 — Executive Showcase (2026-07-04, live) · Phase 4 gate 1/3
+A new "Overview" console tab that tells the PrePayGuard story to an exec + a professor, over live data.
+
+- **console_api** `GET /showcase` (reviewer/admin/auditor; submitters edge-blocked):
+  shared `_compute_summary()` (same aggregate as `/analytics`) + a **match-type tally**
+  and **one worked example per disposition**, both from a bounded 40-record sample of
+  recent audit records (full match detail lives in S3, not audit_index); missing
+  dispositions backfilled from the full index. No new IAM; rides existing GET grants.
+- **Console**: `Showcase.jsx` Overview tab — hero + live stats, SVG pipeline-flow
+  diagram, decision-model explainer (harm-asymmetry), live metrics (donut / gauge /
+  timeline / match-type bars, all hand-built SVG), three real worked examples,
+  semantic + LLM section, trust/compliance section. Gated to `canReview`.
+- Verified: pytest 87/87, vitest 26/26, build clean, plan 0-drift, CORS green;
+  **LIVE**: /showcase 200, 178 screened / 23.6% hit, 3 worked examples resolved
+  (approve/review name_exact 60/reject tin 95). All 6 images repointed → v3.0.0.
+- No new DECISION (read-only endpoint + UI).
+
 ## v2.4.0 — Analytics & Compliance Reporting (2026-07-04, live) · Phase 3 gate 5/5 · FINAL
 Oversight dashboard + auditor export; the locked roadmap is complete.
 
@@ -126,11 +143,12 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **🏁 The locked roadmap (v0.1.0 → v2.4.0) is COMPLETE.** A live, AI-augmented,
-  role-secured, fully-audited pre-payment integrity platform. No gate is pending.
-- Anything further (real reference-data feeds, materialized analytics, custom
-  domain, multi-region, production hardening) is a new **Phase 4** — re-run
-  BUILD APPROVED.
+- **Phase 4 "Showcase & Demo Readiness" is IN PROGRESS** (BUILD APPROVED 2026-07-04).
+  - v3.0.0 Executive Showcase — **DONE + LIVE**.
+  - v3.1.0 Demo Controls (admin-only "Clear data" in Settings) — **NEXT**.
+  - v3.2.0 Console Depth (real Profile + Settings) — pending.
+- The locked roadmap v0.1.0 → v2.4.0 remains complete underneath; Phase 4 adds the
+  demo/showcase layer on top. (Optional v3.3.0 Notifications deferred.)
 - **Teardown** available anytime (audit bucket stays under Object Lock).
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
