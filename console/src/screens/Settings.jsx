@@ -52,8 +52,8 @@ export default function Settings({ settings, onChange, isAdmin }) {
         <div className="panel danger-panel" style={{ maxWidth: 640, marginTop: 14 }}>
           <h3>Demo controls</h3>
           <p className="setdesc" style={{ marginBottom: 12 }}>
-            Clears the working data — the review queue, audit index, batch summaries, and
-            idempotency store — so a demo starts from zero. The immutable audit records in
+            Clears the working data (the review queue, audit index, batch summaries, and
+            idempotency store) so a demo starts from zero. The immutable audit records in
             S3 Object Lock are <b>not</b> affected: the dashboards read empty, but every
             historical disposition stays permanently locked in the audit bucket.
           </p>
@@ -72,7 +72,7 @@ export default function Settings({ settings, onChange, isAdmin }) {
           </div>
           {reset && reset !== "working" && !reset.error && (
             <div className="verdict ok" data-testid="reset-result">
-              Cleared {reset.total} records. Dashboards now read zero — the immutable audit is untouched.
+              Cleared {reset.total} records. Dashboards now read zero. The immutable audit is untouched.
             </div>
           )}
           {reset?.error && <div className="verdict bad">Reset failed: {reset.error}</div>}

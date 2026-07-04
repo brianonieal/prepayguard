@@ -38,8 +38,8 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
   const q = query.trim().toLowerCase();
   const rows = items.filter((r) => !q || `${r.payment_id} ${r.payee || ""}`.toLowerCase().includes(q));
   const pend = items.filter((r) => r.status === "pending");
-  const avg = pend.length ? Math.round(pend.reduce((s, r) => s + Number(r.score), 0) / pend.length) : "—";
-  const oldest = pend.length ? AGE(pend.map((r) => r.received_at).sort()[0]) : "—";
+  const avg = pend.length ? Math.round(pend.reduce((s, r) => s + Number(r.score), 0) / pend.length) : "-";
+  const oldest = pend.length ? AGE(pend.map((r) => r.received_at).sort()[0]) : "-";
 
   const selectablePending = rows.filter((r) => r.status === "pending");
   const toggle = (id) => setSelected((prev) => {
@@ -120,8 +120,8 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
                   )}
                 </td>
                 <td className="mono">{r.payment_id}</td>
-                <td>{r.payee || "—"}</td>
-                <td>{r.match || "—"}</td>
+                <td>{r.payee || "-"}</td>
+                <td>{r.match || "-"}</td>
                 <td><span className="score s-mid">{r.score}</span></td>
                 <td>{AGE(r.received_at)}</td>
                 <td><span className={`pill p-${r.status}`}>{r.status}</span></td>

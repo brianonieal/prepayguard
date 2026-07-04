@@ -122,7 +122,7 @@ export default function App() {
       <footer className="foot">
         <span>Treasury Console · v3.2.0</span>
         <span>DEV · us-east-2</span>
-        <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
+        <span>Records are immutably audited · S3 Object Lock (COMPLIANCE)</span>
       </footer>
     </div>
   );

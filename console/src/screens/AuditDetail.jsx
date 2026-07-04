@@ -71,7 +71,7 @@ export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
             <h3>Screening evidence</h3>
             {record.evidence.matches.map((m, i) => (
               <div className="matchcard" key={i}>
-                <b>{m.matched_on.replace("_", " ")} match</b> — {m.source}{" "}
+                <b>{m.matched_on.replace("_", " ")} match</b> on {m.source}{" "}
                 <span style={{ color: "#6b6455" }}>
                   (severity {m.severity}, confidence {m.confidence}{m.similarity != null ? `, similarity ${m.similarity}` : ""})
                 </span>
@@ -128,7 +128,7 @@ export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
               </div>
               <div className="note" style={{ maxWidth: "none", marginTop: 14 }}>
                 Your decision writes an immutable, integrity-hashed audit record before the status
-                changes. Decisions cannot be edited — a reversal is a new audited decision.
+                changes. Decisions cannot be edited. A reversal is a new audited decision.
               </div>
             </div>
           )}
@@ -166,7 +166,7 @@ export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
             </div>
             {verify && (
               <div className={`verdict ${verify.ok ? "ok" : "bad"}`}>
-                {verify.ok ? "✓ integrity verified — recomputed hash matches" : "✗ integrity FAILED — record was altered"}
+                {verify.ok ? "✓ integrity verified: recomputed hash matches" : "✗ integrity FAILED: record was altered"}
                 <div className="hashbox" style={{ marginTop: 6 }}>recomputed: {verify.recomputed}</div>
               </div>
             )}

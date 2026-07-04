@@ -32,7 +32,7 @@ export default function Login({ onSignedIn }) {
     try {
       const res = await confirmTotpSignIn(code.trim());
       if (res?.isSignedIn) await finish();
-      else setErr("Code not accepted — try again");
+      else setErr("Code not accepted. Try again.");
     } catch (ex) {
       setErr(ex?.message || "Invalid code");
     } finally {

@@ -341,8 +341,8 @@ test("Overview showcase renders the live story, charts and worked examples", asy
   render(<App />);
   await signIn();
   fireEvent.click(await screen.findByRole("button", { name: "Overview" }));
-  expect(await screen.findByText(/payments screened/)).toBeInTheDocument();       // hero live stat
-  expect(screen.getByText("How a payment moves through the pipeline")).toBeInTheDocument();
+  expect(await screen.findByText(/payments checked/)).toBeInTheDocument();       // hero live stat
+  expect(screen.getByText("How a payment moves through the system")).toBeInTheDocument();
   expect(screen.getByText("Three real decisions")).toBeInTheDocument();
   expect(screen.getByText("Globex Overseas Incorporated")).toBeInTheDocument();   // review example
   expect(screen.getByText("Zeta Shell Holdings LLC")).toBeInTheDocument();        // reject example

@@ -56,7 +56,7 @@ export default function ReferenceData() {
       <div className="stats">
         <div className="stat"><div className="k">Active version</div><div className="v">v{doc.version}</div><div className="d">what enrichment screens against</div></div>
         <div className="stat"><div className="k">Entries</div><div className="v">{entries.length}</div><div className="d">{doc.entries.length} published{dirty ? " · unpublished edits" : ""}</div></div>
-        <div className="stat"><div className="k">Last published</div><div className="v" style={{ fontSize: 15 }}>{(doc.updated_at || "").slice(0, 10) || "—"}</div><div className="d mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{doc.updated_by}</div></div>
+        <div className="stat"><div className="k">Last published</div><div className="v" style={{ fontSize: 15 }}>{(doc.updated_at || "").slice(0, 10) || "-"}</div><div className="d mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{doc.updated_by}</div></div>
       </div>
 
       {msg && <div className="result-ok" style={{ marginTop: 0 }}>{msg}</div>}
@@ -116,7 +116,7 @@ export default function ReferenceData() {
                 <thead><tr><th>Name</th><th>TIN</th><th>Source</th><th>Sev</th></tr></thead>
                 <tbody>
                   {viewing.entries.map((e, i) => (
-                    <tr key={i}><td>{e.name}</td><td className="mono">{e.tin || "—"}</td><td>{e.source}</td><td>{e.severity}</td></tr>
+                    <tr key={i}><td>{e.name}</td><td className="mono">{e.tin || "-"}</td><td>{e.source}</td><td>{e.severity}</td></tr>
                   ))}
                 </tbody>
               </table>

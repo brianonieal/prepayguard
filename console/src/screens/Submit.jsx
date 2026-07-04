@@ -44,7 +44,7 @@ export default function Submit() {
         if (s.status === "complete") { setBatchState(s); return; }
         await sleep(1500);
       }
-      setBatchState({ error: "Still processing — check the review queue shortly." });
+      setBatchState({ error: "Still processing. Check the review queue shortly." });
     } catch (ex) {
       setBatchState({ error: ex?.message || "batch upload failed" });
     }
@@ -72,7 +72,7 @@ export default function Submit() {
       <h2>Submit payments for screening</h2>
       <div className="sub">
         Screened against Do-Not-Pay reference sources before disbursement. Duplicates replay the
-        original result (idempotent) — resubmitting a file is safe.
+        original result (idempotent), so resubmitting a file is safe.
       </div>
 
       <div className="dropzone" onClick={() => fileRef.current.click()}
@@ -80,7 +80,7 @@ export default function Submit() {
         onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files[0]); }}>
         <input ref={fileRef} type="file" data-testid="csv-input"
           onChange={(e) => onFile(e.target.files[0])} />
-        <b>Upload a batch payment file</b> — drag CSV, Excel, or JSON here or click to browse
+        <b>Upload a batch payment file.</b> Drag CSV, Excel, or JSON here or click to browse
         <div style={{ fontSize: 12, marginTop: 4 }}>
           fields: <span className="mono">payment_id, payee, payee_tin (optional), amount</span> · other file types are reported, not screened
         </div>
@@ -91,9 +91,9 @@ export default function Submit() {
           <div className="sub" style={{ marginBottom: 8 }}>
             <b>{batch.name}</b>
             {batch.preview
-              ? <> — {batch.rows.length} payment{batch.rows.length === 1 ? "" : "s"} parsed
+              ? <> · {batch.rows.length} payment{batch.rows.length === 1 ? "" : "s"} parsed
                 {batch.errors.length > 0 && <span style={{ color: "var(--red)" }}> · {batch.errors.length} skipped</span>}</>
-              : <> — parsed server-side on upload</>}
+              : <> · parsed server-side on upload</>}
           </div>
 
           {batch.preview && batch.rows.length > 0 && (
@@ -103,7 +103,7 @@ export default function Submit() {
                 {batch.rows.slice(0, 100).map((r) => (
                   <tr key={r.payment_id}>
                     <td className="mono">{r.payment_id}</td><td>{r.payee}</td>
-                    <td className="mono">{r.payee_tin || "—"}</td><td>${r.amount.toFixed(2)}</td>
+                    <td className="mono">{r.payee_tin || "-"}</td><td>${r.amount.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -162,11 +162,11 @@ export default function Submit() {
       {result && (
         <div className="result-ok">
           <b>Queued.</b> <span className="mono">message_id {result.message_id}</span>
-          {result.idempotent_replay && " (idempotent replay — already screened)"} — flagged payments appear in the Review Queue.
+          {result.idempotent_replay && " (idempotent replay, already screened)"}. Flagged payments appear in the Review Queue.
         </div>
       )}
       <div className="note">
-        Batch files upload once and are ingested server-side (Component E) — the same payment-ID
+        Batch files upload once and are ingested server-side (Component E). The same payment-ID
         idempotency applies, so a payment in both a file and a single submit is screened once.
       </div>
     </div>

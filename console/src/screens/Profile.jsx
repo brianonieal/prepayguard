@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { currentProfile, mfaPreference, changePassword, startTotpSetup, confirmTotpSetup, disableTotp } from "../lib/auth.js";
 
-const fmt = (d) => (d ? d.toLocaleString() : "—");
+const fmt = (d) => (d ? d.toLocaleString() : "-");
 
 export default function Profile({ email, role }) {
   const [p, setP] = useState(null);
@@ -168,7 +168,7 @@ export default function Profile({ email, role }) {
           <div className="panel">
             <h3>Account</h3>
             <dl>
-              <dt>Cognito sub</dt><dd className="mono">{prof.sub || "—"}</dd>
+              <dt>Cognito sub</dt><dd className="mono">{prof.sub || "-"}</dd>
               <dt>Role</dt><dd>{roleLabel}</dd>
               <dt>Signed in</dt><dd>{fmt(prof.authTime)}</dd>
               <dt>Token issued</dt><dd>{fmt(prof.issuedAt)}</dd>

@@ -19,7 +19,7 @@ export async function sha256Hex(text) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Hash of the record excluding its own `integrity` block — matches the
+// Hash of the record excluding its own `integrity` block, matches the
 // pipeline's "all fields except integrity, sorted-key compact JSON".
 export async function hashRecord(record) {
   const { integrity: _omit, ...rest } = record;

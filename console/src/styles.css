@@ -228,7 +228,8 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
   .sc-metrics,.sc-decision-grid,.sc-examples,.sc-two,.sc-trust{grid-template-columns:1fr}
   .sc-hero h1{font-size:32px}
 }
-/* v3.1.0 demo controls — danger zone panel */
+/* v3.1.0 demo controls, danger zone panel */
 .danger-panel{border-top:3px solid var(--red)}
 .danger-panel h3{color:var(--red)}
 .danger-panel code{background:#f3dcda;color:var(--red);padding:1px 6px;border-radius:4px;font:600 12px var(--mono)}
+.sc-dex{font-size:12px;color:#8a8272;font-style:italic;margin-top:6px}

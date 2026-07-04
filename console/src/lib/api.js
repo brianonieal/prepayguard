@@ -67,7 +67,7 @@ export async function presignAttachment(paymentId, filename, contentType) {
   }));
 }
 
-// Direct PUT to the presigned S3 URL — already authorized, no signing.
+// Direct PUT to the presigned S3 URL, already authorized, no signing.
 export async function uploadFile(url, file) {
   const r = await fetch(url, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
   if (!r.ok) throw new Error(`upload ${r.status}`);
