@@ -19,6 +19,12 @@ variable "stage" {
   default     = "dev"
 }
 
+variable "console_origin" {
+  description = "SPA origin (CloudFront URL) for CORS on the intake endpoint (v1.4.0)."
+  type        = string
+  default     = "*"
+}
+
 variable "memory_size" {
   description = "Lambda memory (MB)."
   type        = number

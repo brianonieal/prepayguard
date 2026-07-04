@@ -22,7 +22,7 @@ import boto3
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "1.2.0"
+COMPONENT_VERSION = "1.4.0"
 
 
 def _table():
@@ -79,6 +79,33 @@ def _get_audit(payment_id: str) -> dict:
         return _response(404, {"error": "audit_record_not_found", "payment_id": payment_id})
     body = _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read()
     return _response(200, {"key": key, "record": json.loads(body)})
+
+
+def _list_attachments(payment_id: str) -> dict:
+    bucket = os.environ["UPLOADS_BUCKET_NAME"]
+    prefix = f"cases/{payment_id}/"
+    objs = _s3_client().list_objects_v2(Bucket=bucket, Prefix=prefix).get("Contents", [])
+    files = [{
+        "name": o["Key"].split("/")[-1],
+        "key": o["Key"],
+        "size": o["Size"],
+        "uploaded_at": o["LastModified"].isoformat(),
+    } for o in objs]
+    return _response(200, {"attachments": files, "count": len(files)})
+
+
+def _presign_attachment(payment_id: str, body: dict) -> dict:
+    filename = (body.get("filename") or "").strip()
+    if not filename or "/" in filename or ".." in filename:
+        return _response(400, {"error": "invalid filename"})
+    bucket = os.environ["UPLOADS_BUCKET_NAME"]
+    key = f"cases/{payment_id}/{filename}"
+    url = _s3_client().generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket, "Key": key, "ContentType": body.get("content_type", "application/octet-stream")},
+        ExpiresIn=300,
+    )
+    return _response(200, {"upload_url": url, "key": key})
 
 
 def _decide(payment_id: str, body: dict, caller_arn: str) -> dict:
@@ -140,6 +167,10 @@ def handler(event, context=None):
             body = json.loads(event.get("body") or "{}")
             caller = event.get("requestContext", {}).get("identity", {}).get("userArn", "unknown")
             return _decide(parts[1], body, caller)
+        if method == "GET" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "attachments":
+            return _list_attachments(parts[1])
+        if method == "POST" and len(parts) == 3 and parts[0] == "reviews" and parts[2] == "attachments":
+            return _presign_attachment(parts[1], json.loads(event.get("body") or "{}"))
         return _response(404, {"error": "no_such_route", "method": method, "path": path})
     except json.JSONDecodeError:
         return _response(400, {"error": "invalid_json_body"})

@@ -14,4 +14,4 @@ aws_region = "us-east-2"
 # ============================================================================
 audit_retention_days = 1
 
-placeholder_image_tag = "v1.1.0" # current deployed image tag (immutable tags; bump per release — DEC-10 publishes a new version + repoints the alias)
+placeholder_image_tag = "v1.4.1" # current deployed image tag (immutable tags; bump per release — DEC-10 publishes a new version + repoints the alias)

@@ -149,3 +149,34 @@ D audit   → audit record { schema_version, audit_id, payment_id, audited_at,
 - **D:** audit-first (authoritative) then route; `integrity.sha256` is computed
   over all record fields except `integrity` (sorted-key compact JSON).
 
+## 8. Treasury Console (Phase 2 — v1.1.0–v1.4.0)
+
+A React/Vite SPA on **S3 + CloudFront** — the human surface over the pipeline.
+
+```
+Browser SPA (CloudFront)
+  └─ Cognito User Pool (SRP login) → Identity Pool → temp IAM creds (DEC-15)
+       ├─ SigV4 → intake API  POST /payments            (submit form + batch CSV)
+       └─ SigV4 → console API  (console role only):
+            GET  /reviews                       list the reviews DynamoDB table
+            GET  /audit/{payment_id}            fetch the Object Lock audit record
+            POST /reviews/{id}/decision         reviewer approve/reject (+ its own audit record)
+            GET/POST /reviews/{id}/attachments  presigned S3 case-document uploads
+```
+
+- **Reviews table:** Component D writes a queryable review item (payee, match,
+  score, status) alongside the SQS hand-off, so the dashboard can list without
+  scanning S3. SQS stays the durable path.
+- **Reviewer decisions are audited:** each approve/reject writes an integrity-
+  hashed decision record to the same Object Lock bucket — the compliance story
+  extends to human actions.
+- **Client-side integrity verify:** the browser recomputes the audit record's
+  SHA-256 and compares to the stored hash (✓/✗), making immutability clickable.
+- **Auth (DEC-5 reuse, DEC-15):** every call is AWS_IAM/SigV4 — same mechanism as
+  the machine endpoints, no second authorizer.
+- **Known unknown:** JS↔Python canonicalization for hash-verify (float/unicode) —
+  demo uses integer amounts; production hardening in v1.5.0 (noted).
+- **Scale note:** reviews `Scan` + audit S3 prefix-scan are course-scale; bulk
+  hardening (pagination, `payment_id` audit index, S3 batch ingestion, bulk
+  actions) is the deferred v1.5.0 gate.
+

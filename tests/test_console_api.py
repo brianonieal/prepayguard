@@ -23,8 +23,11 @@ def console_api(monkeypatch):
         bucket = "treasury-dev-audit-test"
         s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": REGION})
 
+        uploads = "treasury-dev-console-uploads-test"
+        s3.create_bucket(Bucket=uploads, CreateBucketConfiguration={"LocationConstraint": REGION})
         monkeypatch.setenv("REVIEWS_TABLE_NAME", "treasury-dev-reviews")
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
+        monkeypatch.setenv("UPLOADS_BUCKET_NAME", uploads)
         monkeypatch.setenv("CONSOLE_ORIGIN", "https://console.example.test")
 
         table.put_item(Item={
@@ -37,7 +40,7 @@ def console_api(monkeypatch):
             Body=json.dumps({"audit_id": "a-111", "payment_id": "r1",
                              "decision": {"disposition": "review"}}).encode(),
         )
-        yield {"app": _load("console_api"), "table": table, "s3": s3, "bucket": bucket}
+        yield {"app": _load("console_api"), "table": table, "s3": s3, "bucket": bucket, "uploads": uploads}
 
 
 def _event(method, path, body=None, caller="arn:aws:sts::1:assumed-role/console-authenticated/brian"):
@@ -91,3 +94,25 @@ def test_invalid_decision_400(console_api):
     resp = console_api["app"].handler(
         _event("POST", "/reviews/r1/decision", body={"decision": "maybe"}))
     assert resp["statusCode"] == 400
+
+
+def test_presign_attachment_returns_upload_url(console_api):
+    resp = console_api["app"].handler(
+        _event("POST", "/reviews/r1/attachments", body={"filename": "evidence.pdf", "content_type": "application/pdf"}))
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 200
+    assert body["key"] == "cases/r1/evidence.pdf"
+    assert "X-Amz-Signature" in body["upload_url"]
+
+
+def test_presign_rejects_bad_filename(console_api):
+    resp = console_api["app"].handler(
+        _event("POST", "/reviews/r1/attachments", body={"filename": "../../etc/passwd"}))
+    assert resp["statusCode"] == 400
+
+
+def test_list_attachments(console_api):
+    console_api["s3"].put_object(Bucket=console_api["uploads"], Key="cases/r1/note.pdf", Body=b"x")
+    resp = console_api["app"].handler(_event("GET", "/reviews/r1/attachments"))
+    body = json.loads(resp["body"])
+    assert body["count"] == 1 and body["attachments"][0]["name"] == "note.pdf"

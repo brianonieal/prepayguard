@@ -46,7 +46,12 @@ def _sqs_client():
 def _response(status_code: int, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            # CORS for the browser console (v1.4.0); SigV4 requests aren't
+            # cookie-credentialed, so echoing the configured origin is sufficient.
+            "Access-Control-Allow-Origin": os.environ.get("CONSOLE_ORIGIN", "*"),
+        },
         "body": json.dumps(payload),
     }
 

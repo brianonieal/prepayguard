@@ -71,6 +71,14 @@ data "aws_iam_policy_document" "api" {
     resources = [var.audit_kms_key_arn]
   }
 
+  # Case-document uploads (v1.4.0): presign PUT + list/get.
+  statement {
+    sid       = "CaseUploads"
+    effect    = "Allow"
+    actions   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+    resources = [aws_s3_bucket.uploads.arn, "${aws_s3_bucket.uploads.arn}/*"]
+  }
+
   statement {
     sid       = "XRayTracing"
     effect    = "Allow"
@@ -115,9 +123,10 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      REVIEWS_TABLE_NAME = var.reviews_table_name
-      AUDIT_BUCKET_NAME  = var.audit_bucket_name
-      CONSOLE_ORIGIN     = var.console_origin
+      REVIEWS_TABLE_NAME  = var.reviews_table_name
+      AUDIT_BUCKET_NAME   = var.audit_bucket_name
+      UPLOADS_BUCKET_NAME = aws_s3_bucket.uploads.id
+      CONSOLE_ORIGIN      = var.console_origin
     }
   }
 

@@ -1,0 +1,8 @@
+1. Cognito login: OK
+2. Identity Pool temp creds: OK
+3. Submit (SigV4 as console user): 200 {'payment_id': 'console-live-1783165813', 'status': 'queued', 'message_id': '476113d8-6459-4b8f-95c9-dbf4e5bc1f7e', 'idempotent_replay': False}
+   waiting for pipeline…
+4. GET /reviews: 200, our item present: True -> {'audit_id': '648da038-7866-48ee-a540-17c0faa28398', 'payment_id': 'console-live-1783165813', 'match': 'name · sam_exclusions', 'status': 'pending', 'received_at': '2026-07-04T11:50:17.253589+00:00', 'score': '60', 'payee': 'Acme Shell LLC'}
+5. GET /audit/console-live-1783165813: 200, disposition=review
+6. POST decision (approve): 200 {'payment_id': 'console-live-1783165813', 'status': 'approved', 'decision_audit_id': '9758bc68-9ba6-4a91-a5f6-7dfabfc912bc'}
+7. Status after decision: approved  -> PASS

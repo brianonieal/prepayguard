@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 14 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 15 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -190,4 +190,17 @@ Section-level detail:
 
 ---
 
-# 14 decisions logged. 14 LOCKED, 0 OPEN.
+## DEC-15 - Console Auth & Request Signing (Phase 2)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** The Treasury Console authenticates humans with **aws-amplify** (Cognito User Pool SRP login → Cognito Identity Pool → temporary IAM credentials) and SigV4-signs every API-Gateway request with **aws4fetch**. This REUSES the DEC-5 IAM-auth mechanism for the human surface: the console authenticated role is a second named principal on the intake API's resource policy and the sole principal on the console API. `USER_PASSWORD_AUTH` is enabled on the app client alongside SRP so headless/e2e clients can authenticate (SRP remains the browser default).
+**Alternatives considered:** a Cognito authorizer on API Gateway (rejected — bolts a second auth scheme onto the IAM-authed APIs; Identity-Pool→IAM-creds reuses DEC-5 cleanly and keeps every API uniformly AWS_IAM). A backend-for-frontend signer (rejected — an extra hop/service; browser-side SigV4 with short-lived creds is the standard pattern).
+**Rationale:** one consistent auth model (AWS_IAM/SigV4) across machine and human callers; short-lived federated creds; no new authorizer surface. Proven live end-to-end (docs/evidence/console_live_e2e.txt): login → temp creds → SigV4 submit → review → decision, all 200.
+**Risk acknowledged:** `USER_PASSWORD_AUTH` sends the password to Cognito directly (vs SRP's zero-knowledge proof) — acceptable over TLS here; droppable to SRP-only anytime. The client-side integrity-verify requires JS canonical JSON to match Python's; the live demo uses integer amounts so serialization is identical (float/unicode canonicalization is v1.5.0 hardening).
+**Confidence:** HIGH. **Reversibility:** HIGH (auth is a swappable lib seam).
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 15 decisions logged. 15 LOCKED, 0 OPEN.

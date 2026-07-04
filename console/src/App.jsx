@@ -6,11 +6,8 @@ import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
 import UserMenu from "./components/UserMenu.jsx";
-import { FAKE_REVIEWS } from "./fakeData.js";
+import { currentUser, logout } from "./lib/auth.js";
 
-// Hash routing: deep-linkable, and works on static S3+CloudFront hosting with
-// no error-page rewrites. Routes: #/submit · #/reviews · #/reviews/:id ·
-// #/profile · #/settings
 export function nav(hash) {
   window.location.hash = hash;
   window.dispatchEvent(new Event("hashchange"));
@@ -34,7 +31,7 @@ function useHashParts() {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(undefined); // undefined=checking, null=out, obj=in
   const [settings, setSettingsState] = useState(loadSettings);
   const parts = useHashParts();
   const setSettings = (patch) =>
@@ -44,15 +41,21 @@ export default function App() {
       return n;
     });
 
+  useEffect(() => { currentUser().then((u) => setUser(u)).catch(() => setUser(null)); }, []);
+
+  if (user === undefined) {
+    return <div className="login-page"><div className="login-wrap"><div className="sub">Loading…</div></div></div>;
+  }
   if (!user) {
     const landing = (h) => (!h || h === "#" || h === "#/") ? "#/submit" : h;
-    return <Login onSignIn={(email) => { setUser({ email }); nav(landing(window.location.hash)); }} />;
+    return <Login onSignedIn={(u) => { setUser(u); nav(landing(window.location.hash)); }} />;
   }
 
   const route = parts[0];
   const onReviews = route === "reviews";
   const detailId = onReviews ? parts[1] : null;
-  const pending = FAKE_REVIEWS.filter((r) => r.status === "pending").length;
+  const signOut = async () => { await logout(); setUser(null); };
+  const emailLabel = user?.signInDetails?.loginId || user?.username || "signed in";
 
   return (
     <div className={`app ${settings.density === "compact" ? "compact" : ""}`}>
@@ -60,23 +63,21 @@ export default function App() {
         <div className="seal">T</div>
         <b>Treasury Console</b>
         <span className="env">DEV · us-east-2</span>
-        <UserMenu email={user.email} onNav={nav} onSignOut={() => setUser(null)} />
+        <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut} />
       </header>
       <nav className="tabs">
         <button className={route === "submit" ? "on" : ""} onClick={() => nav("#/submit")}>Submit Payment</button>
-        <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>
-          Review Queue{pending > 0 && <span className="badge">{pending}</span>}
-        </button>
+        <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
       </nav>
       <main className="content">
         {route === "submit" && <Submit />}
         {onReviews && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && detailId && <AuditDetail paymentId={detailId} onBack={() => nav("#/reviews")} />}
-        {route === "profile" && <Profile email={user.email} />}
+        {route === "profile" && <Profile email={emailLabel} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v1.3.0</span>
+        <span>Treasury Console · v1.4.1</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

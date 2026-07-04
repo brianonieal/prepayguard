@@ -37,9 +37,10 @@ resource "aws_cognito_user_pool_client" "spa" {
   name         = "${var.name_prefix}-console-spa"
   user_pool_id = aws_cognito_user_pool.console.id
 
-  # Public SPA client: no secret; SRP auth + refresh.
+  # Public SPA client: no secret. SRP is the browser flow (Amplify); USER_PASSWORD
+  # is also enabled so headless e2e / test clients can authenticate (DEC-15).
   generate_secret     = false
-  explicit_auth_flows = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  explicit_auth_flows = ["ALLOW_USER_SRP_AUTH", "ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
 
   prevent_user_existence_errors = "ENABLED"
 }
@@ -235,12 +236,9 @@ resource "aws_s3_bucket_policy" "site" {
   depends_on = [aws_s3_bucket_public_access_block.site]
 }
 
-resource "aws_s3_object" "placeholder" {
-  bucket       = aws_s3_bucket.site.id
-  key          = "index.html"
-  content_type = "text/html"
-  content      = "<!doctype html><title>Treasury Console</title><h1>Treasury Console</h1><p>UI arrives at v1.3.0.</p>"
-}
+# NOTE: the SPA assets (index.html + assets/) are deployed by `aws s3 sync`
+# (scripts/deploy-console.sh), NOT managed by Terraform — otherwise apply would
+# revert index.html to a placeholder. Terraform owns the bucket, not its contents.
 
 # ---------------------------------------------------------------------------
 # Reviews table — the dashboard's queryable view of human-review items

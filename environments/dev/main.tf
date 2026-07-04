@@ -154,6 +154,7 @@ module "console_api" {
   audit_bucket_arn         = module.audit_store.bucket_arn
   audit_kms_key_arn        = module.audit_store.kms_key_arn
   console_origin           = module.console.console_url
+  uploads_bucket_name      = "${local.name_prefix}-console-uploads-${data.aws_caller_identity.current.account_id}"
   stage                    = var.environment
 }
 
@@ -173,6 +174,8 @@ module "api_intake" {
     module.console.authenticated_role_arn, # Treasury Console users (v1.1.0)
   ]
   stage = var.environment
+
+  console_origin = module.console.console_url
 
   # A→B queue visibility must cover its consumer (B, enrichment).
   output_queue_visibility_timeout = 6 * local.stage_timeouts.enrichment

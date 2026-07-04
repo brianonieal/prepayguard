@@ -121,11 +121,16 @@ def _route_to_review(payment: dict, record: dict) -> None:
         }),
     )
     # Console (v1.1.0): queryable view for the reviewer dashboard. Ordering per
-    # the gate scope: audit -> queue -> TABLE -> webhook. Item stays PII-light
-    # (ids/score/status only); the full context lives in the audit record.
+    # the gate scope: audit -> queue -> TABLE -> webhook. Summary fields only
+    # (v1.4.1: payee + match summary for the queue columns); the full context
+    # lives in the audit record.
+    matches = payment.get("enrichment", {}).get("matches", [])
+    top = matches[0] if matches else None
     _reviews_table().put_item(Item={
         "payment_id": payment.get("payment_id"),
         "audit_id": record["audit_id"],
+        "payee": payment.get("payee", ""),
+        "match": f"{top['matched_on'].split('_')[0]} · {top['source']}" if top else "—",
         "score": payment.get("risk", {}).get("score", 0),
         "status": "pending",
         "received_at": record["audited_at"],

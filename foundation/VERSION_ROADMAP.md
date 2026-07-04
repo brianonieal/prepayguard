@@ -32,7 +32,7 @@ calibration data yet; first gate recalibrates.
 | v1.1.0 | Console Foundation | Cognito pools + authed IAM role, S3+CloudFront shell, `reviews` DynamoDB table, Component D writes review items to it | ~1–2h | DONE (actual: 0.8) |
 | v1.2.0 | Read/Action API | GET /reviews, GET /audit/{id}, POST /reviews/{id}/decision (1 router Lambda + API GW + tests) | ~1–2h | DONE (actual: 0.7) |
 | v1.3.0 | Console UI | login, submit (+ batch CSV upload), review dashboard w/ stat cards, audit detail, approve/reject; **tier-1 folded in** (hash-verify, deep-link routing, search/filters, score explainability); **polish + profile/settings/user-menu**. Interactive app reviewed as the mockup artifact. | ~2–4h | DONE (actual: 1.6) |
-| v1.4.0 | Integrate + Deploy → Console GA | SPA wired to Cognito+APIs, CloudFront deploy, live e2e (login → submit → flag → review); attachments backend (presigned S3 uploads) | ~2–3h | pending |
+| v1.4.0 | Integrate + Deploy → Console GA | SPA wired to Cognito+APIs, CloudFront deploy, live e2e (login → submit → flag → review); attachments backend (presigned S3 uploads) | ~2–3h | DONE (actual: 2.5) |
 | v1.5.0 | Bulk Hardening (NOTED — deferred) | Reviews-list pagination + server-side search; `payment_id`-indexed audit lookup (replace the S3 prefix scan); S3-based batch-file ingestion (replace the client-side row loop); bulk review actions. Course-scale is fine without it; this is production-scale hardening. | ~2–4h | noted |
 
 ## NOTES

@@ -36,6 +36,11 @@ variable "console_origin" {
   type        = string
 }
 
+variable "uploads_bucket_name" {
+  description = "Private bucket for reviewer case-document uploads (presigned PUT)."
+  type        = string
+}
+
 variable "stage" {
   type    = string
   default = "dev"

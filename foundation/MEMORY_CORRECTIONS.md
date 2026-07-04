@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v1.4.0 estimated=3h actual=2.50h variance=-17% source=timelog errors_open=0 errors_close=0 date=2026-07-04T11:58:03Z
 ESTIMATION: gate=v1.3.0 estimated=4h actual=1.60h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T01:23:40Z
 ESTIMATION: gate=v1.2.0 estimated=2h actual=0.70h variance=-65% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:27:09Z
 ESTIMATION: gate=v1.1.0 estimated=2h actual=0.80h variance=-60% source=timelog errors_open=0 errors_close=0 date=2026-07-04T00:18:36Z
@@ -13,6 +14,33 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION — v1.4.0 Console GA (2026-07-04, Phase 2)
+
+**What went well**
+- The clean fake->live seam paid off: swapping fakeData for the signed api.js
+  module touched the data layer, not the components. Amplify (Cognito User+Identity
+  Pool) + aws4fetch SigV4 reused DEC-5's IAM auth for humans — no second authorizer.
+- Proved it the honest way: a script that walks the EXACT browser path (Cognito
+  login -> Identity Pool temp creds -> SigV4 to both APIs -> submit/review/decide),
+  all 200, PASS. Stronger than "it renders."
+
+**What bit (integration gate, as predicted)**
+- terraform managed the placeholder index.html; `apply` reverted the deployed SPA
+  to it. Classic "IaC owns the bucket AND its contents" conflict. Fix: `state rm`
+  the object, drop it from config, let the s3-sync own contents. Now plan is
+  0-drift. This is the frontend analogue of the v1.0.0 deploy-only surprises.
+- USER_PASSWORD_AUTH had to be enabled for the headless e2e (SRP is hard to script);
+  SRP stays the browser default. Noted in DEC-15.
+
+**Lesson**
+- For static-site IaC: Terraform owns the bucket/distribution, the deploy pipeline
+  owns the contents — never both. And integration gates surface a class of issue
+  (CORS, drift, auth-flow) that unit tests and plan can't; budget the fix loop.
+
+**Estimated vs actual**
+Est 2-3h -> actual ~2.5h. Landed in range (unlike the sub-estimate backend gates) —
+integration genuinely costs more, and the estimate captured that.
 
 ### REFLEXION — v1.3.0 Console UI (2026-07-04, Phase 2)
 

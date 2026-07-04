@@ -1,5 +1,31 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v1.4.0 — Treasury Console GA (2026-07-04, Phase 2)
+
+**The console is LIVE: real Cognito login, live data, deployed to CloudFront, end-to-end verified.**
+
+### Backend
+- `console_api`: attachment endpoints (`POST`/`GET /reviews/{id}/attachments`, presigned S3 PUT) + private uploads bucket (CORS, SSE, versioned, lifecycle).
+- Intake API: CORS preflight (OPTIONS) + `Access-Control-Allow-Origin` response header so the browser can submit.
+- Component D **v1.4.1**: reviews table now stores `payee` + `match` summary for the queue columns. All 5 images rebuilt (v1.4.1), deployed (alias repoints, DEC-10).
+
+### Frontend (wired + deployed)
+- **aws-amplify** (Cognito User Pool → Identity Pool temp creds) + **aws4fetch** SigV4 (**DEC-15**). Fake data swapped for signed calls; loading/error/empty states.
+- Deployed SPA to S3 + CloudFront (`scripts/deploy-console.sh`). Fixed a real drift bug: Terraform managed `index.html` and reverted the SPA — removed from state; Terraform owns the bucket, the deploy owns its contents.
+
+### Verified
+- Backend `pytest` 40/40 · console `vitest` 12/12 · `checkov` 422/0 · `tflint` clean · `plan` 0-drift.
+- **LIVE e2e** (`docs/evidence/console_live_e2e.txt`): Cognito login → temp creds → SigV4 submit → review → decision → status flip, all 200.
+- **Live: https://d2rbxaf6pqgvb1.cloudfront.net** (user `brian.onieal@gmail.com`).
+
+## v1.3.0 — Treasury Console UI (2026-07-03, Phase 2)
+
+Static React/Vite SPA (4 screens) reviewed live as the mockup+frontend artifact. Batch CSV upload, review dashboard with stat cards, audit detail, profile/settings/user-menu. **Tier-1 folded in:** client-side SHA-256 integrity verify (verify→tamper→fail), hash routing + deep links, search/filters, score explainability. Polish: footer, full-height shell, density toggle. vitest 15/15, build clean; console job added to `ci.yml`. Static (fake data).
+
+## v1.2.0 — Console Read/Action API (2026-07-03, Phase 2)
+
+One router Lambda behind an IAM-authed REST API (console role only, CORS preflight): `GET /reviews`, `GET /audit/{payment_id}`, `POST /reviews/{id}/decision`. Reviewer decisions write their own integrity-hashed audit record to Object Lock. pytest 37/37, checkov 410/0; deployed + prod smoke 200s.
+
 ## v1.1.0 — Treasury Console Foundation (2026-07-03, Phase 2)
 
 **Everything the console UI stands on, deployed live.**

@@ -11,3 +11,7 @@ output "api_execution_arn" {
 output "function_name" {
   value = aws_lambda_function.api.function_name
 }
+
+output "uploads_bucket_name" {
+  value = aws_s3_bucket.uploads.id
+}

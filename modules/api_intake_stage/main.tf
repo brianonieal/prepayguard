@@ -168,6 +168,7 @@ resource "aws_lambda_function" "intake" {
     variables = merge(var.env_vars, {
       OUTPUT_QUEUE_URL  = aws_sqs_queue.output.url
       IDEMPOTENCY_TABLE = aws_dynamodb_table.idempotency.name
+      CONSOLE_ORIGIN    = var.console_origin
     })
   }
 
@@ -257,6 +258,48 @@ resource "aws_api_gateway_integration" "lambda" {
   uri                     = aws_lambda_alias.live.invoke_arn # via alias: DEC-10 rollback covers the API path
 }
 
+# CORS preflight (v1.4.0) — the browser console POSTs here with SigV4; the
+# preflight OPTIONS must be un-authed and return CORS headers.
+resource "aws_api_gateway_method" "options" {
+  rest_api_id   = aws_api_gateway_rest_api.intake.id
+  resource_id   = aws_api_gateway_resource.payments.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "options" {
+  rest_api_id       = aws_api_gateway_rest_api.intake.id
+  resource_id       = aws_api_gateway_resource.payments.id
+  http_method       = aws_api_gateway_method.options.http_method
+  type              = "MOCK"
+  request_templates = { "application/json" = jsonencode({ statusCode = 200 }) }
+}
+
+resource "aws_api_gateway_method_response" "options" {
+  rest_api_id = aws_api_gateway_rest_api.intake.id
+  resource_id = aws_api_gateway_resource.payments.id
+  http_method = aws_api_gateway_method.options.http_method
+  status_code = "200"
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = true
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options" {
+  rest_api_id = aws_api_gateway_rest_api.intake.id
+  resource_id = aws_api_gateway_resource.payments.id
+  http_method = aws_api_gateway_method.options.http_method
+  status_code = aws_api_gateway_method_response.options.status_code
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = "'${var.console_origin}'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'"
+  }
+  depends_on = [aws_api_gateway_integration.options]
+}
+
 # DEC-5 resource policy: invoke is scoped to ONE named IAM role.
 #   - Allow: exactly the payment-submitter role (no wildcard principals —
 #     CKV_AWS_283).
@@ -324,6 +367,7 @@ resource "aws_api_gateway_deployment" "intake" {
       aws_api_gateway_resource.payments.id,
       aws_api_gateway_method.post_payments.id,
       aws_api_gateway_integration.lambda.id,
+      aws_api_gateway_integration.options.id,
       aws_api_gateway_model.payment.schema,
       aws_api_gateway_request_validator.body.id,
       data.aws_iam_policy_document.api_resource_policy.json,

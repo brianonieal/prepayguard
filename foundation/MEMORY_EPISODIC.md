@@ -18,6 +18,8 @@
 
 | 2026-07-04 | v1.3.0 Console UI (Phase 2) | CLOSED (tagged) | 2–4h | ~1.6h | React/Vite SPA, 4 screens + batch CSV + profile/settings/user-menu + tier-1 (client hash-verify, deep links, search, score explainability) + polish. vitest 15/15, build clean. Static (fake data); wiring is v1.4.0. |
 
+| 2026-07-04 | v1.4.0 Console GA (Phase 2) | CLOSED (tagged) — CONSOLE LIVE | ~2–3h | ~2.5h | Amplify+aws4fetch auth (DEC-15), attachments backend, CORS, D v1.4.1. Deployed to CloudFront (d2rbxaf6pqgvb1). LIVE e2e PASS (Cognito→creds→SigV4→submit→review→decide). Fixed tf-manages-index.html drift. |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

@@ -117,6 +117,7 @@ tbody tr:hover{background:#faf8f2}
 .section-split::before,.section-split::after{content:"";flex:1;height:1px;background:var(--line)}
 .rowstate{font:600 11px var(--mono);padding:2px 9px;border-radius:99px}
 .r-staged{background:#e8ecf2;color:var(--navy)}
+.r-sending{background:#f6e8cc;color:var(--amber)}
 .r-queued{background:#ddefdb;color:var(--green)}
 .r-error{background:#f3dcda;color:var(--red)}
 .attach{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:5px;padding:8px 12px;margin-bottom:8px;background:#fff;font-size:13.5px}
