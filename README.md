@@ -82,6 +82,20 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
   semantic-match evidence, and an optional AI brief.
 * Admin **reference-data** editor (publish versioned lists) and an **analytics /
   compliance** dashboard with an auditor CSV export over the audit log.
+* An **Overview** tab (the executive showcase): a live, narrative walkthrough of
+  what the platform is, how it decides, and what it has actually processed. It
+  renders hand-built charts (disposition mix, throughput, risk hit rate, and the
+  match types that triggered flags), a pipeline diagram, and three real worked
+  examples of an approved, a flagged, and a rejected payment. Written for a
+  program or executive audience and visible to reviewers, admins, and auditors.
+* Account self-service in **Profile**: change your password and enroll in
+  time-based one-time-password (TOTP) two-factor, both through Cognito. MFA is
+  optional and opt-in, so existing sign-ins are unchanged unless a user enables it.
+* Admin-only **Demo controls** in Settings: a typed-confirmation reset that clears
+  the working data (review queue, audit index, batch summaries, idempotency store)
+  for a clean demonstration. The immutable audit records under S3 Object Lock are
+  never affected, so the dashboards read empty while every historical disposition
+  stays permanently locked in the audit bucket.
 * Roles: **submitter**, **reviewer**, **admin**, and a read-only **auditor**.
   Segregation of duties is enforced: an approver cannot clear a payment they
   submitted; the auditor can view everything but decide nothing.
@@ -98,7 +112,7 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
 
 ## Status and roadmap
 
-**The locked roadmap (v0.1.0 to v2.4.0) is complete and live.**
+**Everything through Phase 4 (v0.1.0 to v3.2.0) is complete and live.**
 
 * **Phase 1 (v0.1.0 to v1.0.0):** the backend pipeline plus the capstone deliverable.
 * **Phase 2 (v1.1.0 to v1.4.0):** the reviewer console, deployed and live.
@@ -108,8 +122,11 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
   v2.1.0 versioned reference-data lifecycle, v2.1.2 multi-format batch ingestion,
   v2.2.0 semantic payee matching (Bedrock embeddings), v2.3.0 LLM adjudication
   briefs, v2.4.0 analytics and compliance reporting with a read-only auditor role.
+* **Phase 4, "Showcase and Demo Readiness":** v3.0.0 the executive Overview tab,
+  v3.1.0 admin demo-reset controls, v3.2.0 a real Profile (live identity fields,
+  password change, and optional TOTP two-factor) with an honest Settings screen.
 
-Verified at the final gate: `pytest` 85/85, console `vitest` 24/24, `checkov`
+Verified at the final gate: `pytest` 90/90, console `vitest` 31/31, `checkov`
 clean, `terraform plan` shows no drift, and a live end-to-end run per gate. Full
 history: [foundation/VERSION_ROADMAP.md](foundation/VERSION_ROADMAP.md).
 
