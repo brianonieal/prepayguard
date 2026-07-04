@@ -503,12 +503,15 @@ def _scan_all(table, cap=10000):
     return items
 
 
-def _compute_summary() -> dict:
+def _compute_summary(index_items=None) -> dict:
     """Pipeline-wide aggregate (mix / hit-rate / throughput / queue / reviewer
     productivity) over audit_index + reviews. Shared by /analytics and /showcase
     so both report identical numbers. Scan-based - fine at course scale; a
-    materialized rollup is the follow-on for production volumes."""
-    index_items = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
+    materialized rollup is the follow-on for production volumes. Callers that have
+    already scanned audit_index (e.g. /showcase) pass index_items to avoid a second
+    full scan of the same table."""
+    if index_items is None:
+        index_items = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
     mix = {"approve": 0, "review": 0, "reject": 0}
     by_day = {}
     for it in index_items:
@@ -608,21 +611,34 @@ def _load_audit_record(key: str) -> dict:
 
 
 def _showcase(event) -> dict:
-    summary = _compute_summary()
+    # Scan audit_index ONCE and reuse it for the summary (avoids a second full scan).
     index = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
+    full = _compute_summary(index_items=index)
+    # /showcase is visible to reviewers, so return ONLY the non-sensitive fields the
+    # Overview page renders. reviewer_productivity (per-reviewer identities + counts)
+    # and internal queue detail stay behind the admin/auditor-gated /analytics.
+    summary = {
+        "total_screened": full["total_screened"],
+        "disposition_mix": full["disposition_mix"],
+        "hit_rate": full["hit_rate"],
+        "queue": {"pending": full["queue"]["pending"]},
+    }
     index.sort(key=lambda i: str(i.get("audited_at", "")), reverse=True)
 
-    match_types, examples = {}, {}
+    match_types, examples, counted = {}, {}, 0
     for it in index[:SHOWCASE_SAMPLE]:
         key = it.get("audit_key")
         if not key:
             continue
+        # A single unreadable OR malformed audit object must not break the whole page:
+        # skip it. Catches ClientError (S3) and JSON/decode errors alike.
         try:
             rec = _load_audit_record(key)
-        except ClientError:
+            mt = _primary_match_type(rec)
+        except Exception:  # noqa: BLE001 - one bad record should never 500 the Overview
             continue
-        mt = _primary_match_type(rec)
         match_types[mt] = match_types.get(mt, 0) + 1
+        counted += 1
         disp = (rec.get("decision") or {}).get("disposition")
         if disp in ("approve", "review", "reject") and disp not in examples:
             examples[disp] = _example(rec)
@@ -636,24 +652,28 @@ def _showcase(event) -> dict:
         if hit:
             try:
                 examples[disp] = _example(_load_audit_record(hit["audit_key"]))
-            except ClientError:
+            except Exception:  # noqa: BLE001
                 pass
 
     return _response(200, {
         "summary": summary,
         "match_types": match_types,
-        "match_sample_size": min(len(index), SHOWCASE_SAMPLE),
+        "match_sample_size": counted,  # the number actually tallied, not the sample cap
         "examples": examples,
     })
 
 
-# --- v3.1.0: demo reset (admin-only; zero the working tables for a clean demo) ---
-# Clears the four DynamoDB tables that drive the console's views so a demo can start
-# from a clean slate. The immutable S3 audit records (Object Lock) are intentionally
-# NOT touched - the dashboards read empty, but every historical disposition stays
-# locked in the bucket, provable on demand. Repeatable; returns per-table counts.
+# --- v3.1.0: demo reset (admin-only; clear all uploaded records for a clean demo) ---
+# Clears the four DynamoDB tables that drive the console's views AND the uploaded
+# files (batch-import uploads + case-document attachments) so a demo starts from a
+# truly clean slate. The immutable S3 AUDIT records (Object Lock) are intentionally
+# NEVER touched - by design they cannot be deleted by anyone, which is the compliance
+# guarantee. Repeatable; returns per-target counts and any per-target errors.
 
 RESET_TABLE_ENVS = ["REVIEWS_TABLE_NAME", "AUDIT_INDEX_TABLE", "BATCHES_TABLE", "IDEMPOTENCY_TABLE"]
+# (env var, key prefix) for the uploaded-file buckets the reset also clears. NOT the
+# audit bucket - that one is Object Lock and must survive.
+RESET_UPLOAD_BUCKETS = [("BATCH_BUCKET", "batch-imports/"), ("UPLOADS_BUCKET_NAME", "cases/")]
 
 
 def _clear_table(table) -> int:
@@ -676,20 +696,48 @@ def _clear_table(table) -> int:
         resp = table.scan(ExclusiveStartKey=lek, **kwargs)
 
 
+def _clear_bucket(bucket: str, prefix: str) -> int:
+    """Delete every object under a prefix (paginated, 1000-key batches)."""
+    s3 = _s3_client()
+    deleted = 0
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        objs = [{"Key": o["Key"]} for o in page.get("Contents", [])]
+        if objs:
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": objs, "Quiet": True})
+            deleted += len(objs)
+    return deleted
+
+
 def _reset(event) -> dict:
     if not _is_admin(event):
         return _response(403, {"error": "admin_only", "detail": "reset requires the admin role"})
     body = json.loads(event.get("body") or "{}")
     if body.get("confirm") != "RESET":
         return _response(400, {"error": "confirmation_required",
-                               "detail": 'send {"confirm":"RESET"} to clear the working data'})
-    cleared = {}
+                               "detail": 'send {"confirm":"RESET"} to clear all uploaded records'})
+    # Per-target try/except: the wipe is not atomic, so if one target fails (IAM drift,
+    # throttling) we still clear the rest and report exactly what cleared vs. errored,
+    # instead of an opaque 500 that hides a half-cleared state.
+    cleared, errors = {}, {}
     for env_name in RESET_TABLE_ENVS:
-        table_name = os.environ.get(env_name)
-        if table_name:
-            cleared[table_name] = _clear_table(_resource().Table(table_name))
-    return _response(200, {"cleared": cleared, "total": sum(cleared.values()),
-                           "note": "immutable S3 audit records (Object Lock) are unaffected"})
+        name = os.environ.get(env_name)
+        if not name:
+            continue
+        try:
+            cleared[name] = _clear_table(_resource().Table(name))
+        except Exception as exc:  # noqa: BLE001
+            errors[name] = str(exc)[:200]
+    for env_name, prefix in RESET_UPLOAD_BUCKETS:
+        bucket = os.environ.get(env_name)
+        if not bucket:
+            continue
+        try:
+            cleared[f"{bucket}/{prefix}"] = _clear_bucket(bucket, prefix)
+        except Exception as exc:  # noqa: BLE001
+            errors[f"{bucket}/{prefix}"] = str(exc)[:200]
+    code = 200 if not errors else 207
+    return _response(code, {"cleared": cleared, "errors": errors, "total": sum(cleared.values()),
+                            "note": "immutable S3 audit records (Object Lock) are never touched"})
 
 
 def handler(event, context=None):

@@ -84,7 +84,7 @@ function Gauge({ value }) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
   const a = Math.PI * (1 - v / 100);
   const x = cx + r * Math.cos(a), y = cy - r * Math.sin(a);
-  const big = v > 50 ? 1 : 0;
+  const big = 0; // a semicircle value arc never spans more than 180deg, so large-arc is always 0
   return (
     <svg viewBox="0 0 140 92" className="sc-gauge" role="img" aria-label={`Flagged rate ${v} percent`}>
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="#ece8df" strokeWidth="13" strokeLinecap="round" />
@@ -346,7 +346,7 @@ export default function Showcase() {
               </div>
             </div>
             <div className="panel sc-metric sc-metric-wide">
-              <h3>Why payments were flagged</h3>
+              <h3>What the screening found</h3>
               <FlagBars matchTypes={data.match_types || {}} sample={data.match_sample_size || 0} />
             </div>
           </div>

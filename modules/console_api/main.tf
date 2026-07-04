@@ -86,11 +86,12 @@ data "aws_iam_policy_document" "api" {
     resources = [var.audit_kms_key_arn]
   }
 
-  # Case-document uploads (v1.4.0): presign PUT + list/get.
+  # Case-document uploads (v1.4.0): presign PUT + list/get. DeleteObject (v3.2.1):
+  # the admin demo reset clears uploaded case documents.
   statement {
     sid       = "CaseUploads"
     effect    = "Allow"
-    actions   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+    actions   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:DeleteObject"]
     resources = [aws_s3_bucket.uploads.arn, "${aws_s3_bucket.uploads.arn}/*"]
   }
 
@@ -126,11 +127,12 @@ data "aws_iam_policy_document" "api" {
 
   # v1.6.0 batch ingestion: presign the CSV upload (PutObject) and poll the
   # batch summary Component E writes (GetItem/Scan). Enqueue + dedup stay on E.
+  # v3.2.1: ListBucket + DeleteObject so the admin demo reset clears batch uploads.
   statement {
-    sid       = "BatchUploadPresign"
+    sid       = "BatchUploads"
     effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${var.batch_bucket_arn}/*"]
+    actions   = ["s3:PutObject", "s3:ListBucket", "s3:DeleteObject"]
+    resources = [var.batch_bucket_arn, "${var.batch_bucket_arn}/*"]
   }
 
   statement {
@@ -364,6 +366,20 @@ data "aws_iam_policy_document" "resource_policy" {
     }
     actions   = ["execute-api:Invoke"]
     resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/PUT/reference"]
+  }
+
+  # v3.2.1: the demo reset is admin-only in the handler; deny it to the reviewer at
+  # the edge too (defense in depth for a destructive route, mirroring the reference
+  # write deny) so a reviewer principal can never even reach the reset Lambda.
+  statement {
+    sid    = "DenyReviewerReset"
+    effect = "Deny"
+    principals {
+      type        = "AWS"
+      identifiers = [var.reviewer_role_arn]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/POST/admin/reset"]
   }
 
   # Submitters: ONLY the batch-upload routes (upload a CSV + poll its summary).

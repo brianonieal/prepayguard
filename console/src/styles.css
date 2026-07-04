@@ -195,8 +195,6 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .sc-legn{margin-left:auto;color:#6b6455}
 .sc-dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
 .sc-gauge{width:180px;height:auto;display:block;margin:0 auto 4px}
-.sc-timeline{width:100%;height:auto;display:block}
-.sc-tick{font:9px var(--mono);fill:#8a8272}
 /* match-type bars */
 .sc-mtrow{display:flex;align-items:center;gap:12px;margin-bottom:9px}
 .sc-mtlabel{flex:0 0 148px;font-size:13px}
@@ -210,22 +208,17 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .sc-ex-score{font-size:12.5px;color:#6b6455}
 .sc-ex-payee{font:600 16px "Segoe UI",system-ui;line-height:1.25}
 .sc-ex-amount{font-size:13px;color:#4a4436;margin-top:2px}
-.sc-ex-matches{margin-top:12px;display:flex;flex-direction:column;gap:7px}
-.sc-ex-match{display:flex;flex-direction:column;gap:1px}
-.sc-ex-mtag{font:600 12px var(--mono)}
 .sc-ex-clean{margin-top:12px;font-size:13px;color:var(--green);background:#eef6ec;border-radius:5px;padding:8px 10px}
 .sc-ex-reasons{margin:12px 0 0;padding-left:18px;font-size:12.5px;color:#4a4436;line-height:1.5}
 .sc-ex-foot{margin-top:auto;padding-top:12px;font-size:11px;color:#8a8272;word-break:break-all}
-/* intelligence + trust */
-.sc-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.sc-two .panel p{max-width:none}
+/* trust */
 .sc-trust{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .sc-tcard{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:5px}
 .sc-tcard b{font-size:14px}
 .sc-tcard span{font-size:12.8px;line-height:1.5;color:#4a4436}
 @media(max-width:720px){
   .sc-hero-stats{grid-template-columns:repeat(2,1fr)}
-  .sc-metrics,.sc-decision-grid,.sc-examples,.sc-two,.sc-trust{grid-template-columns:1fr}
+  .sc-metrics,.sc-decision-grid,.sc-examples,.sc-trust{grid-template-columns:1fr}
   .sc-hero h1{font-size:32px}
 }
 /* v3.1.0 demo controls, danger zone panel */

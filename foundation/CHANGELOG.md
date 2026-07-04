@@ -1,5 +1,20 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.2.1 — Code-review fixes (2026-07-04)
+
+**Fixes from an xhigh multi-agent review of Phase 4 (10 finder angles + per-candidate adversarial verification + sweep). 14 findings reported; the actionable ones fixed here.**
+
+- **[HIGH] Hit-rate gauge rendered inverted above 50%.** The SVG large-arc-flag was `v > 50 ? 1 : 0`, but a semicircle value arc never spans >180deg, so it must always be 0. Above 50% the amber arc looped under the baseline and spilled out. Only ever tested at 23.6%. Fixed to `big = 0`.
+- **[MED] `/showcase` leaked reviewer identities.** `_compute_summary()` (shared with the admin/auditor-gated `/analytics`) was returned verbatim to the reviewer-visible `/showcase`, exposing `reviewer_productivity` (per-reviewer session ARNs + decision counts). `/showcase` now projects the summary down to `{total_screened, disposition_mix, hit_rate, queue.pending}`.
+- **[MED] One bad S3 audit object 500'd the whole Overview.** The per-record loop caught only `ClientError`; a malformed object made `json.loads` raise `JSONDecodeError` and returned a misleading 400. Broadened the per-record catch to skip and continue (also covers a null-confidence `max()` TypeError).
+- **[MED] `/showcase` scanned `audit_index` twice.** `_compute_summary(index_items=...)` now takes the already-scanned index; `_showcase` scans once.
+- **[MED] Match-type chart mislabeled.** Retitled "Why payments were flagged" to "What the screening found" (it tallies the strongest signal on every sampled payment, including cleared ones). `match_sample_size` now reports the count actually tallied.
+- **[MED] Demo reset now clears all uploaded records.** Extended `POST /admin/reset` to also delete the uploaded batch files and case documents (S3), not just the four tables, and made it per-target fault-tolerant (returns `{cleared, errors}`, 207 on partial). The immutable Object-Lock audit bucket is still never touched. IAM: `s3:DeleteObject` on the uploads + batch buckets.
+- **[LOW] Defense in depth:** added a `DenyReviewerReset` edge policy so the reviewer role can't even reach `POST /admin/reset` (mirrors the `PUT /reference` deny; the handler `_is_admin` check already blocked it).
+- **[LOW] Cleanup:** removed dead CSS (throughput/timeline, two-column intelligence, per-match example rules) and the stale "throughput chart" claim in the README.
+
+Verified: pytest 90/90, vitest 31/31, plan 0-drift, CORS green; **LIVE** (all 6 images -> v3.2.1): deployed image confirmed, `/showcase` summary no longer contains `reviewer_productivity`, `DenyReviewerReset` present in the live resource policy, and the gauge arc renders correctly at 75% (harness). (Left as documented/unreachable: the bounded sequential S3 reads, and the index/record disposition-drift edge case.)
+
 ## v3.2.0 — Console Depth (2026-07-04, Phase 4 · gate 3/3 · FINAL)
 
 **The remaining demo-chrome is now real: Profile loads live ID-token fields with a working Change Password and TOTP MFA enrollment, and Settings drops its inert toggles. Phase 4 complete.**

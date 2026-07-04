@@ -84,18 +84,20 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
   compliance** dashboard with an auditor CSV export over the audit log.
 * An **Overview** tab (the executive showcase): a live, narrative walkthrough of
   what the platform is, how it decides, and what it has actually processed. It
-  renders hand-built charts (disposition mix, throughput, risk hit rate, and the
-  match types that triggered flags), a pipeline diagram, and three real worked
-  examples of an approved, a flagged, and a rejected payment. Written for a
-  program or executive audience and visible to reviewers, admins, and auditors.
+  renders hand-built charts (disposition mix, risk hit rate, and the match types
+  the screening found), a pipeline diagram, a plain-English explanation of the
+  scoring rules, and three real worked examples of an approved, a flagged, and a
+  rejected payment. Written for a program or executive audience and visible to
+  reviewers, admins, and auditors.
 * Account self-service in **Profile**: change your password and enroll in
   time-based one-time-password (TOTP) two-factor, both through Cognito. MFA is
   optional and opt-in, so existing sign-ins are unchanged unless a user enables it.
 * Admin-only **Demo controls** in Settings: a typed-confirmation reset that clears
-  the working data (review queue, audit index, batch summaries, idempotency store)
-  for a clean demonstration. The immutable audit records under S3 Object Lock are
-  never affected, so the dashboards read empty while every historical disposition
-  stays permanently locked in the audit bucket.
+  all uploaded records (review queue, audit index, batch summaries, idempotency
+  store, and the uploaded batch files and case documents) for a clean demonstration.
+  The immutable audit records under S3 Object Lock are never affected, so the
+  console dashboards read empty while every historical disposition stays permanently
+  locked in the audit bucket, verifiable directly there.
 * Roles: **submitter**, **reviewer**, **admin**, and a read-only **auditor**.
   Segregation of duties is enforced: an approver cannot clear a payment they
   submitted; the auditor can view everything but decide nothing.

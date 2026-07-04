@@ -488,6 +488,10 @@ def test_showcase_returns_summary_matchtypes_and_examples(console_api):
     assert ex["review"]["matches"][0]["similarity"] == 0.857
     assert ex["reject"]["disposition"] == "reject" and ex["reject"]["risk_score"] == 95
     assert ex["reject"]["reference_list_version"] == 3
+    # v3.2.1: /showcase is reviewer-visible, so it must NOT return the analytics-only
+    # reviewer_productivity (per-reviewer identities) or the internal queue detail.
+    assert "reviewer_productivity" not in body["summary"]
+    assert set(body["summary"]["queue"].keys()) == {"pending"}
 
 
 def test_showcase_visible_to_reviewer_admin_and_auditor(console_api):
@@ -499,24 +503,31 @@ def test_showcase_visible_to_reviewer_admin_and_auditor(console_api):
 # --- v3.1.0 demo reset (admin-only; clears the working tables) ---
 
 def _seed_reset(console_api):
-    """Put rows in all four working tables so the reset has something to clear."""
+    """Put rows in all four working tables + uploaded S3 files so the reset has
+    something to clear on every target."""
     c = console_api
     c["table"].put_item(Item={"payment_id": "rz1", "status": "pending", "received_at": "2026-07-04T00:00:00+00:00"})
     c["index"].put_item(Item={"payment_id": "rz1", "audit_key": "audit/x.json",
                               "disposition": "review", "audited_at": "2026-07-04T00:00:00+00:00"})
     c["batches"].put_item(Item={"batch_id": "bz1", "status": "complete"})
     c["idempotency"].put_item(Item={"payment_id": "rz1"})
+    c["s3"].put_object(Bucket=c["batch_bucket"], Key="batch-imports/bz1/f.csv", Body=b"x")
+    c["s3"].put_object(Bucket=c["uploads"], Key="cases/rz1/doc.pdf", Body=b"x")
 
 
-def test_reset_clears_all_working_tables(console_api):
+def test_reset_clears_all_working_tables_and_uploads(console_api):
     _seed_reset(console_api)
     resp = console_api["app"].handler(_event("POST", "/admin/reset", body={"confirm": "RESET"}, caller=ADMIN))
     body = json.loads(resp["body"])
-    assert resp["statusCode"] == 200
-    # r1 (fixture) + rz1 in reviews and audit-index -> 2 each; batches/idempotency -> 1 each.
-    assert body["total"] >= 4
+    assert resp["statusCode"] == 200 and body["errors"] == {}
+    # r1 (fixture) + rz1 in reviews and audit-index -> 2 each; batches/idempotency -> 1 each; 2 S3 files.
+    assert body["total"] >= 6
     for t in ("table", "index", "batches", "idempotency"):
         assert console_api[t].scan()["Count"] == 0, f"{t} not empty after reset"
+    # uploaded files are gone; the immutable audit bucket is untouched (still has r1).
+    for bkt, prefix in ((console_api["batch_bucket"], "batch-imports/"), (console_api["uploads"], "cases/")):
+        assert console_api["s3"].list_objects_v2(Bucket=bkt, Prefix=prefix).get("KeyCount", 0) == 0
+    assert console_api["s3"].list_objects_v2(Bucket=console_api["bucket"], Prefix="audit/")["KeyCount"] > 0
 
 
 def test_reset_requires_confirmation_token(console_api):
