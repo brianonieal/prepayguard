@@ -31,6 +31,14 @@ resource "aws_cognito_user_pool" "console" {
     require_numbers   = true
     require_symbols   = true
   }
+
+  # v3.2.0: OPTIONAL software-token (TOTP) MFA. Opt-in — existing users log in
+  # exactly as before; a user can self-enroll from the console Profile page, and
+  # the SRP login flow then issues a SOFTWARE_TOKEN_MFA challenge the SPA handles.
+  mfa_configuration = "OPTIONAL"
+  software_token_mfa_configuration {
+    enabled = true
+  }
 }
 
 resource "aws_cognito_user_pool_client" "spa" {

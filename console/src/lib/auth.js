@@ -2,7 +2,10 @@
 // creds). Those creds are what api.js SigV4-signs with — reusing the DEC-5
 // IAM-auth mechanism for the human console.
 import { Amplify } from "aws-amplify";
-import { signIn, signOut, getCurrentUser, fetchAuthSession } from "aws-amplify/auth";
+import {
+  signIn, signOut, getCurrentUser, fetchAuthSession, confirmSignIn,
+  updatePassword, setUpTOTP, verifyTOTPSetup, updateMFAPreference, fetchMFAPreference,
+} from "aws-amplify/auth";
 import { config } from "../config.js";
 
 Amplify.configure({
@@ -15,10 +18,57 @@ Amplify.configure({
   },
 });
 
+// Returns the raw Amplify signIn result ({isSignedIn, nextStep}). With OPTIONAL MFA
+// (v3.2.0), an enrolled user gets nextStep CONFIRM_SIGN_IN_WITH_TOTP_CODE — Login.jsx
+// then collects the code and calls confirmTotpSignIn(). No MFA → isSignedIn is true.
 export async function login(email, password) {
   try { await signOut(); } catch { /* no existing session */ }
-  await signIn({ username: email, password });
-  return getCurrentUser();
+  return signIn({ username: email, password });
+}
+
+export async function confirmTotpSignIn(code) {
+  return confirmSignIn({ challengeResponse: code });
+}
+
+// v3.2.0: real Profile fields from the ID token (no hardcoding).
+export async function currentProfile() {
+  const s = await fetchAuthSession();
+  const p = s.tokens?.idToken?.payload || {};
+  const g = p["cognito:groups"];
+  const groups = Array.isArray(g) ? g : g ? [g] : [];
+  return {
+    sub: p.sub || "",
+    email: p.email || "",
+    role: roleFromGroups(groups),
+    authTime: p.auth_time ? new Date(p.auth_time * 1000) : null,
+    issuedAt: p.iat ? new Date(p.iat * 1000) : null,
+  };
+}
+
+// v3.2.0: real security actions via Amplify (Cognito). No backend needed.
+export async function changePassword(oldPassword, newPassword) {
+  await updatePassword({ oldPassword, newPassword });
+}
+
+export async function mfaPreference() {
+  try {
+    const pref = await fetchMFAPreference();
+    return { totpEnabled: (pref.enabled || []).includes("TOTP"), preferred: pref.preferred };
+  } catch { return { totpEnabled: false, preferred: undefined }; }
+}
+
+export async function startTotpSetup() {
+  const details = await setUpTOTP();
+  return { secret: details.sharedSecret, uri: details.getSetupUri("PrePayGuard").toString() };
+}
+
+export async function confirmTotpSetup(code) {
+  await verifyTOTPSetup({ code });
+  await updateMFAPreference({ totp: "PREFERRED" });
+}
+
+export async function disableTotp() {
+  await updateMFAPreference({ totp: "DISABLED" });
 }
 
 export async function logout() {

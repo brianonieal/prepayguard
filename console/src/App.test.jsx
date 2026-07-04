@@ -6,11 +6,19 @@ import { explainScore } from "./lib/score.js";
 
 // Keep tests hermetic: mock auth + the signed API (no Amplify / AWS in jsdom).
 vi.mock("./lib/auth.js", () => ({
-  login: async () => ({ username: "brian@example.test", signInDetails: { loginId: "brian@example.test" } }),
+  login: async () => ({ isSignedIn: true, nextStep: { signInStep: "DONE" } }), // no-MFA happy path
+  confirmTotpSignIn: vi.fn(async () => ({ isSignedIn: true })),
   logout: async () => {},
-  currentUser: async () => null, // start logged-out so the login gate shows
+  currentUser: async () => null, // start logged-out so the login gate shows; Login falls back to {username}
   currentGroups: vi.fn(async () => ["admin"]), // default: full-access role
   roleFromGroups: (g) => g.includes("admin") ? "admin" : g.includes("reviewer") ? "reviewer" : g.includes("auditor") ? "auditor" : g.includes("submitter") ? "submitter" : "none",
+  // v3.2.0 Profile: real ID-token fields + password/MFA actions
+  currentProfile: async () => ({ sub: "a1b2c3d4-1111-2222-3333-9f0e", email: "brian@example.test", role: "admin", authTime: new Date("2026-07-04T18:00:00Z"), issuedAt: new Date("2026-07-04T18:00:00Z") }),
+  mfaPreference: async () => ({ totpEnabled: false, preferred: undefined }),
+  changePassword: vi.fn(async () => {}),
+  startTotpSetup: vi.fn(async () => ({ secret: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/PrePayGuard?secret=JBSWY3DPEHPK3PXP" })),
+  confirmTotpSetup: vi.fn(async () => {}),
+  disableTotp: vi.fn(async () => {}),
 }));
 
 vi.mock("./lib/api.js", () => {
@@ -67,7 +75,7 @@ vi.mock("./lib/api.js", () => {
 });
 
 import { bulkDecide, putReference, resetData } from "./lib/api.js";
-import { currentGroups } from "./lib/auth.js";
+import { currentGroups, changePassword, startTotpSetup, confirmTotpSetup } from "./lib/auth.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
 
@@ -164,6 +172,45 @@ test("user menu → profile, settings, sign out", async () => {
   fireEvent.click(screen.getByTestId("user-menu-btn"));
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   expect(await screen.findByText("PrePayGuard payment integrity console")).toBeInTheDocument();
+});
+
+test("profile shows real ID-token fields and changes password", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  fireEvent.click(screen.getByRole("button", { name: "Profile" }));
+  expect(await screen.findByText("a1b2c3d4-1111-2222-3333-9f0e")).toBeInTheDocument();  // real sub, not hardcoded placeholder
+  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "OldPass1!" } });
+  fireEvent.change(screen.getByLabelText("New password"), { target: { value: "NewPass2026!" } });
+  fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: "NewPass2026!" } });
+  fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+  expect(await screen.findByTestId("pw-msg")).toHaveTextContent("Password changed");
+  expect(changePassword).toHaveBeenCalledWith("OldPass1!", "NewPass2026!");
+});
+
+test("profile enrolls in TOTP MFA: shows secret then verifies", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  fireEvent.click(screen.getByRole("button", { name: "Profile" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Enable MFA (TOTP)" }));
+  expect(await screen.findByTestId("totp-secret")).toHaveTextContent("JBSWY3DPEHPK3PXP");
+  expect(startTotpSetup).toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Code from app"), { target: { value: "123456" } });
+  fireEvent.click(screen.getByRole("button", { name: "Verify & enable" }));
+  expect(await screen.findByTestId("mfa-msg")).toHaveTextContent("MFA enabled");
+  expect(confirmTotpSetup).toHaveBeenCalledWith("123456");
+});
+
+test("settings no longer shows the inert Notifications toggles", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(screen.getByText("Appearance")).toBeInTheDocument();
+  expect(screen.queryByText("Email digest")).toBeNull();
+  expect(screen.queryByText("Review assignment alerts")).toBeNull();
 });
 
 test("settings density toggle applies and persists", async () => {

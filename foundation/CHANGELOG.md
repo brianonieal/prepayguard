@@ -1,5 +1,22 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.2.0 — Console Depth (2026-07-04, Phase 4 · gate 3/3 · FINAL)
+
+**The remaining demo-chrome is now real: Profile loads live ID-token fields with a working Change Password and TOTP MFA enrollment, and Settings drops its inert toggles. Phase 4 complete.**
+
+### Frontend (deployed) — no backend/Lambda change
+- **Profile** (`Profile.jsx`, fully rewritten): identity + account fields now load from the **ID token** (`sub`, `email`, role from `cognito:groups`, `auth_time`, `iat`) instead of hardcoded placeholders. Working **Change password** (Amplify `updatePassword`, with a confirm-match check and success/error states) and **TOTP MFA enrollment** (`setUpTOTP` → shows the shared secret → `verifyTOTPSetup` + `updateMFAPreference` PREFERRED), plus a **Disable MFA** path and live status via `fetchMFAPreference`. The dead "display name / Save profile" control is gone.
+- **Login** (`Login.jsx`): handles the `CONFIRM_SIGN_IN_WITH_TOTP_CODE` step — an enrolled user gets a second "authentication code" screen (`confirmSignIn`), so enabling MFA can never lock a user out. No-MFA login is unchanged.
+- **Settings**: removed the inert **Email digest** / **Review assignment alerts** toggles (no backend behind them; real notifications are the deferred v3.3.0). Density + default filter (real, persisted) and the v3.1.0 admin Demo controls remain.
+- `auth.js`: `currentProfile`, `changePassword`, `mfaPreference`, `startTotpSetup`, `confirmTotpSetup`, `disableTotp`, `confirmTotpSignIn`. Footer → v3.2.0.
+
+### Infrastructure
+- **Cognito user pool → `mfa_configuration = "OPTIONAL"`** + `software_token_mfa_configuration { enabled = true }` (in-place, no destroy). Opt-in: existing logins are unchanged unless a user self-enrolls.
+
+### Verified
+- console vitest **31/31** (+3: Profile renders real `sub` + changes password; TOTP enroll shows the secret then verifies; Settings no longer shows the inert toggles), backend pytest **90/90** (unchanged — no backend edit), `vite build` clean, `terraform plan` **0-drift**, CORS guard green.
+- **LIVE**: pool MFA config reads `OPTIONAL` / TOTP `true`; SPA deployed. Profile verified in an isolated harness (real fields render, Change Password form opens, Enable MFA reveals the shared secret + code input). Password-change / MFA-enroll / MFA-login round-trips require a real browser + authenticator app — recommend testing enrollment on the reviewer/auditor account first so the admin demo login stays safe.
+
 ## v3.1.0 — Demo Controls (2026-07-04, Phase 4 · gate 2/3)
 
 **An admin-only "Clear data" control that zeroes the working data for a clean demo slate — repeatable, behind a typed confirmation — while the immutable audit trail visibly survives.**

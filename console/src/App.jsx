@@ -16,7 +16,7 @@ export function nav(hash) {
   window.dispatchEvent(new Event("hashchange"));
 }
 
-const DEFAULT_SETTINGS = { density: "comfortable", emailDigest: true, assignAlerts: true, defaultFilter: "pending" };
+const DEFAULT_SETTINGS = { density: "comfortable", defaultFilter: "pending" };
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("tc.settings") || "{}") }; }
   catch { return DEFAULT_SETTINGS; }
@@ -120,7 +120,7 @@ export default function App() {
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v3.1.0</span>
+        <span>Treasury Console · v3.2.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

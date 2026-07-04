@@ -1,6 +1,23 @@
 # SPEC.md
 # Current-gate detail.
 
+## v3.2.0 — Console Depth (2026-07-04, live) · Phase 4 gate 3/3 · FINAL
+The remaining chrome is real; Phase 4 complete. Frontend + Cognito-pool only, no backend.
+
+- **Profile** (rewritten): identity/account from the ID token (sub, email, role, auth_time,
+  iat). Working Change password (Amplify updatePassword) + TOTP MFA enrollment
+  (setUpTOTP → shared secret → verifyTOTPSetup + updateMFAPreference PREFERRED) + Disable;
+  live status via fetchMFAPreference. Dead display-name/Save removed.
+- **Login**: handles CONFIRM_SIGN_IN_WITH_TOTP_CODE (confirmSignIn) so enrolling can't lock
+  a user out; no-MFA login unchanged.
+- **Settings**: inert Email-digest / Assignment-alerts toggles removed (no backend; that's
+  deferred v3.3.0). Density + default filter + admin Demo controls remain.
+- **Cognito pool**: mfa_configuration OPTIONAL + software_token_mfa enabled (opt-in, in-place).
+- Verified: vitest 31/31 (+3), pytest 90/90 (unchanged), build clean, plan 0-drift, CORS
+  green; **LIVE**: pool MFA OPTIONAL/TOTP true, SPA deployed, Profile harness-verified.
+  Password/MFA round-trips need a real browser + authenticator (enroll on a non-admin
+  account first). No new DECISION.
+
 ## v3.1.0 — Demo Controls (2026-07-04, live) · Phase 4 gate 2/3
 Admin-only "Clear data" that zeroes the working data for a clean demo; the immutable
 audit survives (the compliance point). Repeatable.
@@ -161,12 +178,12 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Phase 4 "Showcase & Demo Readiness" is IN PROGRESS** (BUILD APPROVED 2026-07-04).
-  - v3.0.0 Executive Showcase — **DONE + LIVE**.
-  - v3.1.0 Demo Controls (admin-only "Clear data" in Settings) — **DONE + LIVE** (working data zeroed).
-  - v3.2.0 Console Depth (real Profile + Settings) — **NEXT**.
-- The locked roadmap v0.1.0 → v2.4.0 remains complete underneath; Phase 4 adds the
-  demo/showcase layer on top. (Optional v3.3.0 Notifications deferred.)
+- **🏁 Phase 4 "Showcase & Demo Readiness" is COMPLETE + LIVE** (BUILD APPROVED 2026-07-04).
+  - v3.0.0 Executive Showcase — DONE + LIVE.
+  - v3.1.0 Demo Controls (admin-only "Clear data") — DONE + LIVE (working data zeroed).
+  - v3.2.0 Console Depth (real Profile + honest Settings + OPTIONAL TOTP MFA) — DONE + LIVE.
+- The locked roadmap v0.1.0 → v2.4.0 remains complete underneath. Anything further
+  (v3.3.0 real SES Notifications, etc.) is a new gate — re-run BUILD APPROVED.
 - **Teardown** available anytime (audit bucket stays under Object Lock).
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.

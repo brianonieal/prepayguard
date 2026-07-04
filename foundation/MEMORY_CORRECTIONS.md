@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v3.2.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T20:37:49Z
 ESTIMATION: gate=v3.1.0 estimated=2h actual=1.50h variance=-25% source=timelog errors_open=0 errors_close=0 date=2026-07-04T20:21:34Z
 ESTIMATION: gate=v3.0.0 estimated=4h actual=1.50h variance=-62% source=timelog errors_open=0 errors_close=0 date=2026-07-04T19:51:01Z
 ESTIMATION: gate=v2.4.0 estimated=4h actual=2.50h variance=-38% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:50:06Z
@@ -24,6 +25,46 @@ ESTIMATION: gate=v0.4.0 estimated=9h actual=0.70h variance=-92% source=timelog e
 ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:51:26Z
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
+
+### REFLEXION - v3.2.0 Console Depth (2026-07-04, Phase 4 gate 3/3 FINAL)
+
+**What went well**
+- Cheapest safe path to real MFA: OPTIONAL pool config + handle the login challenge.
+  Enabling `mfa_configuration = OPTIONAL` + software-token is an in-place, opt-in change
+  (existing logins untouched) - the risky part isn't the pool, it's that an enrolled user
+  then gets a SOFTWARE_TOKEN_MFA challenge at next login. Adding the
+  CONFIRM_SIGN_IN_WITH_TOTP_CODE branch to Login.jsx up front means enrolling can never
+  lock anyone out. Ship the challenge handler in the SAME gate you enable MFA, never after.
+- Honest beats fake. Settings had inert Email-digest / Assignment-alerts toggles with no
+  backend. Rather than wire a fake-persist, I removed them - there's no notification system
+  (that's the deferred v3.3.0), so a switch that does nothing is worse than its absence.
+  "Remove every dead button" was the actual deliverable.
+- No backend, no image churn. The whole gate was frontend + one Cognito-pool attribute, so
+  images stayed v3.1.0 and the deploy was pool-apply + SPA sync only. Recognizing "this
+  needs no Lambda change" kept it to one small apply.
+- The stub-harness pattern paid off again: aliased auth.js to a static stub, mounted just
+  <Profile>, and confirmed the four panels + real fields + the Change-password form + the
+  Enable-MFA→secret reveal render live, then tore it down. vitest already covered behavior;
+  the harness caught layout.
+
+**What bit / watched**
+- MFA is the one surface I genuinely cannot end-to-end verify headlessly: enroll needs an
+  authenticator app, and the enrolled-login round-trip needs a real browser. vitest proves
+  the wiring (setUpTOTP/verifyTOTPSetup/confirmSignIn are called with the right args) but
+  not that a real TOTP code is accepted. So I flagged it explicitly and recommended the user
+  test enrollment on the reviewer/auditor account first - never risk the admin demo login on
+  an untested-by-me auth path right before demo day. Latent-risk honesty over false "done."
+- The login-flow refactor (login() now returns {isSignedIn,nextStep} instead of a user) was
+  the one change that could break EVERY sign-in. Kept the no-MFA path byte-identical
+  (isSignedIn true → getCurrentUser) and updated the vitest auth mock's login return in the
+  same edit, so all 28 prior tests stayed green. Touch the login path, re-run the whole suite.
+
+**Lesson**
+- When adding an auth factor, the feature is the enrollment UI PLUS the subsequent-login
+  challenge PLUS keeping it opt-in - shipping enrollment without the challenge handler is a
+  lockout waiting to happen. And be honest about what you can't verify: an auth path you
+  can't exercise headlessly ships with an explicit "test this yourself, on a throwaway
+  account first" flag, not a clean green checkmark.
 
 ### REFLEXION - v3.1.0 Demo Controls (2026-07-04, Phase 4 gate 2/3)
 
