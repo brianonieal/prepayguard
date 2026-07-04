@@ -6,6 +6,7 @@ import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
 import ReferenceData from "./screens/ReferenceData.jsx";
+import Analytics from "./screens/Analytics.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
 
@@ -50,14 +51,21 @@ export default function App() {
     else setRole(null);
   }, [user]);
 
-  const canReview = role === "reviewer" || role === "admin";
+  const canSubmit = ["submitter", "reviewer", "admin"].includes(role);
+  const canReview = ["reviewer", "admin", "auditor"].includes(role); // auditor views read-only
+  const canDecide = ["reviewer", "admin"].includes(role);
+  const canAnalytics = ["admin", "auditor"].includes(role);
   const isAdmin = role === "admin";
-  // Role guards: submitters bounce off the review queue; only admins reach
-  // the reference-data screen (v2.1.0).
+  const landing = canSubmit ? "#/submit" : canAnalytics ? "#/analytics" : canReview ? "#/reviews" : "#/profile";
+  // Role guards: bounce a user off any route their role can't see.
   useEffect(() => {
-    if (user && role && !canReview && parts[0] === "reviews") nav("#/submit");
-    if (user && role && !isAdmin && parts[0] === "reference") nav("#/submit");
-  }, [user, role, canReview, isAdmin, parts]);
+    if (!user || !role) return;
+    const r = parts[0];
+    if ((r === "submit" && !canSubmit) || (r === "reviews" && !canReview) ||
+        (r === "reference" && !isAdmin) || (r === "analytics" && !canAnalytics)) {
+      nav(landing);
+    }
+  }, [user, role, parts]); // eslint-disable-line
 
   if (user === undefined) {
     return <div className="login-page"><div className="login-wrap"><div className="sub">Loading…</div></div></div>;
@@ -83,24 +91,30 @@ export default function App() {
         <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut} />
       </header>
       <nav className="tabs">
-        <button className={route === "submit" ? "on" : ""} onClick={() => nav("#/submit")}>Submit Payment</button>
+        {canSubmit && (
+          <button className={route === "submit" ? "on" : ""} onClick={() => nav("#/submit")}>Submit Payment</button>
+        )}
         {canReview && (
           <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
+        )}
+        {canAnalytics && (
+          <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Analytics</button>
         )}
         {isAdmin && (
           <button className={route === "reference" ? "on" : ""} onClick={() => nav("#/reference")}>Reference Data</button>
         )}
       </nav>
       <main className="content">
-        {route === "submit" && <Submit />}
-        {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} onOpen={(id) => nav(`#/reviews/${id}`)} />}
-        {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} onBack={() => nav("#/reviews")} />}
+        {route === "submit" && canSubmit && <Submit />}
+        {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} canDecide={canDecide} onOpen={(id) => nav(`#/reviews/${id}`)} />}
+        {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
+        {route === "analytics" && canAnalytics && <Analytics />}
         {route === "reference" && isAdmin && <ReferenceData />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} />}
       </main>
       <footer className="foot">
-        <span>Treasury Console · v2.3.0</span>
+        <span>Treasury Console · v2.4.0</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited — S3 Object Lock (COMPLIANCE)</span>
       </footer>

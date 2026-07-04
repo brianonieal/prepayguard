@@ -3,7 +3,7 @@ import { decide, getAudit, getBrief, listAttachments, listReviews, presignAttach
 import { hashRecord } from "../lib/integrity.js";
 import { explainScore } from "../lib/score.js";
 
-export default function AuditDetail({ paymentId, onBack }) {
+export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
   const [record, setRecord] = useState(null);
   const [status, setStatus] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -114,7 +114,7 @@ export default function AuditDetail({ paymentId, onBack }) {
             )}
           </div>
 
-          {status === "pending" && (
+          {status === "pending" && canDecide && (
             <div className="panel" style={{ marginTop: 14 }}>
               <h3>Decision</h3>
               {err && <div className="verdict bad" style={{ marginBottom: 10 }}>{err}</div>}

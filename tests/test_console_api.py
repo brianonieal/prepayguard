@@ -61,6 +61,7 @@ def console_api(monkeypatch):
         s3.put_object(Bucket=reference_bucket, Key="reference/versions/1.json", Body=seed)
         monkeypatch.setenv("REFERENCE_BUCKET", reference_bucket)
         monkeypatch.setenv("ADMIN_ROLE_NAME", "treasury-dev-console-admin")
+        monkeypatch.setenv("AUDITOR_ROLE_NAME", "treasury-dev-console-auditor")
         monkeypatch.setenv("REVIEWS_TABLE_NAME", "treasury-dev-reviews")
         monkeypatch.setenv("AUDIT_BUCKET_NAME", bucket)
         monkeypatch.setenv("AUDIT_INDEX_TABLE", "treasury-dev-audit-index")
@@ -294,6 +295,46 @@ def test_bulk_decide_caps_batch_size(console_api):
     resp = console_api["app"].handler(_event("POST", "/reviews/decisions",
                                              body={"payment_ids": [f"p{i}" for i in range(51)], "decision": "approved"}))
     assert resp["statusCode"] == 400
+
+
+# --- v2.4.0 analytics & compliance ---
+
+AUDITOR = "arn:aws:sts::1:assumed-role/treasury-dev-console-auditor/pat"
+REV = "arn:aws:sts::1:assumed-role/treasury-dev-console-reviewer/kim"
+
+
+def _seed_audit_index(console_api):
+    idx = console_api["index"]
+    for pid, disp, day in [("x1", "approve", "2026-07-01"), ("x2", "approve", "2026-07-01"),
+                           ("x3", "review", "2026-07-02"), ("x4", "reject", "2026-07-02"),
+                           ("x5", "review", "2026-07-03")]:
+        idx.put_item(Item={"payment_id": pid, "audit_key": f"audit/{day}/{pid}.json",
+                           "disposition": disp, "audited_at": f"{day}T10:00:00+00:00"})
+
+
+def test_analytics_aggregates_over_audit_index(console_api):
+    _seed_audit_index(console_api)
+    body = json.loads(console_api["app"].handler(_event("GET", "/analytics", caller=ADMIN))["body"])
+    assert body["total_screened"] == 5
+    assert body["disposition_mix"] == {"approve": 2, "review": 2, "reject": 1}
+    assert body["hit_rate"] == 60.0                 # (2 review + 1 reject) / 5
+    assert len(body["throughput"]) == 3             # three distinct days
+
+
+def test_analytics_admin_and_auditor_allowed_reviewer_forbidden(console_api):
+    _seed_audit_index(console_api)
+    assert console_api["app"].handler(_event("GET", "/analytics", caller=ADMIN))["statusCode"] == 200
+    assert console_api["app"].handler(_event("GET", "/analytics", caller=AUDITOR))["statusCode"] == 200
+    assert console_api["app"].handler(_event("GET", "/analytics", caller=REV))["statusCode"] == 403
+
+
+def test_audit_log_lists_filters_and_gates(console_api):
+    _seed_audit_index(console_api)
+    allx = json.loads(console_api["app"].handler(_event("GET", "/audit-log", caller=AUDITOR))["body"])
+    assert allx["count"] == 5
+    rej = json.loads(console_api["app"].handler(_event("GET", "/audit-log", qs={"disposition": "reject"}, caller=ADMIN))["body"])
+    assert rej["count"] == 1 and rej["entries"][0]["disposition"] == "reject"
+    assert console_api["app"].handler(_event("GET", "/audit-log", caller=REV))["statusCode"] == 403
 
 
 # --- v2.1.0 reference-data lifecycle ---

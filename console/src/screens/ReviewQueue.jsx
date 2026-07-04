@@ -7,7 +7,7 @@ const AGE = (iso) => {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
-export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
+export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDecide = true }) {
   const [status, setStatus] = useState(defaultFilter);
   const [items, setItems] = useState(null);
   const [cursor, setCursor] = useState(null);
@@ -87,7 +87,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
         ))}
       </div>
 
-      {selected.size > 0 && (
+      {canDecide && selected.size > 0 && (
         <div className="bulkbar" role="region" aria-label="Bulk actions">
           <span><b>{selected.size}</b> selected</span>
           <button className="btn btn-green btn-sm" disabled={busy} onClick={() => doBulk("approved")}>Approve {selected.size}</button>
@@ -104,7 +104,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
         <table>
           <thead><tr>
             <th style={{ width: 28 }}>
-              {selectablePending.length > 0 && (
+              {canDecide && selectablePending.length > 0 && (
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all pending" />
               )}
             </th>
@@ -114,7 +114,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
             {rows.map((r) => (
               <tr key={r.payment_id} className={selected.has(r.payment_id) ? "row-sel" : ""}>
                 <td>
-                  {r.status === "pending" && (
+                  {canDecide && r.status === "pending" && (
                     <input type="checkbox" checked={selected.has(r.payment_id)}
                       onChange={() => toggle(r.payment_id)} aria-label={`Select ${r.payment_id}`} />
                   )}
@@ -126,7 +126,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending" }) {
                 <td>{AGE(r.received_at)}</td>
                 <td><span className={`pill p-${r.status}`}>{r.status}</span></td>
                 <td><button className="rowlink" onClick={() => onOpen(r.payment_id)}>
-                  {r.status === "pending" ? "Review →" : "View →"}
+                  {canDecide && r.status === "pending" ? "Review →" : "View →"}
                 </button></td>
               </tr>
             ))}

@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 _dynamodb = None
 _s3 = None
 
-COMPONENT_VERSION = "2.3.0"
+COMPONENT_VERSION = "2.4.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
 REFERENCE_KEY = "reference/current.json"
 VALID_SEVERITIES = {"high", "medium", "low"}
@@ -484,6 +484,82 @@ def _get_reference_version(n: str) -> dict:
     return _response(200, _strip_embeddings(json.loads(body)))
 
 
+# --- v2.4.0: analytics & compliance reporting (admin + read-only auditor) -----
+
+def _is_admin_or_auditor(event) -> bool:
+    arn = ((event.get("requestContext") or {}).get("identity") or {}).get("userArn") or ""
+    parts = arn.split("/")
+    if not (len(parts) >= 2 and parts[0].endswith(":assumed-role")):
+        return False
+    return parts[1] in (os.environ.get("ADMIN_ROLE_NAME", ""), os.environ.get("AUDITOR_ROLE_NAME", ""))
+
+
+def _scan_all(table, cap=10000):
+    resp = table.scan()
+    items = resp.get("Items", [])
+    while resp.get("LastEvaluatedKey") and len(items) < cap:
+        resp = table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
+        items += resp.get("Items", [])
+    return items
+
+
+def _analytics(event) -> dict:
+    if not _is_admin_or_auditor(event):
+        return _response(403, {"error": "admin_or_auditor_only"})
+    # Disposition mix + throughput come from audit_index (one row per EVERY
+    # disposition since v1.5.0). Scan-based - fine at course scale; a materialized
+    # rollup is the follow-on for production volumes.
+    index_items = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
+    mix = {"approve": 0, "review": 0, "reject": 0}
+    by_day = {}
+    for it in index_items:
+        d = it.get("disposition")
+        if d in mix:
+            mix[d] += 1
+        day = str(it.get("audited_at", ""))[:10]
+        if day:
+            by_day[day] = by_day.get(day, 0) + 1
+    total = len(index_items)
+    flagged = mix["review"] + mix["reject"]
+    hit_rate = round(100 * flagged / total, 1) if total else 0.0
+    throughput = sorted(({"day": k, "count": v} for k, v in by_day.items()), key=lambda x: x["day"])[-14:]
+
+    review_items = _scan_all(_table())
+    pending = [r for r in review_items if r.get("status") == "pending"]
+    avg_score = round(sum(float(r.get("score", 0)) for r in pending) / len(pending)) if pending else 0
+    oldest = min((str(r.get("received_at", "")) for r in pending), default="")
+    reviewers = {}
+    for r in review_items:
+        if r.get("status") in ("approved", "rejected") and r.get("decided_by"):
+            reviewers[r["decided_by"]] = reviewers.get(r["decided_by"], 0) + 1
+    productivity = sorted(({"reviewer": k, "decisions": v} for k, v in reviewers.items()),
+                          key=lambda x: -x["decisions"])
+    return _response(200, {
+        "total_screened": total, "disposition_mix": mix, "hit_rate": hit_rate,
+        "throughput": throughput,
+        "queue": {"pending": len(pending), "avg_pending_score": avg_score, "oldest_pending": oldest},
+        "reviewer_productivity": productivity,
+    })
+
+
+def _audit_log(event) -> dict:
+    if not _is_admin_or_auditor(event):
+        return _response(403, {"error": "admin_or_auditor_only"})
+    params = event.get("queryStringParameters") or {}
+    disp = params.get("disposition")
+    try:
+        limit = max(1, min(int(params.get("limit", 100)), 500))
+    except (TypeError, ValueError):
+        limit = 100
+    items = _scan_all(_resource().Table(os.environ["AUDIT_INDEX_TABLE"]))
+    if disp and disp != "all":
+        items = [i for i in items if i.get("disposition") == disp]
+    items.sort(key=lambda i: str(i.get("audited_at", "")), reverse=True)
+    rows = [{"payment_id": i.get("payment_id"), "disposition": i.get("disposition"),
+             "audited_at": i.get("audited_at"), "key": i.get("audit_key")} for i in items[:limit]]
+    return _response(200, {"entries": rows, "count": len(rows), "truncated": len(items) > limit})
+
+
 def handler(event, context=None):
     method = event.get("httpMethod", "")
     path = event.get("path", "")
@@ -516,6 +592,11 @@ def handler(event, context=None):
             return _list_reference_versions()
         if method == "GET" and len(parts) == 3 and parts[0] == "reference" and parts[1] == "versions":
             return _get_reference_version(parts[2])
+        # Analytics & compliance (v2.4.0, admin + auditor)
+        if method == "GET" and parts == ["analytics"]:
+            return _analytics(event)
+        if method == "GET" and parts == ["audit-log"]:
+            return _audit_log(event)
         # Batch ingestion (v1.6.0)
         if method == "POST" and parts == ["batches"]:
             return _presign_batch(json.loads(event.get("body") or "{}"))

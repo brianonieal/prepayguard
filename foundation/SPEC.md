@@ -1,6 +1,19 @@
 # SPEC.md
 # Current-gate detail.
 
+## v2.4.0 — Analytics & Compliance Reporting (2026-07-04, live) · Phase 3 gate 5/5 · FINAL
+Oversight dashboard + auditor export; the locked roadmap is complete.
+
+- **console_api** `GET /analytics` (mix/throughput/hit-rate over audit_index +
+  queue/reviewer metrics over reviews) + `GET /audit-log` (filterable, CSV export),
+  admin+auditor gated. New read-only **auditor** role, edge method-scoped to GET.
+- **Console**: Analytics dashboard (CSS bars, no chart lib); auditor gets a
+  read-only Review Queue (decide controls hidden).
+- Verified: pytest 85/85, vitest 24/24, checkov 530/0, plan 0-drift, CORS green;
+  **LIVE**: 178 screened / 23.6% hit; admin+auditor analytics 200, auditor
+  decision 403, reviewer analytics 403.
+- 21 decisions LOCKED (DEC-21). **Roadmap v0.1.0 → v2.4.0 COMPLETE.**
+
 ## v2.3.0 — LLM Adjudication Briefs (2026-07-04, live) · Phase 3 gate 4/5
 Reviewers get an evidence-grounded AI brief — advisory, never in the audit record.
 
@@ -113,12 +126,14 @@ The console is **live and end-to-end verified**. Phase 2 (v1.1.0 → v1.4.0) don
 - **Live infrastructure:** the full pipeline + console run in us-east-2.
 
 ## NEXT / OPEN
-- **Phase 3 in progress (gate 4/5 done).** Next: **v2.4.0 — Analytics &
-  Compliance Reporting (FINAL)** — throughput / hit-rate / disposition / aging
-  dashboard + an auditor export & legal-hold view over the audit log; role-gated
-  (admin/auditor). Closing this gate completes the locked roadmap.
+- **🏁 The locked roadmap (v0.1.0 → v2.4.0) is COMPLETE.** A live, AI-augmented,
+  role-secured, fully-audited pre-payment integrity platform. No gate is pending.
+- Anything further (real reference-data feeds, materialized analytics, custom
+  domain, multi-region, production hardening) is a new **Phase 4** — re-run
+  BUILD APPROVED.
+- **Teardown** available anytime (audit bucket stays under Object Lock).
 - **Teardown** available anytime (destroy the tear-downable resources; audit
   bucket stays under Object Lock). The meter is running on live infra.
 
 ## DECISIONS SNAPSHOT
-20 of 20 LOCKED.
+21 of 21 LOCKED.

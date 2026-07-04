@@ -34,6 +34,8 @@
 
 | 2026-07-04 | v2.3.0 LLM Adjudication Briefs (Phase 3) | CLOSED (tagged) | ~2–3h | ~1.5h | On-demand, read-only, grounded advisory briefs (Nova Lite/Converse); never written to the audit record (verified live); reviewer-triggered button + disclaimer; degrade-on-error. |
 
+| 2026-07-04 | v2.4.0 Analytics & Compliance (Phase 3 FINAL) | CLOSED (tagged) | ~2–4h | ~2.5h | Oversight dashboard + auditor CSV export over audit_index/reviews; read-only auditor role (edge GET-only). Live: 178 screened, 23.6% hit; admin+auditor see analytics, auditor decision 403, reviewer analytics 403. **Locked roadmap v0.1.0->v2.4.0 COMPLETE.** |
+
 ## SESSIONS
 
 ### 2026-07-03 — Session 1: project bootstrap → v0.1.0 build

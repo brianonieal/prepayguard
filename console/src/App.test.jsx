@@ -10,7 +10,7 @@ vi.mock("./lib/auth.js", () => ({
   logout: async () => {},
   currentUser: async () => null, // start logged-out so the login gate shows
   currentGroups: vi.fn(async () => ["admin"]), // default: full-access role
-  roleFromGroups: (g) => g.includes("admin") ? "admin" : g.includes("reviewer") ? "reviewer" : g.includes("submitter") ? "submitter" : "none",
+  roleFromGroups: (g) => g.includes("admin") ? "admin" : g.includes("reviewer") ? "reviewer" : g.includes("auditor") ? "auditor" : g.includes("submitter") ? "submitter" : "none",
 }));
 
 vi.mock("./lib/api.js", () => {
@@ -34,6 +34,8 @@ vi.mock("./lib/api.js", () => {
     listReviews: async () => ({ reviews, count: reviews.length, next_cursor: null }),
     getAudit: async () => ({ key: "k", record }),
     getBrief: async () => ({ brief: "Flagged on a semantic match to an OIG-excluded entity. Recommend INVESTIGATE.", model: "amazon.nova-lite-v1:0", generated_at: "2026-07-04T18:00:00+00:00" }),
+    getAnalytics: async () => ({ total_screened: 12, disposition_mix: { approve: 7, review: 3, reject: 2 }, hit_rate: 41.7, throughput: [{ day: "2026-07-04", count: 12 }], queue: { pending: 3, avg_pending_score: 55, oldest_pending: "2026-07-03" }, reviewer_productivity: [{ reviewer: "kim", decisions: 5 }] }),
+    getAuditLog: async () => ({ entries: [{ payment_id: "x4", disposition: "reject", audited_at: "2026-07-04T10:00:00", key: "k" }], count: 1, truncated: false }),
     decide: async () => ({ status: "approved" }),
     listAttachments: async () => ({ attachments: [] }),
     presignAttachment: async () => ({ upload_url: "http://x", key: "k" }),
@@ -62,7 +64,7 @@ const signIn = async () => {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "brian@example.test" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw123456789!" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  await screen.findByText("Submit payments for screening");
+  await screen.findByTestId("role-chip");  // role-agnostic: signed in + role resolved
 };
 
 // --- pure logic ---
@@ -198,6 +200,35 @@ test("batch upload accepts an Excel file (server-parsed, no client preview)", as
   fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText(/parsed server-side on upload/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Upload payroll\.xlsx/ })).toBeInTheDocument();
+});
+
+test("admin sees the Analytics tab and dashboard", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Analytics" }));
+  expect(await screen.findByText("Total screened")).toBeInTheDocument();
+  expect(screen.getByText("Hit rate")).toBeInTheDocument();
+  expect(screen.getByText("Disposition mix")).toBeInTheDocument();
+});
+
+test("auditor role: analytics visible, review queue is read-only (no decide)", async () => {
+  currentGroups.mockResolvedValue(["auditor"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Analytics" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Submit Payment" })).toBeNull();   // auditor can't submit
+  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: "View →" }))[0]); // "View", not "Review"
+  expect(await screen.findByText("Screening evidence")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Approve payment" })).toBeNull();   // no decide controls
+});
+
+test("reviewer role has no Analytics tab", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Analytics" })).toBeNull();
 });
 
 test("submitter role sees Submit but not the Review Queue", async () => {

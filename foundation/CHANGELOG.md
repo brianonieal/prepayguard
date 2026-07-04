@@ -1,5 +1,24 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v2.4.0 — Analytics & Compliance Reporting (2026-07-04, Phase 3 · FINAL)
+
+**Admins and auditors get an oversight dashboard + an auditor export over the immutable audit log. This gate completes the locked roadmap.**
+
+### Backend
+- **console_api** `GET /analytics` (admin+auditor): aggregates over **audit_index** (one row per every disposition) → total screened, **disposition mix**, **hit rate**, throughput by day; over **reviews** → pending count, avg score, oldest-pending age, decisions-per-reviewer. `GET /audit-log?disposition=&limit=` → filterable list for the auditor (drill-down via `GET /audit/{id}`). `_is_admin_or_auditor` gate; `dynamodb:Scan` added on audit_index.
+- **Read-only auditor role** (**DEC-21**): new `auditor` Cognito group → IAM role, admitted at the edge on **`*/GET/*` only** (method-scoped resource policy + GET-only identity policy) — can view analytics, the audit log, cases, evidence, briefs, but never decide, publish, submit, or upload.
+
+### Frontend (deployed)
+- **Analytics** tab (admin+auditor): stat cards + CSS-bar disposition mix + throughput-by-day + reviewer-productivity table + audit-log table with **CSV export** (no chart library). Auditor also gets a **read-only** Review Queue (bulk/decide controls hidden; `canDecide = reviewer|admin`).
+
+### Verified
+- `pytest` 85/85 · `vitest` 24/24 · `checkov` 530/0 · `tflint` clean · `plan` 0-drift · `check_cors.py` green.
+- **LIVE PASS**: **178 payments screened, 23.6% hit rate** (136 approve / 31 review / 11 reject). Admin + auditor → `/analytics` **200**; auditor decision attempt → **403** (read-only edge); reviewer → `/analytics` **403** (admin/auditor gate). (IAM-propagation re-apply for the new auditor role, as anticipated.)
+
+**DEC-21 LOCKED** — analytics over audit_index/reviews + read-only auditor role.
+
+### 🏁 The locked roadmap (v0.1.0 → v2.4.0) is complete.
+
 ## v2.3.0 — LLM Adjudication Briefs (2026-07-04, Phase 3)
 
 **Reviewers can get an AI-written, evidence-grounded brief for a flagged case — advisory only, never part of the immutable audit record.**

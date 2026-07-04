@@ -52,7 +52,7 @@ most uncertainty (unfamiliar API + mocking LLM/embeddings in tests).
 | v2.1.2 | Multi-Format Batch Ingestion | Batch upload accepts CSV + Excel (.xlsx) + JSON; non-tabular files reported "unsupported", never dropped. Inserted gate (owner request); v2.1.1 was the CORS hotfix. | ~1–2h | DONE (actual: 1.0) |
 | v2.2.0 | Semantic Payee Matching | Bedrock embeddings in enrichment: a match is exact-rule OR semantic similarity ≥ threshold over the managed reference set. Vector store settled at gate (cosine-in-DDB proposed vs OpenSearch Serverless). | ~3–4h | DONE (actual: 2.0) |
 | v2.3.0 | LLM Adjudication Briefs | Bedrock generates an evidence-grounded "why flagged / recommended action" for reviewers. **Advisory only — NOT part of the immutable decision record; the human still decides.** | ~2–3h | DONE (actual: 1.5) |
-| v2.4.0 | Analytics & Compliance Reporting | Throughput / hit-rate / disposition / aging dashboard + auditor export & legal-hold view over the audit log; role-gated (admin/auditor). | ~2–4h | pending |
+| v2.4.0 | Analytics & Compliance Reporting | Throughput / hit-rate / disposition / aging dashboard + auditor export & legal-hold view over the audit log; role-gated (admin/auditor). | ~2–4h | DONE (actual: 2.5) — **FINAL: locked roadmap complete** |
 
 **Phase 3 total (calibrated):** ~11–17h across 5 gates.
 

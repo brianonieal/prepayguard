@@ -38,19 +38,35 @@ decoupled by SQS and defined entirely in Terraform:
 | Component | Role | Module |
 |---|---|---|
 | **A. Payment Intake API** | IAM-authed API Gateway, payment-ID idempotency, enqueue | `modules/api_intake_stage` |
-| **B. Enrichment and Reference-Match** | Match payee / TIN against reference sources | `modules/queue_worker_stage` (shared) |
+| **B. Enrichment and Reference-Match** | Match payee / TIN against reference sources: exact, fuzzy, and Bedrock-embedding **semantic** | `modules/queue_worker_stage` (shared) |
 | **C. Risk-Scoring and Decision Engine** | Score risk, decide approve / review / reject | `modules/queue_worker_stage` (shared) |
 | **D. Disposition Router and Audit Logger** | Immutable audit write, route ambiguous cases to review, webhook notify | `modules/queue_worker_stage` (shared) |
-| **E. Batch Ingest** | S3-triggered bulk CSV intake, reuses A's idempotency store and queue | `modules/batch_ingest_stage` |
-| **Console API** | Read/action router for the console: list reviews, fetch audit, decisions, batches | `modules/console_api` |
+| **E. Batch Ingest** | S3-triggered bulk **CSV / Excel / JSON** intake, reuses A's idempotency store and queue | `modules/batch_ingest_stage` |
+| **Console API** | Read/action router: reviews, audit, decisions, batches, reference data, LLM briefs, analytics | `modules/console_api` |
 
 Supporting modules: `audit_store` (S3 Object Lock, COMPLIANCE mode),
 `review_queue` (human-review path), `console_foundation` (Cognito, S3 and
-CloudFront hosting, reviews table), `ecr_repo` (per-component registries, 6x).
+CloudFront hosting, reviews table), `reference_store` (versioned screening lists),
+`ecr_repo` (per-component registries, 6x).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system overview, failure
-modes, rollback mechanism, and known unknowns. All 17 architectural decisions are
+modes, rollback mechanism, and known unknowns. All 21 architectural decisions are
 locked in [foundation/DECISIONS.md](foundation/DECISIONS.md).
+
+## Screening intelligence
+
+Every disposition is deterministic and explainable, and every one cites the exact
+screening-list version it was judged against:
+
+* **Rule-based matching** (DEC-14): TIN exact, name exact, name fuzzy.
+* **Semantic matching** (Bedrock Titan embeddings): catches payee variants the
+  string rules miss (for example "Globex Overseas Incorporated" against a listed
+  "Globex Offshore Inc"), by cosine similarity over per-entry vectors stored in
+  the versioned reference document. No vector database.
+* **Versioned reference data**: admins publish new Do Not Pay lists through the
+  console; each screening record cites the list version it matched.
+* **LLM adjudication briefs** (Bedrock Nova Lite): an on-demand, evidence-grounded
+  summary for reviewers. Advisory only, never written to the immutable audit record.
 
 ## The reviewer console
 
@@ -58,13 +74,17 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
 
 * Cognito login to temporary IAM credentials, then browser SigV4 (aws4fetch) to
   the APIs. No static keys in the browser.
-* Submit a single payment or upload a CSV batch (ingested server-side by
-  Component E).
-* Review queue with server-side status filters, cursor pagination, and search.
-* Audit detail with client-side integrity verification and score explainability.
-* Case-document attachments (presigned S3 uploads) and bulk approve / reject.
-* Roles: **submitter**, **reviewer**, **admin**. Segregation of duties is
-  enforced: an approver cannot clear a payment they submitted.
+* Submit a single payment or upload a batch file (**CSV, Excel, or JSON**),
+  ingested server-side by Component E.
+* Review queue with server-side status filters, cursor pagination, search, and
+  bulk approve / reject.
+* Audit detail with client-side integrity verification, score explainability,
+  semantic-match evidence, and an optional AI brief.
+* Admin **reference-data** editor (publish versioned lists) and an **analytics /
+  compliance** dashboard with an auditor CSV export over the audit log.
+* Roles: **submitter**, **reviewer**, **admin**, and a read-only **auditor**.
+  Segregation of duties is enforced: an approver cannot clear a payment they
+  submitted; the auditor can view everything but decide nothing.
 
 ## Graded commitments and evidence
 
@@ -78,21 +98,20 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
 
 ## Status and roadmap
 
-Live through **v2.0.0**. Delivered so far:
+**The locked roadmap (v0.1.0 to v2.4.0) is complete and live.**
 
-* **Phase 1 (v0.1.0 to v1.0.0):** the backend pipeline plus the capstone
-  deliverable. Done.
-* **Phase 2 (v1.1.0 to v1.4.0):** the reviewer console, deployed and live. Done.
-* **Hardening:** v1.5.0 read-scale (GSI pagination, O(1) audit lookup) and
-  v1.6.0 write-scale (batch ingestion, bulk actions). Done.
-* **Phase 3, "Do-Not-Pay Intelligence":** v2.0.0 roles and segregation of duties
-  is done and live; v2.1.0 to v2.4.0 are planned (reference-data lifecycle,
-  semantic payee matching with Bedrock embeddings, LLM adjudication briefs,
-  analytics and compliance reporting).
+* **Phase 1 (v0.1.0 to v1.0.0):** the backend pipeline plus the capstone deliverable.
+* **Phase 2 (v1.1.0 to v1.4.0):** the reviewer console, deployed and live.
+* **Hardening:** v1.5.0 read-scale (GSI pagination, O(1) audit lookup) and v1.6.0
+  write-scale (batch ingestion, bulk actions).
+* **Phase 3, "Do-Not-Pay Intelligence":** v2.0.0 roles and segregation of duties,
+  v2.1.0 versioned reference-data lifecycle, v2.1.2 multi-format batch ingestion,
+  v2.2.0 semantic payee matching (Bedrock embeddings), v2.3.0 LLM adjudication
+  briefs, v2.4.0 analytics and compliance reporting with a read-only auditor role.
 
-Verified at the current gate: `pytest` 60/60, console `vitest` 15/15, `checkov`
-clean, `terraform plan` shows no drift. Full plan:
-[foundation/VERSION_ROADMAP.md](foundation/VERSION_ROADMAP.md).
+Verified at the final gate: `pytest` 85/85, console `vitest` 24/24, `checkov`
+clean, `terraform plan` shows no drift, and a live end-to-end run per gate. Full
+history: [foundation/VERSION_ROADMAP.md](foundation/VERSION_ROADMAP.md).
 
 ## Tech stack
 

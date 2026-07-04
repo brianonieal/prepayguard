@@ -10,8 +10,9 @@ locals {
   # v2.1.0: role groupings for the resource policy; ADMIN_ROLE_NAME lets the
   # handler distinguish admin from reviewer (both may invoke most routes).
   reviewer_admin_role_arns = [var.reviewer_role_arn, var.admin_role_arn]
-  all_named_role_arns      = [var.reviewer_role_arn, var.admin_role_arn, var.submitter_role_arn]
+  all_named_role_arns      = [var.reviewer_role_arn, var.admin_role_arn, var.submitter_role_arn, var.auditor_role_arn]
   admin_role_name          = element(split("/", var.admin_role_arn), 1)
+  auditor_role_name        = element(split("/", var.auditor_role_arn), 1)
 }
 
 # ---------------------------------------------------------------------------
@@ -50,10 +51,11 @@ data "aws_iam_policy_document" "api" {
   }
 
   # v1.5.0: O(1) audit lookup via the payment_id -> key index.
+  # v2.4.0: Scan for analytics + the auditor audit-log.
   statement {
     sid       = "AuditIndexRead"
     effect    = "Allow"
-    actions   = ["dynamodb:GetItem"]
+    actions   = ["dynamodb:GetItem", "dynamodb:Scan"]
     resources = [var.audit_index_table_arn]
   }
 
@@ -190,6 +192,7 @@ resource "aws_lambda_function" "api" {
       BATCHES_TABLE       = var.batches_table_name
       REFERENCE_BUCKET    = var.reference_bucket_name
       ADMIN_ROLE_NAME     = local.admin_role_name
+      AUDITOR_ROLE_NAME   = local.auditor_role_name
       EMBED_MODEL         = var.embed_model
       BRIEF_MODEL         = var.brief_model
       CONSOLE_ORIGIN      = var.console_origin
@@ -324,6 +327,19 @@ data "aws_iam_policy_document" "resource_policy" {
     }
     actions   = ["execute-api:Invoke"]
     resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*"]
+  }
+
+  # v2.4.0: the read-only auditor is admitted on GET routes only (analytics, audit
+  # log, cases, evidence) - method-scoped so it can never decide, publish, or submit.
+  statement {
+    sid    = "AllowAuditorReadOnly"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = [var.auditor_role_arn]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/GET/*"]
   }
 
   # v2.1.0: publishing a new screening list is admin-only. Edge-deny the reviewer

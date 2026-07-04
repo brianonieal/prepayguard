@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 20 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 21 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -268,4 +268,17 @@ Section-level detail:
 
 ---
 
-# 20 decisions logged. 20 LOCKED, 0 OPEN.
+## DEC-21 - Analytics Data Model & Read-Only Auditor Role (v2.4.0)
+**Date:** 2026-07-04
+**Severity:** FULL
+**Decision:** Analytics/compliance reporting aggregates over the **audit_index** table (one row per EVERY disposition since v1.5.0) for throughput / disposition mix / hit rate, plus the **reviews** table for queue metrics + reviewer productivity - scan-based aggregation on demand. A new read-only **auditor** Cognito group -> IAM role provides compliance segregation: admitted at the edge on the console API's **GET routes only** (method-scoped resource policy `*/GET/*` + a GET-only identity policy), and `GET /analytics` + `GET /audit-log` are app-gated to **admin+auditor** (reviewer/submitter 403). The auditor can view analytics, the audit log, cases, evidence, and briefs, but can never decide, publish, submit, or upload. CSV export of the audit log is client-side.
+**Alternatives considered:** gate analytics to admin-only (rejected - the roadmap and compliance realism call for a segregated read-only oversight persona distinct from the acting roles; separation of oversight from action is the point). A materialized/precomputed analytics table updated by Component D (deferred - a scan is trivially fast at course scale; add a rollup when volume grows). A dedicated analytics store / Athena over the audit S3 (over-engineered for this scale). Per-method resource-policy scoping proved the clean way to make "auditor = read-only" enforceable at the edge, reusing the v2.0.0 role machinery.
+**Rationale:** leadership + auditor oversight (throughput, hit rate, disposition mix, queue aging, reviewer productivity) and an auditor export over the immutable audit log, with the compliance-correct read-only persona. Proven live: 178 payments screened, 23.6% hit rate; admin+auditor see analytics, the auditor's decision attempt 403s, the reviewer's analytics 403s.
+**Risk acknowledged:** (1) scan-based aggregation is O(table) - fine to low thousands, but a full scan per analytics load will not scale to production volumes; a materialized rollup is the flagged follow-on. (2) reviewer_productivity keys on the decider's cognitoIdentityId (opaque) - human-readable names need a user directory. (3) audit-log returns the latest N (cap 500); a full compliance export at scale needs pagination/streaming.
+**Confidence:** HIGH. **Reversibility:** HIGH - analytics is read-only endpoints; the auditor role is additive.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 21 decisions logged. 21 LOCKED, 0 OPEN.

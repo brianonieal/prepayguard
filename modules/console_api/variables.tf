@@ -19,6 +19,11 @@ variable "reviewer_role_arn" {
   type        = string
 }
 
+variable "auditor_role_arn" {
+  description = "v2.4.0: read-only auditor group role — admitted on GET routes only (analytics, audit log, cases)."
+  type        = string
+}
+
 variable "submitter_role_arn" {
   description = "Submitter role — admitted ONLY on the batch-upload routes (POST/GET /batches)."
   type        = string

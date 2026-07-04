@@ -189,6 +189,7 @@ module "console_api" {
   admin_role_arn           = module.console.admin_role_arn
   reviewer_role_arn        = module.console.reviewer_role_arn
   submitter_role_arn       = module.console.submitter_role_arn
+  auditor_role_arn         = module.console.auditor_role_arn
   reviews_table_name       = module.console.reviews_table_name
   reviews_table_arn        = module.console.reviews_table_arn
   reviews_status_index_arn = module.console.reviews_status_index_arn
@@ -251,6 +252,23 @@ resource "aws_iam_role_policy" "console_submitter_invoke" {
   name   = "${local.name_prefix}-console-submitter-invoke"
   role   = module.console.submitter_role_name
   policy = data.aws_iam_policy_document.console_submitter_invoke.json
+}
+
+# v2.4.0: the auditor may invoke the console API's GET routes only (read-only
+# oversight); no intake, no writes. The API resource policy is the matching side.
+data "aws_iam_policy_document" "auditor_invoke" {
+  statement {
+    sid       = "InvokeConsoleReadOnly"
+    effect    = "Allow"
+    actions   = ["execute-api:Invoke"]
+    resources = ["${module.console_api.api_execution_arn}/*/GET/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "auditor_invoke" {
+  name   = "${local.name_prefix}-auditor-invoke"
+  role   = module.console.auditor_role_name
+  policy = data.aws_iam_policy_document.auditor_invoke.json
 }
 
 module "api_intake" {

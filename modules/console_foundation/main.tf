@@ -110,6 +110,14 @@ resource "aws_iam_role" "admin" {
   assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
 }
 
+# v2.4.0: read-only oversight persona (analytics, audit log, cases). Cannot
+# decide, publish, or submit - the compliance segregation.
+resource "aws_iam_role" "auditor" {
+  name               = "${var.name_prefix}-console-auditor"
+  description        = "Console 'auditor' group: read-only oversight; no decisions/publish/submit."
+  assume_role_policy = data.aws_iam_policy_document.authenticated_assume.json
+}
+
 # Cognito groups → roles. Lower precedence wins when a user is in several groups,
 # so admin (10) > reviewer (20) > submitter (30) resolves cognito:preferred_role.
 resource "aws_cognito_user_group" "submitter" {
@@ -131,6 +139,13 @@ resource "aws_cognito_user_group" "admin" {
   user_pool_id = aws_cognito_user_pool.console.id
   role_arn     = aws_iam_role.admin.arn
   precedence   = 10
+}
+
+resource "aws_cognito_user_group" "auditor" {
+  name         = "auditor"
+  user_pool_id = aws_cognito_user_pool.console.id
+  role_arn     = aws_iam_role.auditor.arn
+  precedence   = 25 # below reviewer; oversight persona
 }
 
 resource "aws_cognito_identity_pool_roles_attachment" "console" {

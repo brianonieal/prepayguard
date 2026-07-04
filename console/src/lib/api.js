@@ -115,6 +115,20 @@ export async function getReferenceVersion(n) {
   return unwrap(await c.fetch(`${config.consoleApi}/reference/versions/${n}`));
 }
 
+// v2.4.0 analytics & compliance (admin + read-only auditor).
+export async function getAnalytics() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/analytics`));
+}
+
+export async function getAuditLog({ disposition, limit = 200 } = {}) {
+  const c = await client();
+  const qs = new URLSearchParams();
+  if (disposition && disposition !== "all") qs.set("disposition", disposition);
+  qs.set("limit", String(limit));
+  return unwrap(await c.fetch(`${config.consoleApi}/audit-log?${qs}`));
+}
+
 // v1.6.0 bulk review actions: one decision applied to many payments.
 export async function bulkDecide(paymentIds, decision, note = "") {
   const c = await client();

@@ -44,6 +44,7 @@ export async function currentGroups() {
 export function roleFromGroups(groups) {
   if (groups.includes("admin")) return "admin";
   if (groups.includes("reviewer")) return "reviewer";
+  if (groups.includes("auditor")) return "auditor";
   if (groups.includes("submitter")) return "submitter";
   return "none";
 }

@@ -3,6 +3,7 @@
 
 ## REFLEXION LOG
 
+ESTIMATION: gate=v2.4.0 estimated=4h actual=2.50h variance=-38% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:50:06Z
 ESTIMATION: gate=v2.3.0 estimated=3h actual=1.50h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:24:12Z
 ESTIMATION: gate=v2.2.0 estimated=4h actual=2.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T18:11:40Z
 ESTIMATION: gate=v2.1.2 estimated=2h actual=1.00h variance=-50% source=timelog errors_open=0 errors_close=0 date=2026-07-04T17:51:18Z
@@ -22,6 +23,41 @@ ESTIMATION: gate=v0.3.0 estimated=8h actual=0.50h variance=-94% source=timelog e
 ESTIMATION: gate=v0.2.0 estimated=8h actual=0.40h variance=-95% source=timelog errors_open=0 errors_close=0 date=2026-07-03T19:18:04Z
 ESTIMATION: gate=v0.1.0 estimated=10h actual=1.50h variance=-85% source=timelog errors_open=0 errors_close=0 date=2026-07-03T18:27:21Z
 
+### REFLEXION - v2.4.0 Analytics & Compliance Reporting (2026-07-04, Phase 3 FINAL)
+
+**What went well**
+- audit_index was already the perfect analytics source: since v1.5.0 it has one
+  row per EVERY disposition, so mix/throughput/hit-rate fell out of a single
+  scan - no new write path, no schema change. Reusing an existing seam beat
+  building an analytics table.
+- Read-only auditor via METHOD-scoped resource policy (*/GET/*) is clean and
+  enforceable at the edge - the auditor literally cannot POST. Live-proven: the
+  auditor's decision attempt 403'd at the edge, not just in the handler.
+- The dashboard needed no chart library - CSS flin bars + a table. Kept the
+  bundle light, consistent with prior "no heavy deps" calls.
+- The whole session's history showed up honestly in the live numbers (178
+  screened, 23.6% hit) - the analytics reflect the real pipeline, not seeded data.
+
+**What bit (all anticipated)**
+- The IAM-propagation error recurred exactly as flagged in the CONFIRMED scope:
+  the new auditor role, named in the console resource policy, wasn't propagated
+  when the policy updated -> re-plan + re-apply after get-role confirmed it. This
+  is now a KNOWN, pre-announced cost of any gate that adds a role a resource
+  policy references. Ideal fix (future): create new principal roles in a prior
+  targeted apply before the policies that name them.
+- vitest signIn() assumed every role lands on the Submit screen; the auditor
+  (no submit access) broke it. Fixed by making signIn await the role-agnostic
+  role-chip instead of the Submit heading. Lesson: shared test helpers must not
+  assume a role-specific landing once roles diverge.
+
+**Estimated vs actual**
+Est ~2-4h -> actual ~2.5h. The biggest Phase 3 gate (new role + 2 endpoints +
+dashboard UI), but every seam (roles, conditional IAM, scan helpers, CSS bars)
+was warm from prior gates.
+
+**MILESTONE: the locked roadmap (v0.1.0 -> v2.4.0, 21 gates + 1 hotfix) is
+COMPLETE.** A live, AI-augmented, role-secured, fully-audited pre-payment
+integrity platform. Anything further is a new Phase 4 (re-run BUILD APPROVED).
 ### REFLEXION - v2.3.0 LLM Adjudication Briefs (2026-07-04, Phase 3)
 
 **What went well**
