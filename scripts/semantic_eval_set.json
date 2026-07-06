@@ -1,0 +1,44 @@
+{
+  "_note": "Labeled evaluation set for the Component B semantic-matching layer (Work Order 1). SYNTHETIC and PII-free, consistent with the repo's synthetic-data discipline (DEC-14). The reference list below is the v1 bundled synthetic Do Not Pay list; every test payee is a name-only input (semantic matching is name-based and runs only when TIN/exact/fuzzy string rules found nothing). Construction is documented in docs/sme/SEMANTIC_EVAL.md so the set is auditable and not cherry-picked.",
+  "reference_entries": [
+    { "name": "John Q Public", "tin": "900000001", "source": "death_master_file", "severity": "high" },
+    { "name": "Acme Shell LLC", "tin": "900000002", "source": "sam_exclusions", "severity": "high" },
+    { "name": "Jane A Doe", "tin": "900000003", "source": "treasury_offset", "severity": "medium" },
+    { "name": "Globex Offshore Inc", "tin": "900000004", "source": "oig_leie", "severity": "high" },
+    { "name": "Robert Roe", "tin": "900000005", "source": "sam_exclusions", "severity": "high" },
+    { "name": "Umbrella Holdings Group", "tin": "900000006", "source": "treasury_offset", "severity": "medium" },
+    { "name": "Mary M Sample", "tin": "900000007", "source": "death_master_file", "severity": "high" },
+    { "name": "Initech Systems LLC", "tin": "900000008", "source": "oig_leie", "severity": "high" }
+  ],
+  "cases": [
+    {"payee": "Globex Overseas Incorporated", "label": "positive", "target": "Globex Offshore Inc", "variant": "word-substitution + legal-suffix expansion (the repo's canonical example)"},
+    {"payee": "Globex Overseas Inc", "label": "positive", "target": "Globex Offshore Inc", "variant": "single word substitution Offshore->Overseas"},
+    {"payee": "Shell Acme LLC", "label": "positive", "target": "Acme Shell LLC", "variant": "word-order swap"},
+    {"payee": "Acme Shell Limited Liability Company", "label": "positive", "target": "Acme Shell LLC", "variant": "legal-suffix expansion"},
+    {"payee": "Umbrella Holding Grp", "label": "positive", "target": "Umbrella Holdings Group", "variant": "abbreviation + singular/plural drift"},
+    {"payee": "The Umbrella Holdings Group", "label": "positive", "target": "Umbrella Holdings Group", "variant": "leading article added"},
+    {"payee": "Initech Systems Limited", "label": "positive", "target": "Initech Systems LLC", "variant": "legal-suffix change (LLC->Limited)"},
+    {"payee": "Initech System", "label": "positive", "target": "Initech Systems LLC", "variant": "singular + suffix dropped"},
+    {"payee": "Bob Roe", "label": "positive", "target": "Robert Roe", "variant": "given-name nickname"},
+    {"payee": "Mary Sample", "label": "positive", "target": "Mary M Sample", "variant": "middle initial dropped"},
+
+    {"payee": "Acme Shield LLC", "label": "hard_negative", "note": "distinct entity: Shield != Shell, surface-similar"},
+    {"payee": "Ace Shell LLC", "label": "hard_negative", "note": "distinct entity: Ace != Acme"},
+    {"payee": "Initech Solutions LLC", "label": "hard_negative", "note": "distinct entity: Solutions != Systems"},
+    {"payee": "Globe Offset Inc", "label": "hard_negative", "note": "distinct entity, shares only surface tokens with Globex Offshore Inc"},
+    {"payee": "Umbrella Insurance Group", "label": "hard_negative", "note": "distinct entity: Insurance != Holdings"},
+    {"payee": "Robert Doe", "label": "hard_negative", "note": "distinct person, borrows one token each from Robert Roe and Jane A Doe but is neither"},
+    {"payee": "John Q Public Library", "label": "hard_negative", "note": "an institution, not the listed person John Q Public"},
+
+    {"payee": "Blue Sky Consulting LLC", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Northwind Traders", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Contoso Ltd", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Fabrikam Industries", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Evergreen Logistics", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Summit Office Supplies", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Riverside Catering Co", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Pioneer Freight Systems", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Downtown Print Shop", "label": "clean", "note": "unrelated legitimate vendor"},
+    {"payee": "Harbor Point Analytics", "label": "clean", "note": "unrelated legitimate vendor"}
+  ]
+}

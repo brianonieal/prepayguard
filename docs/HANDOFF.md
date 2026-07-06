@@ -258,6 +258,39 @@ Full raw scan output: **Appendix A**. Every skip carries an in-file justificatio
 
 ---
 
+## 7. LLM workflow evaluation (course objective 5)
+
+*(Added in the SME hardening pass, 2026-07-06. This handoff body predates Phase 3
+and Phase 4; this section and the `docs/sme/` artifacts carry the current LLM-
+workflow evidence until the full package is refreshed.)*
+
+PrePayGuard's one differentiating component is the Bedrock-embedding semantic
+payee matcher in Component B (DEC-19): it catches payee name variants the exact
+and fuzzy string rules miss, runs only on the residue those rules cleared, and is
+capped to human REVIEW by Component C. It is now **measured**, not asserted.
+
+On a 27-case labeled synthetic set (10 true variants, 7 surface-similar hard
+negatives, 10 clean vendors) scored with real `amazon.titan-embed-text-v2:0`
+embeddings, at the deployed 0.72 cosine threshold: **precision 0.83, recall 1.00,
+F1 0.91, false-positive rate 0.12, target-entity accuracy 1.00**, embeddings
+**deterministic (0.00 drift** across two passes). The threshold sweep confirms
+0.72 as a sound conservative default (recall stays 1.00 up to 0.80); the two false
+positives are near-duplicate distinct entities where routing to a human is
+defensible, and one is intrinsic to name-only similarity and correctly contained
+by the REVIEW cap. Full method, per-case data, sweep table, recommended threshold
+with reasoning, stability note, and scope limits (no adversarial obfuscation,
+synthetic and small): `docs/sme/SEMANTIC_EVAL.md`. Reproducible via
+`scripts/eval_semantic_matching.py` (real Bedrock) and `tests/test_semantic_eval.py`
+(deterministic, no Bedrock). Measured Bedrock cost of the embedding and reviewer-
+brief paths: `docs/sme/BEDROCK_COST.md`.
+
+Responsible use: the reviewer brief (Bedrock Nova Lite, DEC-20) is advisory only,
+grounded solely in the audit record, and is never written to S3, the audit
+record, or the decision; the semantic matcher only ever adds a review flag and
+every match is explainable (matched_on, similarity, source, cited list version).
+
+---
+
 ## Appendix A — Raw scan output (2026-07-03)
 
 ```
