@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 21 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 22 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -281,4 +281,21 @@ Section-level detail:
 
 ---
 
-# 21 decisions logged. 21 LOCKED, 0 OPEN.
+## DEC-22 - Wire One Real Reference Source: SAM.gov Exclusions (SME hardening, WO2)
+**Date:** 2026-07-06
+**Severity:** FULL
+**Decision:** Extend DEC-14's bundled-synthetic model by wiring ONE real Do Not Pay source, the GSA SAM.gov exclusions (federal debarment/suspension list), into the SAME versioned reference store (DEC-18), keeping the other three sources (SSA Death Master File, Treasury Offset Program, OIG LEIE) synthetic and clearly labeled. Ingestion is `scripts/ingest_sam_exclusions.py`: it pulls active exclusions from the SAM Exclusions API v4 (`https://api.sam.gov/entity-information/v4/exclusions`, key from `SAM_API_KEY`, never committed), normalizes each record to the reference schema, and publishes a new version through the existing versioned-list lifecycle (conditional put on `reference/versions/{N}.json`, repoint `current.json`) - not a second store. SAM keys on entity name / UEI and carries NO TIN, so the real entries match on the name paths only (exact, fuzzy, semantic); the TIN path never fires for them and the UEI is kept for audit provenance. The real list is ingested at ALL classifications including Individuals (Brian's call), and is size-capped (default 90 most-recent active, sized to fit BOTH the DEC-19 in-store cosine budget and the free key's 10-requests/day limit; a --extract one-call mode or a higher-tier key lifts the cap) so the embedding cost, document size, and API call budget all stay bounded.
+**Alternatives considered:**
+- Keep all four sources synthetic (rejected: the demo reads as plumbing to an audience that screens the real sources daily; wiring one real source is high executive payoff, objective 10 evidence).
+- OpenSanctions `us_sam_exclusions` keyless daily JSON (rejected in favor of the authoritative GSA primary source per Brian's choice; OpenSanctions is CC-BY-NC and a re-publisher. Kept documented as a fallback in REAL_SOURCE_INGEST.md).
+- Entity/firm records only, filtering out individuals to stay closest to the repo's PII-avoidance stance (rejected: Brian chose the full list; federal debarment names are public by statute, published expressly so payers can screen).
+- Ingest the full ~100k-record extract with per-entry embeddings (rejected: breaks the DEC-19 in-store cosine cost/size assumption and would make thousands of publish-time Titan calls; the documented size cap is the messy-data-handling response, objective 10).
+**Rationale:** moves the live demo from "models the structure of the Do Not Pay sources" to "screens against the actual federal debarment list" for one source, while preserving the synthetic-data discipline for the three genuinely restricted feeds. Reuses the DEC-18 lifecycle and the DEC-19 semantic path unchanged, so the audit citation (`reference_list_version`) works end to end for real-source screenings.
+**Risk acknowledged:** (1) The real list contains real entity and individual names (public debarment data, some records carry masked PII in the source). This is a deliberate reversal of the "never real PII" posture for THIS one public, screen-intended source; DEC-14 still governs the three synthetic sources. (2) The size cap means the live list is NOT the exhaustive federal list; production would use the async extract endpoint plus a real vector index (DEC-19's OpenSearch swap) rather than in-store cosine. (3) A SAM.gov API key is an external dependency and a rate-limited credential; it belongs in Secrets Manager in production, mirrored on the DEC-7 discipline. (4) SAM has no TIN, so a name-variant of a listed individual only catches via fuzzy/semantic, not the strong TIN path.
+**Confidence:** HIGH (mechanism reuses proven lifecycle). **Reversibility:** HIGH - the store is versioned; rolling back is repointing `current.json` to the prior version, and the three synthetic sources are untouched.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 22 decisions logged. 22 LOCKED, 0 OPEN.

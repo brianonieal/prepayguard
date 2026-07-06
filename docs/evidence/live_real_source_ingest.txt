@@ -1,0 +1,26 @@
+LIVE REAL-SOURCE INGEST PROOF - 2026-07-06T15:03:18.046621+00:00
+reference current.json version: 4
+entries: 96 by source: {'death_master_file': 2, 'treasury_offset': 2, 'oig_leie': 2, 'sam_exclusions': 90}
+sam_exclusions source label: SAM.gov exclusions (GSA System for Award Management) - REAL federal debarment/su
+
+payee="YATAI SMART INDUSTRIAL NEW CITY"
+  match_count: 1 | reference_version: 4
+  matched_on: name_exact | source: sam_exclusions | confidence: 80
+
+payee="Definitely Clean Vendor LLC"
+  match_count: 0 | reference_version: 4
+
+VERDICT: real federal exclusion screens against the live store at reference_version 4 -> PASS
+
+--- LIVE END-TO-END (real name through the full pipeline into the console) ---
+Submitted via intake API (SigV4 as treasury-dev-payment-submitter), 2026-07-06:
+  POST /payments {"payment_id":"SAM-REAL-DEMO-1","payee":"YATAI SMART INDUSTRIAL NEW CITY","amount":50000}
+  -> 200 {"status":"queued"}
+Pipeline result (reviews table, treasury-dev-reviews):
+  payment_id: SAM-REAL-DEMO-1
+  payee:      YATAI SMART INDUSTRIAL NEW CITY   (a REAL SAM.gov exclusion)
+  match:      name . sam_exclusions
+  score:      60
+  status:     pending  (routed to human review)
+VERDICT: a real federal exclusion, screened against reference v4, flows end to end
+into the live reviewer console -> PASS

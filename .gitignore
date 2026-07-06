@@ -32,6 +32,11 @@ tflint-report*
 pip-audit-report*
 grype-report*
 
+# Local secrets (never committed). SAM.gov API key for scripts/ingest_sam_exclusions.py
+# lives here for local runs; production keeps it in Secrets Manager (DEC-22 / DEC-7).
+.sam_api_key
+*.secret
+
 # OS / editor
 .DS_Store
 Thumbs.db

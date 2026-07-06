@@ -1,0 +1,331 @@
+{
+  "eval_set": "scripts/semantic_eval_set.json",
+  "embed_model": "amazon.titan-embed-text-v2:0",
+  "deployed_threshold": 0.72,
+  "n_positive": 10,
+  "n_hard_negative": 7,
+  "n_clean": 10,
+  "per_case": [
+    {
+      "payee": "Globex Overseas Incorporated",
+      "label": "positive",
+      "target": "Globex Offshore Inc",
+      "variant": "word-substitution + legal-suffix expansion (the repo's canonical example)",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.857
+    },
+    {
+      "payee": "Globex Overseas Inc",
+      "label": "positive",
+      "target": "Globex Offshore Inc",
+      "variant": "single word substitution Offshore->Overseas",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.8823
+    },
+    {
+      "payee": "Shell Acme LLC",
+      "label": "positive",
+      "target": "Acme Shell LLC",
+      "variant": "word-order swap",
+      "best_name": "Acme Shell LLC",
+      "best_sim": 0.8929
+    },
+    {
+      "payee": "Acme Shell Limited Liability Company",
+      "label": "positive",
+      "target": "Acme Shell LLC",
+      "variant": "legal-suffix expansion",
+      "best_name": "Acme Shell LLC",
+      "best_sim": 0.9034
+    },
+    {
+      "payee": "Umbrella Holding Grp",
+      "label": "positive",
+      "target": "Umbrella Holdings Group",
+      "variant": "abbreviation + singular/plural drift",
+      "best_name": "Umbrella Holdings Group",
+      "best_sim": 0.9377
+    },
+    {
+      "payee": "The Umbrella Holdings Group",
+      "label": "positive",
+      "target": "Umbrella Holdings Group",
+      "variant": "leading article added",
+      "best_name": "Umbrella Holdings Group",
+      "best_sim": 0.9633
+    },
+    {
+      "payee": "Initech Systems Limited",
+      "label": "positive",
+      "target": "Initech Systems LLC",
+      "variant": "legal-suffix change (LLC->Limited)",
+      "best_name": "Initech Systems LLC",
+      "best_sim": 0.9572
+    },
+    {
+      "payee": "Initech System",
+      "label": "positive",
+      "target": "Initech Systems LLC",
+      "variant": "singular + suffix dropped",
+      "best_name": "Initech Systems LLC",
+      "best_sim": 0.8443
+    },
+    {
+      "payee": "Bob Roe",
+      "label": "positive",
+      "target": "Robert Roe",
+      "variant": "given-name nickname",
+      "best_name": "Robert Roe",
+      "best_sim": 0.8311
+    },
+    {
+      "payee": "Mary Sample",
+      "label": "positive",
+      "target": "Mary M Sample",
+      "variant": "middle initial dropped",
+      "best_name": "Mary M Sample",
+      "best_sim": 0.9449
+    },
+    {
+      "payee": "Acme Shield LLC",
+      "label": "hard_negative",
+      "note": "distinct entity: Shield != Shell, surface-similar",
+      "best_name": "Acme Shell LLC",
+      "best_sim": 0.6374
+    },
+    {
+      "payee": "Ace Shell LLC",
+      "label": "hard_negative",
+      "note": "distinct entity: Ace != Acme",
+      "best_name": "Acme Shell LLC",
+      "best_sim": 0.6501
+    },
+    {
+      "payee": "Initech Solutions LLC",
+      "label": "hard_negative",
+      "note": "distinct entity: Solutions != Systems",
+      "best_name": "Initech Systems LLC",
+      "best_sim": 0.966
+    },
+    {
+      "payee": "Globe Offset Inc",
+      "label": "hard_negative",
+      "note": "distinct entity, shares only surface tokens with Globex Offshore Inc",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.5652
+    },
+    {
+      "payee": "Umbrella Insurance Group",
+      "label": "hard_negative",
+      "note": "distinct entity: Insurance != Holdings",
+      "best_name": "Umbrella Holdings Group",
+      "best_sim": 0.7429
+    },
+    {
+      "payee": "Robert Doe",
+      "label": "hard_negative",
+      "note": "distinct person, borrows one token each from Robert Roe and Jane A Doe but is neither",
+      "best_name": "Robert Roe",
+      "best_sim": 0.5697
+    },
+    {
+      "payee": "John Q Public Library",
+      "label": "hard_negative",
+      "note": "an institution, not the listed person John Q Public",
+      "best_name": "John Q Public",
+      "best_sim": 0.4895
+    },
+    {
+      "payee": "Blue Sky Consulting LLC",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.1828
+    },
+    {
+      "payee": "Northwind Traders",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.166
+    },
+    {
+      "payee": "Contoso Ltd",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Initech Systems LLC",
+      "best_sim": 0.222
+    },
+    {
+      "payee": "Fabrikam Industries",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Initech Systems LLC",
+      "best_sim": 0.1638
+    },
+    {
+      "payee": "Evergreen Logistics",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Umbrella Holdings Group",
+      "best_sim": 0.188
+    },
+    {
+      "payee": "Summit Office Supplies",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.1313
+    },
+    {
+      "payee": "Riverside Catering Co",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.1734
+    },
+    {
+      "payee": "Pioneer Freight Systems",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Acme Shell LLC",
+      "best_sim": 0.1702
+    },
+    {
+      "payee": "Downtown Print Shop",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Mary M Sample",
+      "best_sim": 0.1486
+    },
+    {
+      "payee": "Harbor Point Analytics",
+      "label": "clean",
+      "note": "unrelated legitimate vendor",
+      "best_name": "Globex Offshore Inc",
+      "best_sim": 0.1552
+    }
+  ],
+  "sweep": [
+    {
+      "threshold": 0.6,
+      "tp": 10,
+      "fn": 0,
+      "fp": 4,
+      "tn": 13,
+      "precision": 0.7143,
+      "recall": 1.0,
+      "f1": 0.8333,
+      "fpr": 0.2353,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.64,
+      "tp": 10,
+      "fn": 0,
+      "fp": 3,
+      "tn": 14,
+      "precision": 0.7692,
+      "recall": 1.0,
+      "f1": 0.8696,
+      "fpr": 0.1765,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.68,
+      "tp": 10,
+      "fn": 0,
+      "fp": 2,
+      "tn": 15,
+      "precision": 0.8333,
+      "recall": 1.0,
+      "f1": 0.9091,
+      "fpr": 0.1176,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.7,
+      "tp": 10,
+      "fn": 0,
+      "fp": 2,
+      "tn": 15,
+      "precision": 0.8333,
+      "recall": 1.0,
+      "f1": 0.9091,
+      "fpr": 0.1176,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.72,
+      "tp": 10,
+      "fn": 0,
+      "fp": 2,
+      "tn": 15,
+      "precision": 0.8333,
+      "recall": 1.0,
+      "f1": 0.9091,
+      "fpr": 0.1176,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.74,
+      "tp": 10,
+      "fn": 0,
+      "fp": 2,
+      "tn": 15,
+      "precision": 0.8333,
+      "recall": 1.0,
+      "f1": 0.9091,
+      "fpr": 0.1176,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.76,
+      "tp": 10,
+      "fn": 0,
+      "fp": 1,
+      "tn": 16,
+      "precision": 0.9091,
+      "recall": 1.0,
+      "f1": 0.9524,
+      "fpr": 0.0588,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.8,
+      "tp": 10,
+      "fn": 0,
+      "fp": 1,
+      "tn": 16,
+      "precision": 0.9091,
+      "recall": 1.0,
+      "f1": 0.9524,
+      "fpr": 0.0588,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.84,
+      "tp": 9,
+      "fn": 1,
+      "fp": 1,
+      "tn": 16,
+      "precision": 0.9,
+      "recall": 0.9,
+      "f1": 0.9,
+      "fpr": 0.0588,
+      "target_accuracy_on_flagged_positives": 1.0
+    },
+    {
+      "threshold": 0.88,
+      "tp": 7,
+      "fn": 3,
+      "fp": 1,
+      "tn": 16,
+      "precision": 0.875,
+      "recall": 0.7,
+      "f1": 0.7778,
+      "fpr": 0.0588,
+      "target_accuracy_on_flagged_positives": 1.0
+    }
+  ]
+}
