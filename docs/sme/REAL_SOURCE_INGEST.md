@@ -105,17 +105,22 @@ audit record, so a real-source screening is audited end to end.
 ## 5. How to run the live pull + publish
 
 ```
-# key lives in the gitignored .sam_api_key; never committed
-export SAM_API_KEY="$(tr -d '[:space:]' < .sam_api_key)"
+# OPTION A - OpenSanctions (keyless, no rate limit, CC-BY-NC): works immediately.
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --source opensanctions --limit 90 --dry-run
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --source opensanctions --limit 90
 
-# free 10/day key (resets 00:00 GMT): dry run first (fetch + normalize + summarize)
+# OPTION B - authoritative GSA API (needs SAM_API_KEY; free tier 10/day, resets 00:00 GMT):
+export SAM_API_KEY="$(tr -d '[:space:]' < .sam_api_key)"   # gitignored, never committed
 python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90 --dry-run
-# then publish (mints reference version 4, embeds the real entries):
 python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90
-
-# full list / higher-tier key: one async extract call, capped locally
+# GSA full list / higher-tier key: one async extract call, capped locally
 python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --extract --limit 300 --dry-run
 ```
+
+Both sources normalize into the identical schema and publish through the same
+versioned lifecycle; only the fetch differs. OpenSanctions is the practical
+no-limit path (verified live 2026-07-06: 90 records = 28 entities + 62 individuals,
+all active). GSA is the authoritative primary source when a key/quota is available.
 
 The normalization, dedupe, severity mapping, and doc-build logic are pinned by
 `tests/test_sam_ingest.py` (deterministic, no network, no Bedrock), so the pieces

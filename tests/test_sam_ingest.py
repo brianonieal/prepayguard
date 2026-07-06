@@ -122,6 +122,39 @@ def test_paginated_fetch_propagates_rate_limit(monkeypatch):
         ing.fetch_exclusions("k", ing.DEFAULT_ENDPOINT, limit=10)
 
 
+def test_opensanctions_row_maps_and_filters_active():
+    ing = _load()
+    active = ing.normalize_opensanctions_row({
+        "name": "YATAI SMART INDUSTRIAL NEW CITY", "schema": "LegalEntity",
+        "identifiers": "GQBPAV1TFF41;PW2USM6LNCJ9", "sanctions": "Reciprocal - Active - 2025-09-08"})
+    assert active["name"] == "YATAI SMART INDUSTRIAL NEW CITY"
+    assert active["source"] == "sam_exclusions" and active["severity"] == "high"
+    assert active["classification"] == "Entity" and active["uei"] == "GQBPAV1TFF41"
+    assert active["exclusion_type"] == "Reciprocal" and active["tin"] == ""
+
+
+def test_opensanctions_person_and_inactive():
+    ing = _load()
+    person = ing.normalize_opensanctions_row(
+        {"name": "James O. Wilson Jr.", "schema": "Person", "sanctions": "NonProcurement - Active - 1988-12-22"})
+    assert person["classification"] == "Individual"
+    # inactive and nameless rows drop
+    assert ing.normalize_opensanctions_row(
+        {"name": "Old Co", "schema": "LegalEntity", "sanctions": "Reciprocal - Inactive - 2000-01-01"}) is None
+    assert ing.normalize_opensanctions_row({"name": "", "sanctions": "X - Active - Y"}) is None
+
+
+def test_normalize_all_accepts_opensanctions_normalizer():
+    ing = _load()
+    rows = [
+        {"name": "Dup", "schema": "Person", "identifiers": "U1", "sanctions": "P - Active - d"},
+        {"name": "dup", "schema": "Person", "identifiers": "U1", "sanctions": "P - Active - d"},  # dedupe
+        {"name": "Live", "schema": "LegalEntity", "sanctions": "P - Active - d"},
+    ]
+    out = ing.normalize_all(rows, ing.normalize_opensanctions_row)
+    assert len(out) == 2
+
+
 def test_build_doc_preserves_synthetic_replaces_sam_and_versions():
     ing = _load()
     current = {

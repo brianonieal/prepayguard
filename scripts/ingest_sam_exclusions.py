@@ -27,7 +27,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime
+import io
 import json
 import os
 import sys
@@ -207,12 +209,13 @@ def normalize_record(raw: dict) -> dict | None:
     }
 
 
-def normalize_all(raw_records: list[dict]) -> list[dict]:
-    """Normalize, drop inactive/nameless, and dedupe on (normalized name, uei)."""
+def normalize_all(raw_records: list[dict], normalizer=normalize_record) -> list[dict]:
+    """Normalize with the given per-record normalizer, drop inactive/nameless, and
+    dedupe on (normalized name, uei). Shared by the GSA and OpenSanctions sources."""
     seen: set = set()
     entries: list[dict] = []
     for raw in raw_records:
-        e = normalize_record(raw)
+        e = normalizer(raw)
         if e is None:
             continue
         k = (e["name"].lower(), e["uei"])
@@ -221,6 +224,63 @@ def normalize_all(raw_records: list[dict]) -> list[dict]:
         seen.add(k)
         entries.append(e)
     return entries
+
+
+# ---- OpenSanctions source (keyless, no rate limit; CC-BY-NC) ----------------
+#
+# Same underlying GSA SAM data, republished daily as a bulk file. Verified reachable
+# keyless 2026-07-06. targets.simple.csv columns:
+#   id, schema, name, aliases, birth_date, countries, addresses, identifiers,
+#   sanctions ("<program> - <status> - <date>", e.g. "Reciprocal - Active - ..."),
+#   program_ids, dataset, first_seen, last_seen, last_change
+
+OPENSANCTIONS_INDEX = "https://data.opensanctions.org/datasets/latest/us_sam_exclusions/index.json"
+_OS_SCHEMA_TO_CLASS = {"Person": "Individual", "LegalEntity": "Entity",
+                       "Company": "Entity", "Organization": "Entity"}
+
+
+def fetch_opensanctions(limit: int) -> list[dict]:
+    """Resolve the current targets.simple.csv from the latest dataset index, download
+    it (keyless, no rate limit), and return raw CSV rows (dicts). Capped at `limit`."""
+    index = _get_json(OPENSANCTIONS_INDEX, timeout=60)
+    csv_url = next((r["url"] for r in index.get("resources", [])
+                    if r.get("name") == "targets.simple.csv"), None)
+    if not csv_url:
+        raise RuntimeError("targets.simple.csv not found in the OpenSanctions dataset index")
+    req = urllib.request.Request(csv_url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=180) as resp:  # noqa: S310 (fixed https host)
+        text = resp.read().decode("utf-8")
+    rows = list(csv.DictReader(io.StringIO(text)))
+    return rows[:limit] if limit else rows
+
+
+def normalize_opensanctions_row(row: dict) -> dict | None:
+    """Map one OpenSanctions CSV row to the reference schema. The `sanctions` field
+    carries '<program> - <status> - <date>'; keep only Active rows. No TIN; the first
+    UEI-like identifier is kept for provenance."""
+    sanctions = str(row.get("sanctions") or "")
+    # Each sanction is "<program> - <status> - <date>"; multiple are ';'-joined.
+    # Match the STATUS token exactly ("Inactive" contains the substring "active").
+    def _status(s):
+        parts = [p.strip() for p in s.split(" - ")]
+        return parts[1].lower() if len(parts) >= 2 else ""
+    if not any(_status(s) == "active" for s in sanctions.split(";")):
+        return None
+    name = str(row.get("name") or "").strip()
+    if not name:
+        return None
+    program = sanctions.split(" - ")[0].strip() if sanctions else ""
+    ident = str(row.get("identifiers") or "").split(";")[0].strip()
+    return {
+        "name": name,
+        "tin": "",
+        "uei": ident or None,
+        "source": SAM_SOURCE,
+        "severity": "high",  # every SAM exclusion is a debarment/suspension signal
+        "classification": _OS_SCHEMA_TO_CLASS.get(str(row.get("schema") or "").strip(), "Entity"),
+        "exclusion_type": program or None,
+        "excluding_agency": None,  # not carried in the simple CSV
+    }
 
 
 # ---- build the versioned doc (reuse the synthetic restricted sources) -------
@@ -283,40 +343,45 @@ def _titan_embed(bedrock):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bucket", required=True, help="reference-store bucket, e.g. treasury-dev-reference-<acct>")
+    ap.add_argument("--source", choices=["gsa", "opensanctions"], default="gsa",
+                    help="gsa = authoritative SAM v4 API (needs SAM_API_KEY, rate-limited); "
+                         "opensanctions = keyless bulk file of the same GSA data (no rate limit, CC-BY-NC).")
     ap.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
     ap.add_argument("--limit", type=int, default=90,
-                    help="cap on real SAM entries. Default 90 fits the free 10/day tier (<=9 paginated calls) "
-                         "and the in-store-cosine budget; raise it with --extract or a higher-tier key.")
+                    help="cap on real SAM entries. Default 90 fits the free GSA 10/day tier (<=9 paginated calls) "
+                         "and the in-store-cosine budget; raise it with --extract, opensanctions, or a paid key.")
     ap.add_argument("--extract", action="store_true",
-                    help="use the one-call async extract endpoint instead of paginating (for the full list / a "
-                         "higher-tier key); confirmed on first real run.")
+                    help="GSA only: use the one-call async extract endpoint instead of paginating.")
     ap.add_argument("--dry-run", action="store_true", help="fetch + normalize + summarize, do NOT publish")
     args = ap.parse_args()
-
-    api_key = os.environ.get("SAM_API_KEY")
-    if not api_key:
-        sys.exit("SAM_API_KEY is not set. Put a SAM.gov API key in .sam_api_key (gitignored) and export it, "
-                 "e.g. SAM_API_KEY=$(cat .sam_api_key) python scripts/ingest_sam_exclusions.py ...")
-
-    pages_needed = (args.limit + PAGE_SIZE - 1) // PAGE_SIZE
-    if not args.extract and pages_needed > FREE_TIER_DAILY_CALLS:
-        print(f"  WARNING: --limit {args.limit} needs {pages_needed} paginated calls; the free tier allows "
-              f"{FREE_TIER_DAILY_CALLS}/day. Lower --limit to <= {FREE_TIER_DAILY_CALLS * PAGE_SIZE} or use --extract.")
 
     os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-2")
     s3 = boto3.client("s3", region_name="us-east-2")
 
-    mode = "extract (one call)" if args.extract else f"paginated ({pages_needed} calls)"
-    print(f"Fetching up to {args.limit} SAM exclusions via {mode} from {args.endpoint} ...")
-    try:
-        raw = (fetch_exclusions_extract if args.extract else fetch_exclusions)(api_key, args.endpoint, args.limit)
-    except RateLimited as exc:
-        sys.exit(f"RATE LIMITED: {exc}")
+    if args.source == "opensanctions":
+        print(f"Fetching up to {args.limit} SAM exclusions via OpenSanctions (keyless bulk file) ...")
+        raw = fetch_opensanctions(args.limit)
+        normalizer = normalize_opensanctions_row
+    else:
+        api_key = os.environ.get("SAM_API_KEY")
+        if not api_key:
+            sys.exit("SAM_API_KEY is not set. Put a SAM.gov API key in .sam_api_key (gitignored) and export it, "
+                     "or use --source opensanctions (keyless).")
+        pages_needed = (args.limit + PAGE_SIZE - 1) // PAGE_SIZE
+        if not args.extract and pages_needed > FREE_TIER_DAILY_CALLS:
+            print(f"  WARNING: --limit {args.limit} needs {pages_needed} calls; the free tier allows "
+                  f"{FREE_TIER_DAILY_CALLS}/day. Lower --limit, use --extract, or --source opensanctions.")
+        mode = "extract (one call)" if args.extract else f"paginated ({pages_needed} calls)"
+        print(f"Fetching up to {args.limit} SAM exclusions via GSA {mode} from {args.endpoint} ...")
+        try:
+            raw = (fetch_exclusions_extract if args.extract else fetch_exclusions)(api_key, args.endpoint, args.limit)
+        except RateLimited as exc:
+            sys.exit(f"RATE LIMITED: {exc}")
+        normalizer = normalize_record
+
     if raw:
-        # Log the first raw record's top-level shape so the normalizer can be
-        # confirmed/adjusted against whatever envelope the live API returned.
         print(f"  first raw record keys: {list(raw[0].keys())}")
-    entries = normalize_all(raw)
+    entries = normalize_all(raw, normalizer)
     print(f"  fetched {len(raw)} raw, {len(entries)} active+named+deduped")
     by_class: dict = {}
     for e in entries:
