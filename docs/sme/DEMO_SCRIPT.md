@@ -48,8 +48,13 @@ This is the real path proven live (`docs/evidence/console_live_e2e.txt`):
    human console uses the same AWS identity model as the machine endpoints.")
 2. **Submit a payment** to a clean payee. It auto-approves, score 0, reason "no
    reference-source matches." Show the audit record.
-3. **Submit a flagged payee**, "Acme Shell LLC" (a listed SAM-exclusions entity).
-   It routes to **review**, score 60, reason "name_exact match on sam_exclusions."
+3. **Submit a flagged payee** using a REAL name from the live SAM.gov exclusions
+   list, e.g. `YATAI SMART INDUSTRIAL NEW CITY` (pick any current entry from the
+   admin Reference Data tab). It routes to **review**, score 60, reason "name_exact
+   match on sam_exclusions", citing reference version 4. Say it out loud: "that is a
+   real entry on the federal debarment list, not a synthetic one." (The old
+   synthetic names Acme Shell LLC / Robert Roe were replaced by the real feed in
+   v4, so do not use them.)
 4. **Open the review queue**, open the case. Show score explainability, the cited
    **reference-list version**, and (optional) click the **AI brief** button; note
    in the UI it is labeled advisory and is never part of the audit record.
