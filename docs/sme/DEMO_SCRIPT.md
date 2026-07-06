@@ -1,4 +1,4 @@
-# DEMO_SCRIPT.md — live demonstration runbook
+# DEMO_SCRIPT.md: live demonstration runbook
 
 For presenting PrePayGuard live to a Treasury executive and the capstone
 professors. Time budget: about 10 minutes plus questions. The one hard safety

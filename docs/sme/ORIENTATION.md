@@ -1,4 +1,4 @@
-# ORIENTATION.md — PrePayGuard system analysis (SME pass)
+# ORIENTATION.md: PrePayGuard system analysis (SME pass)
 
 Course objective 3 (analyze the system: architecture, dependencies, failure
 modes, known unknowns). Written after reading the live repo at branch

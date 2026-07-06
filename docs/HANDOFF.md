@@ -1,6 +1,6 @@
-# PrePayGuard ("Treasury") — Capstone Handoff Package
+# PrePayGuard ("Treasury"): Capstone Handoff Package
 
-**JHU Certificate in AI Engineering — CO.EN.AIE.LLL.2026.01**
+**JHU Certificate in AI Engineering, CO.EN.AIE.LLL.2026.01**
 **Author:** Brian Onieal · **Repo:** github.com/brianonieal/prepayguard (private)
 **Original package:** 2026-07-03 (v1.0.0) · **Refreshed:** 2026-07-06 (through v3.2.1 + SME hardening)
 
@@ -21,17 +21,17 @@ federal source** (SAM.gov exclusions) alongside three modeled ones.
 
 ## 1. Architecture notes
 
-*(Forward-looking — written as the system's designer documenting its shape, failure
+*(Forward-looking, written as the system's designer documenting its shape, failure
 modes, and untested paths; per DEC-11 / course objective 3. Full analysis:
 `ARCHITECTURE.md` and `docs/sme/ORIENTATION.md`.)*
 
 ### 1.1 System overview
 
 ```
-caller (SigV4) ─> API Gateway (AWS_IAM) ─> [A] Intake — payment-ID idempotency  [DynamoDB]
-  └─> SQS ─> [B] Enrichment — reference match: TIN/name exact, fuzzy, SEMANTIC   [versioned S3 list + Bedrock]
-        └─> SQS ─> [C] Risk Scoring — rule-based score + disposition
-              └─> SQS ─> [D] Disposition — audit + route + notify
+caller (SigV4) ─> API Gateway (AWS_IAM) ─> [A] Intake, payment-ID idempotency  [DynamoDB]
+  └─> SQS ─> [B] Enrichment, reference match: TIN/name exact, fuzzy, SEMANTIC   [versioned S3 list + Bedrock]
+        └─> SQS ─> [C] Risk Scoring, rule-based score + disposition
+              └─> SQS ─> [D] Disposition, audit + route + notify
                      ├─> S3 Object Lock audit record (commitment 4)
                      ├─> SQS review queue (ambiguous → human, commitment 2)
                      └─> webhook (URL from Secrets Manager, DEC-7)
@@ -54,7 +54,7 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
 | C | Risk-Scoring & Decision | Transparent rule-based score → three-way disposition | DEC-14 |
 | D | Disposition Router & Audit Logger | Immutable audit write; route review; webhook notify | DEC-4, DEC-7 |
 | E | Batch Ingest | S3-triggered bulk CSV/Excel/JSON; reuses A's queue + idempotency table | DEC-16 |
-| — | Console API | Reviews, audit, decisions, batches, reference publish, LLM briefs, analytics | DEC-15, DEC-17..21 |
+|, | Console API | Reviews, audit, decisions, batches, reference publish, LLM briefs, analytics | DEC-15, DEC-17..21 |
 
 ### 1.3 Screening intelligence (Phase 3)
 
@@ -62,7 +62,7 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
   ≥0.90) → 60; C maps TIN→reject, name→review (potential match to a human), none→approve.
 - **Semantic matching (DEC-19):** Bedrock Titan Embed v2 cosine over per-entry vectors
   stored IN the versioned reference document (no vector DB). Runs only when string rules
-  miss; capped to REVIEW by C. **Measured** — see §7.
+  miss; capped to REVIEW by C. **Measured**, see §7.
 - **Versioned reference data (DEC-18):** admins publish new lists through the console;
   each screening cites the exact list version. Store: `reference/current.json` +
   immutable `reference/versions/{N}.json`.
@@ -72,7 +72,7 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
 - **LLM adjudication briefs (DEC-20):** on-demand Bedrock Nova Lite summary for reviewers,
   grounded only in the audit record, advisory, never written to the immutable record.
 
-### 1.4 Console, roles, and oversight (Phases 2–4)
+### 1.4 Console, roles, and oversight (Phases 2-4)
 
 - **Auth (DEC-15):** Cognito → Identity Pool → temporary IAM creds → browser SigV4; one
   AWS_IAM model for machine and human callers, no second authorizer.
@@ -117,13 +117,13 @@ vitest 31/31**, both green locally and in CI. Registry: `foundation/TESTS.md`.
 | 2 | Failure routing → manual review | `test_failure_routing.py` | PASS + **live** |
 | 3 | Queue-depth scaling | `test_queue_depth_scaling.py` | PASS (config proof) |
 | 4 | S3 Object Lock immutability | `test_object_lock.py` | PASS + **live** (delete + shorten AccessDenied) |
-| — | Review webhook + scoped secret (DEC-7) | `test_review_notification.py` | PASS + **live** |
-| — | Enrichment + semantic matching | `test_enrichment.py` | PASS |
-| — | Risk scoring / disposition | `test_risk_scoring.py` | PASS |
-| — | Batch ingest (DEC-16) | `test_component_e.py` | PASS |
-| — | Console API (roles, briefs, analytics, reference) | `test_console_api.py` | PASS |
-| — | Semantic-eval metric math (objective 5) | `test_semantic_eval.py` | PASS |
-| — | Real SAM ingestion (objective 10) | `test_sam_ingest.py` | PASS |
+|, | Review webhook + scoped secret (DEC-7) | `test_review_notification.py` | PASS + **live** |
+|, | Enrichment + semantic matching | `test_enrichment.py` | PASS |
+|, | Risk scoring / disposition | `test_risk_scoring.py` | PASS |
+|, | Batch ingest (DEC-16) | `test_component_e.py` | PASS |
+|, | Console API (roles, briefs, analytics, reference) | `test_console_api.py` | PASS |
+|, | Semantic-eval metric math (objective 5) | `test_semantic_eval.py` | PASS |
+|, | Real SAM ingestion (objective 10) | `test_sam_ingest.py` | PASS |
 
 ### 2.2 Live end-to-end (real AWS)
 
@@ -150,7 +150,7 @@ vitest 31/31**, both green locally and in CI. Registry: `foundation/TESTS.md`.
   manual (DEC-6, CI is plan-only). Bedrock: `amazon.titan-embed-text-v2:0` +
   `amazon.nova-lite-v1:0`. The audit bucket is not destroyable while Object Lock holds
   (DEC-4, by design). Full procedure: `README.md` / `ARCHITECTURE.md`.
-- **CI/CD (DEC-6):** GitHub Actions — `ci.yml` (fmt/validate/tflint/pytest/ruff/pip-audit/
+- **CI/CD (DEC-6):** GitHub Actions, `ci.yml` (fmt/validate/tflint/pytest/ruff/pip-audit/
   checkov, no creds) and `plan.yml` (terraform plan on PRs, no auto-apply).
 
 ---
@@ -166,7 +166,7 @@ defense-in-depth:
 - **Least privilege:** each execution role scoped to only the resources it touches (only D
   writes the audit bucket and reads the one webhook secret; B reads the reference bucket
   and invokes Bedrock; B/C hold no secrets).
-- **Immutability (DEC-4):** S3 Object Lock COMPLIANCE — live-verified no principal can
+- **Immutability (DEC-4):** S3 Object Lock COMPLIANCE, live-verified no principal can
   delete or shorten a record; per-record SHA-256 integrity hash.
 - **Encryption:** audit bucket SSE-KMS (rotating CMK), TLS-only, public access blocked;
   SQS SSE.
@@ -252,7 +252,26 @@ synthetic restricted entries**, verified end to end (§2.2).
 
 ---
 
-## Appendix A — Raw scan output
+## 9. AI-assisted development, used with judgment (course objective 2)
+
+PrePayGuard was built with AI-assisted development (Claude Code) under a gated,
+human-approved workflow, not free-form generation. AI assistance produced handler
+code (A to E, console API), the Terraform modules, the tests, the React console, and
+this SME hardening pass. Review and control came from human approval gates at every
+version, decisions recorded with their alternatives and objections in
+`foundation/DECISIONS.md` (22 locked), and static analysis (ruff, checkov, tflint,
+pip-audit) plus the test suite on every change. Judgment was applied, not deferred to
+the assistant: examples include rejecting the Powertools idempotency decorator for
+visible hand-rolled logic (DEC-13), rejecting an ML risk model for transparent rules
+(DEC-14), rejecting a managed vector DB for in-store cosine (DEC-19), and, in this
+pass, correcting generated assumptions from live findings (the SAM API 406 header
+behavior and nested schema, the 10/day rate limit found via a real 429, and a
+normalization bug where the substring "active" matched "Inactive", caught by a test).
+Full account: `docs/sme/AI_ASSISTED_DEVELOPMENT.md`.
+
+---
+
+## Appendix A: Raw scan output
 
 ```
 checkov  : Passed / Failed 0 / Skipped (justified in .checkov.yaml)
@@ -267,13 +286,13 @@ GitHub Actions ci.yml: green
 *(Original v1.0.0 scan snapshot 2026-07-03: checkov 289/0/3, referenced for the graded
 baseline; re-run current at each gate.)*
 
-## Appendix B — Evidence & decisions
+## Appendix B: Evidence & decisions
 
-- `docs/evidence/live_object_lock_proof.txt` — delete/shorten AccessDenied (PASS)
-- `docs/evidence/live_e2e_run.txt` — backend three-payment run
-- `docs/evidence/console_live_e2e.txt` — signed-in console flow
-- `docs/evidence/live_real_source_ingest.txt` — real SAM name screened end to end
-- `docs/sme/` — ORIENTATION, SEMANTIC_EVAL, BEDROCK_COST, REAL_SOURCE_INGEST, DEMO_SCRIPT
+- `docs/evidence/live_object_lock_proof.txt`, delete/shorten AccessDenied (PASS)
+- `docs/evidence/live_e2e_run.txt`, backend three-payment run
+- `docs/evidence/console_live_e2e.txt`, signed-in console flow
+- `docs/evidence/live_real_source_ingest.txt`, real SAM name screened end to end
+- `docs/sme/`, ORIENTATION, SEMANTIC_EVAL, BEDROCK_COST, REAL_SOURCE_INGEST, DEMO_SCRIPT
 - Decisions: `foundation/DECISIONS.md` (22 LOCKED) · Roadmap: `foundation/VERSION_ROADMAP.md`
 
 > Note: `HANDOFF.docx` is the rendered twin of the v1.0.0 body and is now behind this

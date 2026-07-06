@@ -1,4 +1,4 @@
-# BEDROCK_COST.md — measured Bedrock cost of the two LLM paths
+# BEDROCK_COST.md: measured Bedrock cost of the two LLM paths
 
 Course objective 5 (cost sub-requirement + responsible-use sub-point). The repo
 had cost REASONING (DEC-19: ~$2/mo idle baseline vs ~$700/mo for a managed vector

@@ -1,4 +1,4 @@
-# SEMANTIC_EVAL.md — measured evaluation of the semantic-matching layer
+# SEMANTIC_EVAL.md: measured evaluation of the semantic-matching layer
 
 Course objective 5 (evaluate the LLM workflow on performance, stability, cost,
 and human review). This converts PrePayGuard's one differentiating component from
@@ -47,18 +47,18 @@ name-based and runs only when the TIN/exact/fuzzy string rules found nothing.
 
 Three classes, each with a stated construction rule:
 
-- **Positive (10)** — a name that refers to the SAME listed entity but that string
+- **Positive (10)**, a name that refers to the SAME listed entity but that string
   matching misses: word substitution (Offshore to Overseas), legal-suffix change
   (LLC to Limited, LLC to Incorporated), word-order swap (Shell Acme LLC),
   abbreviation (Holding Grp), leading article (The Umbrella ...), dropped middle
   initial (Mary Sample), given-name nickname (Bob Roe). Each names the reference
   entity it should match, so we can check the match points at the RIGHT entity.
-- **Hard negative (7)** — a DISTINCT entity whose surface overlaps a listed name:
+- **Hard negative (7)**, a DISTINCT entity whose surface overlaps a listed name:
   Acme Shield LLC vs Acme Shell LLC, Initech Solutions LLC vs Initech Systems LLC,
   Umbrella Insurance Group vs Umbrella Holdings Group, John Q Public Library vs the
   person John Q Public, etc. These should NOT match; they are where a similarity
   matcher is most likely to false-positive.
-- **Clean (10)** — unrelated legitimate vendor names with no relation to the list.
+- **Clean (10)**, unrelated legitimate vendor names with no relation to the list.
 
 Metric framing is the binary review decision the layer actually makes:
 

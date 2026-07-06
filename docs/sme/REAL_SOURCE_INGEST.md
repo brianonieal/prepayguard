@@ -1,4 +1,4 @@
-# REAL_SOURCE_INGEST.md — wiring the real SAM.gov exclusions
+# REAL_SOURCE_INGEST.md: wiring the real SAM.gov exclusions
 
 Work Order 2 and course objective 10 (respond to messy real data / schema drift).
 Moves the demo from "models the structure of the Do Not Pay sources" to "screens
