@@ -1,0 +1,24 @@
+LIVE FEEDER PROOF (Component F, v3.3.0, DEC-23) - 2026-07-06
+
+Deployed to us-east-2 (account <ACCOUNT_ID>): terraform apply "8 added" (feeder
+Lambda + version/alias + EventBridge rule/target + IAM role/policy + log group),
+plus the treasury-dev-feeder ECR repo and image tag v3.2.1.
+
+Live invokes of treasury-dev-feeder:live:
+  {}                     -> 200 {"written":10,"source":"usaspending","key":"batch-imports/feed-1783356518/payments.json"}
+  {"demo_positive":true} -> 200 {"written":1,"source":"demo_positive","key":"batch-imports/feed-1783356522/payments.json"}
+
+End-to-end result (Component E ingested each feed file, pipeline screened):
+- Batch summaries (treasury-dev-batches):
+    feed-1783356518  total 10  queued 10  duplicate 0   (10 real USAspending payments screened)
+    feed-1783356521  total 10  queued 0   duplicate 10  (repeat pull: deterministic USASPEND-{id} dedupes)
+    feed-1783356522  total 1   queued 1   duplicate 0   (labeled demo positive)
+- 10 real USAspending payees in treasury-dev-audit-index, disposition=approve
+    (e.g. USASPEND-W519TC25FA004, USASPEND-FA881123F0019, USASPEND-HC108424F0067)
+- Demo positive in treasury-dev-reviews: "Globex Overseas Incorporated",
+    match "name . oig_leie", status pending  (SEMANTIC catch, routed to human review)
+- EventBridge rule treasury-dev-feeder-schedule: rate(1 hour), state ENABLED
+
+VERDICT: real federal payees flow automatically into the console (auto-approve),
+the semantic flag path is demonstrable on demand, and overlapping pulls dedupe -> PASS
+Stop switch: set feeder_enabled=false in terraform.tfvars and re-apply.
