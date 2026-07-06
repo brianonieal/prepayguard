@@ -126,13 +126,20 @@ The normalization, dedupe, severity mapping, and doc-build logic are pinned by
 `tests/test_sam_ingest.py` (deterministic, no network, no Bedrock), so the pieces
 that do not need the key are already proven green.
 
-## 6. Status
+## 6. Status - LIVE
 
-The request path was validated against the live API on 2026-07-06 (correct nested
-schema pulled, working headers, real records returned). The normalization, dedupe,
-severity mapping, and doc-build are green (`tests/test_sam_ingest.py`, 11 tests). The
-live **publish is pending only the daily quota reset**: the free key's 10/day budget
-was spent during verification, and it resets 00:00 GMT 2026-07-07, after which the
-capped `--limit 90` run (<= 9 calls) mints reference version 4. Until then the live
-store stays at version 3 (all synthetic) and the demo screens synthetic data. Nothing
-here fakes a live real-source screening; the one un-run step is the quota-gated fetch.
+Published live on 2026-07-06 via `--source opensanctions` (the keyless, no-limit
+path; the GSA free key's 10/day quota was exhausted during verification). The live
+reference store is now **version 4: 96 entries = 90 real SAM exclusions (28 entities,
+62 individuals) + 6 synthetic restricted-source entries** (SSA DMF, TOP, OIG LEIE,
+kept synthetic and labeled). Verified end to end (`docs/evidence/live_real_source_ingest.txt`):
+the real federal exclusion "YATAI SMART INDUSTRIAL NEW CITY" screens through the live
+Component B as a `name_exact` match on `sam_exclusions`, citing `reference_version 4`;
+a clean name gets no match. Tests green (`tests/test_sam_ingest.py`, 14 tests).
+
+Attribution (CC-BY-NC): SAM exclusions data via OpenSanctions (`us_sam_exclusions`),
+sourced from the U.S. GSA System for Award Management. The authoritative GSA API path
+(`--source gsa`) remains available for a key with sufficient quota.
+
+To roll back: repoint `reference/current.json` to the `reference/versions/3.json`
+document (the versioned history is intact); the three synthetic sources are unaffected.
