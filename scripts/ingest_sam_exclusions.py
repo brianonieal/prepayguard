@@ -367,6 +367,7 @@ def main():
         if not api_key:
             sys.exit("SAM_API_KEY is not set. Put a SAM.gov API key in .sam_api_key (gitignored) and export it, "
                      "or use --source opensanctions (keyless).")
+        pages_needed = (args.limit + PAGE_SIZE - 1) // PAGE_SIZE
         if not args.extract and pages_needed >= FREE_TIER_DAILY_CALLS:
             print(f"  WARNING: --limit {args.limit} needs {pages_needed} calls; the free tier allows "
                   f"{FREE_TIER_DAILY_CALLS}/day. Lower --limit, use --extract, or --source opensanctions.")
