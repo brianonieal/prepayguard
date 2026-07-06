@@ -30,3 +30,9 @@ variable "placeholder_image_tag" {
   type        = string
   default     = "bootstrap"
 }
+
+variable "feeder_enabled" {
+  description = "Component F (DEC-23) stop switch: false disables the hourly EventBridge schedule so the automated feed stops (bounds cost + permanent audit-record growth)."
+  type        = bool
+  default     = true
+}

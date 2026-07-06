@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.3.0: Automated Real-Data Feed (2026-07-06)
+
+**Component F (scheduled feeder, DEC-23): an EventBridge schedule pulls real federal awards from the public keyless USAspending API hourly and drops them into the batch-imports bucket, which Component E ingests (DEC-16), so real payees flow into the console with no manual upload.**
+
+- New Lambda `component_f_feeder` (container image, DEC-2): maps USAspending awards to payments (deterministic `USASPEND-{Award ID}` id so overlapping pulls dedupe on the shared idempotency table), writes `batch-imports/feed-{ts}/payments.json`. Degrades gracefully on an API error (logs and skips, never raises).
+- New `modules/scheduled_feeder`: Lambda + version/alias (DEC-10) + EventBridge rule/target + least-privilege IAM (`s3:PutObject` on the feed prefix only; no secret, no queue, no Bedrock). `feeder_enabled` tfvar (default true) is the stop switch.
+- Honesty posture (DEC-23): the scheduled feed is 100% real data; a manual `{"demo_positive": true}` invoke writes ONE labeled test payment (`DEMO-POS-*`) to a listed name so the flag/review/semantic path is demonstrable on cue, without contaminating the real feed. Human review of flagged payments is unchanged (commitment 2, DEC-14).
+- Verified locally: pytest 115/115, ruff clean, checkov 569/0/3, tflint and terraform validate clean, `terraform plan` = 10 to add / 0 change / 0 destroy (purely additive). Live deploy (build/push image + apply) is the remaining step.
+
 ## v3.2.1 — Code-review fixes (2026-07-04)
 
 **Fixes from an xhigh multi-agent review of Phase 4 (10 finder angles + per-candidate adversarial verification + sweep). 14 findings reported; the actionable ones fixed here.**

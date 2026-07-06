@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 22 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 23 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -298,4 +298,22 @@ Section-level detail:
 
 ---
 
-# 22 decisions logged. 22 LOCKED, 0 OPEN.
+## DEC-23 - Automated Real-Data Feed: Scheduled Feeder (Component F, v3.3.0)
+**Date:** 2026-07-06
+**Severity:** FULL
+**Decision:** Add a new Lambda **Component F (feeder)**, a container image (DEC-2), invoked by an **EventBridge scheduled rule** (hourly). Each run pulls up to `FEED_LIMIT` (default 10) recent real awards from the public, keyless **USAspending API** (`/api/v2/search/spending_by_award/`), maps each to a payment row (`payee` = Recipient Name, `amount` = Award Amount, no TIN, `payment_id` = deterministic `USASPEND-{Award ID}`), and writes ONE JSON file to the batch-imports bucket under `batch-imports/feed-{ts}/payments.json`. **Component E's existing S3 trigger (DEC-16) ingests it and the whole pipeline screens every row** - no new screening path, no console upload. The scheduled feed is 100% real data; a manual invoke with `{"demo_positive": true}` instead writes ONE clearly-labeled test payment (`payment_id` prefixed `DEMO-POS-`) to a name already on the live Do Not Pay list (default "Globex Overseas Incorporated"), so the flag/review/semantic path is demonstrable on demand WITHOUT contaminating the real feed. A `feeder_enabled` tfvar (default true) toggles the EventBridge rule as a stop switch.
+**Alternatives considered:**
+- Poll for "real-time" data (rejected: public federal data publishes on a lag; there is no real-time payment stream, so honest framing is automated PERIODIC ingestion, not real-time).
+- Automate the reviewer decision to remove the human (rejected: clean payments already auto-approve with zero humans; only potential-match payments route to a person, which is a deliberate control [commitment 2, DEC-14] and the core Do Not Pay pattern - removing it would misrepresent the domain).
+- A new screening path / second queue for the feed (rejected: writing to the batch bucket reuses Component E and the entire existing pipeline unchanged; a deterministic payment_id makes overlapping pulls dedupe on the shared idempotency table).
+- Blend synthetic positives into the scheduled feed for demo liveliness (rejected: muddies the "is this real data?" credibility; a separate, explicitly-labeled manual demo-positive path keeps the real feed honest while still demonstrating flags).
+- Static creds / a secret for the source (rejected/unnecessary: USAspending is public and keyless, so the feeder holds no secret - unlike DEC-7's webhook - and its IAM is just `s3:PutObject` on the feed prefix + logs + xray).
+**Rationale:** removes the manual-upload friction so real federal payees flow into the console continuously, while reusing the proven batch path (DEC-16) and keeping the human control (DEC-14) and the honesty posture intact. Verified locally green (pytest 115/115, checkov 569/0, tflint/validate clean) before deploy.
+**Risk acknowledged:** (1) Every screened payment writes a PERMANENT S3 Object Lock audit record (DEC-4). The feed is volume-capped (`FEED_LIMIT`) and targets the dev audit bucket (1-day retention, records expire), with the `feeder_enabled` stop switch; it must NOT point at a long-retention COMPLIANCE bucket - flagged. (2) External dependency on USAspending: the feeder logs and skips a run on any API error, never raising, so a bad upstream hour cannot error-spam the schedule. (3) Non-VPC Lambda with outbound HTTPS to a public gov API (documented; acceptable for a keyless public read). (4) Cost scales with the cap (~pennies/day at hourly x 10).
+**Confidence:** HIGH. **Reversibility:** HIGH - set `feeder_enabled=false` to stop the feed, or `terraform destroy -target=module.feeder`; nothing is Object-Lock and no existing resource is modified.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 23 decisions logged. 23 LOCKED, 0 OPEN.

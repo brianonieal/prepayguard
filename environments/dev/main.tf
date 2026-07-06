@@ -21,8 +21,9 @@ locals {
   name_prefix = "${var.project_name}-${var.environment}" # treasury-dev
 
   # One ECR repo per component image (DEC-2) + the console API router (v1.2.0)
-  # + the batch-ingest worker (Component E, v1.6.0).
-  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api", "batch_ingest"]
+  # + the batch-ingest worker (Component E, v1.6.0) + the scheduled feeder
+  # (Component F, v3.3.0).
+  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api", "batch_ingest", "feeder"]
 
   # Lambda timeouts, defined once so queue visibility timeouts can be computed
   # from their CONSUMER's timeout (AWS guidance: visibility >= 6x timeout).
@@ -237,6 +238,24 @@ module "batch_ingest" {
   intake_queue_url       = module.api_intake.output_queue_url
   intake_queue_arn       = module.api_intake.output_queue_arn
   console_origin         = module.console.console_url
+}
+
+# ---------------------------------------------------------------------------
+# Component F (v3.3.0, DEC-23): the scheduled feeder. An EventBridge schedule
+# invokes it hourly; it pulls real awards from the public USAspending API and
+# writes a feed file to the batch-imports bucket, which Component E ingests
+# (DEC-16) and the pipeline screens. No new screening path, no console upload.
+# `feeder_enabled=false` (default true) is the stop switch for the feed.
+# ---------------------------------------------------------------------------
+
+module "feeder" {
+  source = "../../modules/scheduled_feeder"
+
+  name_prefix       = local.name_prefix
+  image_uri         = "${module.ecr["feeder"].repository_url}:${var.placeholder_image_tag}"
+  batch_bucket_name = module.batch_ingest.batch_bucket_name
+  batch_bucket_arn  = module.batch_ingest.batch_bucket_arn
+  enabled           = var.feeder_enabled
 }
 
 resource "aws_iam_role_policy" "reviewer_invoke" {
