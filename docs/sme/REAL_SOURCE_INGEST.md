@@ -10,12 +10,22 @@ genuinely restricted sources synthetic. Decision of record: DEC-22.
 - **Source:** GSA System for Award Management (SAM.gov) **Exclusions API v4**,
   `https://api.sam.gov/entity-information/v4/exclusions`. This is the authoritative
   federal debarment/suspension list.
-- **Access (live-checked 2026-07-06 at `https://open.gsa.gov/api/exclusions-api/`):**
-  the exclusion records are public, but the API **requires a SAM.gov account and an
-  API key** (personal or system account); there is no anonymous access. Rate limits
-  run 10/day (no role) up to 10,000/day (federal system account). An unauthenticated
-  request to the endpoint returns 404 (no data leaks without a key), which is why the
-  ingestion cannot run until a `SAM_API_KEY` is provisioned.
+- **Access (live-checked 2026-07-06):** the exclusion records are public, but the API
+  **requires a SAM.gov account and an API key**; there is no anonymous access. Verified
+  behaviors against the live API on 2026-07-06:
+  - Unauthenticated request -> HTTP 404 (no data leaks without a key).
+  - With a key, sending `Accept: application/json` -> HTTP 406; sending a neutral
+    User-Agent and no explicit Accept -> HTTP 200. The script sets the working headers.
+  - The **free personal-key tier is 10 requests/day**. Once spent, the API returns
+    **HTTP 429** with a `retry-after` reset at 00:00 GMT (observed live). A role-bearing
+    personal key or a system account is 1,000-10,000/day.
+  - The v4 regular endpoint returns records in a **nested** shape
+    (`excludedEntity[].exclusionDetails` + `.exclusionIdentification` +
+    `.exclusionActions.listOfActions[].recordStatus`); the normalizer targets exactly
+    this shape (confirmed against a real pull before the daily quota was exhausted).
+  - Consequence for design: the default paginated pull is **capped to fit the free
+    tier** (see section 3.7). A `--extract` mode (one async call) is available for a
+    higher-tier key or the full list.
 - **Keyless fallback considered and documented, not used:** OpenSanctions
   `us_sam_exclusions` republishes the same GSA data daily as keyless JSON/CSV
   (verified available 2026-07-06, last processed that day). It is licensed
@@ -69,12 +79,15 @@ The reference-store schema is `{name, tin, source, severity}` plus a per-entry
    not a crash. The raw counts are logged so drift is visible.
 7. **Size cap (the key scope decision).** The full active list is far larger than the
    in-store cosine design supports (DEC-19 is scoped to hundreds of entries, each
-   carrying a 1024-float embedding computed at publish). The ingestion caps to a
-   documented `--limit` (default 300 most-recent active) so embedding cost and the
-   reference-document size stay bounded for the demo. This is a deliberate, labeled
-   scope limit: the live list is NOT the exhaustive federal list. Production would
-   use the async extract endpoint plus a real vector index (the DEC-19 OpenSearch
-   swap), not in-store cosine.
+   carrying a 1024-float embedding computed at publish), and the free key allows only
+   10 requests/day. The ingestion caps to a documented `--limit` (**default 90**, which
+   is <= 9 paginated calls of 10, one call of margin under the free tier) so embedding
+   cost, document size, AND the daily call budget all stay bounded. This is a
+   deliberate, labeled scope limit: the live list is the most-recent active slice, NOT
+   the exhaustive federal list. To ingest more, use `--extract` (one async call returns
+   the full list, then it is capped locally) with a higher-tier key, or raise `--limit`
+   on a role-bearing key. Production would use the extract endpoint plus a real vector
+   index (the DEC-19 OpenSearch swap), not in-store cosine.
 
 ## 4. Publish path (reuses the lifecycle, does not bolt on a second store)
 
@@ -92,11 +105,16 @@ audit record, so a real-source screening is audited end to end.
 ## 5. How to run the live pull + publish
 
 ```
-export SAM_API_KEY=<your SAM.gov system-account key>   # never commit this
-# dry run first: fetch + normalize + summarize, no publish, no embedding cost
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 300 --dry-run
+# key lives in the gitignored .sam_api_key; never committed
+export SAM_API_KEY="$(tr -d '[:space:]' < .sam_api_key)"
+
+# free 10/day key (resets 00:00 GMT): dry run first (fetch + normalize + summarize)
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90 --dry-run
 # then publish (mints reference version 4, embeds the real entries):
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 300
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90
+
+# full list / higher-tier key: one async extract call, capped locally
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --extract --limit 300 --dry-run
 ```
 
 The normalization, dedupe, severity mapping, and doc-build logic are pinned by
@@ -105,7 +123,11 @@ that do not need the key are already proven green.
 
 ## 6. Status
 
-Built and tested; the live pull + publish is **pending a SAM.gov API key**, the one
-external dependency. Until the key runs the publish, the live store remains at
-version 3 (all synthetic) and the demo screens synthetic data. This document and
-DEC-22 record the design; nothing here fakes a live real-source screening.
+The request path was validated against the live API on 2026-07-06 (correct nested
+schema pulled, working headers, real records returned). The normalization, dedupe,
+severity mapping, and doc-build are green (`tests/test_sam_ingest.py`, 11 tests). The
+live **publish is pending only the daily quota reset**: the free key's 10/day budget
+was spent during verification, and it resets 00:00 GMT 2026-07-07, after which the
+capped `--limit 90` run (<= 9 calls) mints reference version 4. Until then the live
+store stays at version 3 (all synthetic) and the demo screens synthetic data. Nothing
+here fakes a live real-source screening; the one un-run step is the quota-gated fetch.

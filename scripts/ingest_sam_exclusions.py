@@ -32,6 +32,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -47,34 +48,100 @@ SAM_SOURCE = "sam_exclusions"
 # are the strongest signal; pending proceedings and voluntary exclusions are a step
 # down but still route a payment to a human. Documented mapping, not a guess buried
 # in code (objective 10).
+# Keys are the REAL SAM v4 exclusionType strings (verified against the live API
+# 2026-07-06; note "Complete", not "Completed").
 SEVERITY_BY_EXCLUSION_TYPE = {
     "Prohibition/Restriction": "high",
-    "Ineligible (Proceedings Completed)": "high",
+    "Ineligible (Proceedings Complete)": "high",
     "Ineligible (Proceedings Pending)": "medium",
     "Voluntary Exclusion": "medium",
 }
 
 
 # ---- fetch (real GSA API) ---------------------------------------------------
+#
+# Verified against the live API 2026-07-06:
+# - Send NO "Accept: application/json" header (that returns 406) and a neutral
+#   User-Agent (the default urllib agent is blocked); then the endpoint returns 200.
+# - The free/personal key tier is 10 requests/day and returns HTTP 429 with a
+#   retry-after date once exhausted (resets 00:00 GMT). So the DEFAULT paginated
+#   pull is deliberately capped to fit that budget (PAGE_SIZE=10 -> <=9 calls for
+#   the default 90-record cap, leaving one call of margin). A higher-tier key or
+#   the --extract mode lifts that.
+
+PAGE_SIZE = 10  # v4 regular-endpoint max
+FREE_TIER_DAILY_CALLS = 10
+
+
+class RateLimited(RuntimeError):
+    pass
+
+
+def _get_json(url: str, timeout: int = 60):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (fixed https host)
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise RateLimited(f"429 Too Many Requests (retry-after: {exc.headers.get('retry-after')}). "
+                              "Free tier is 10 requests/day and resets 00:00 GMT; lower --limit or use a "
+                              "higher-tier key / --extract.") from exc
+        raise
+
 
 def fetch_exclusions(api_key: str, endpoint: str, limit: int) -> list[dict]:
-    """Paginated pull of ACTIVE exclusions (size<=10 per the v4 contract). Capped at
-    `limit` so the embedded reference doc stays within the in-store-cosine budget.
-    Returns raw records; normalization is a separate, testable step."""
+    """Paginated pull of exclusions (size<=10 per the v4 contract), capped at `limit`
+    so the embedded reference doc stays within the in-store-cosine budget AND within
+    the free-tier daily call budget. Returns raw records; normalization is separate.
+    Raises RateLimited (rather than hanging) when the daily quota is spent."""
     out: list[dict] = []
     page = 0
     while len(out) < limit and page <= 999:
-        qs = urllib.parse.urlencode({"api_key": api_key, "page": page, "size": 10})
-        req = urllib.request.Request(f"{endpoint}?{qs}", headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 (fixed https host)
-            payload = json.loads(resp.read())
-        records = _records_from_payload(payload)
+        qs = urllib.parse.urlencode({"api_key": api_key, "page": page, "size": PAGE_SIZE})
+        records = _records_from_payload(_get_json(f"{endpoint}?{qs}", timeout=60))
         if not records:
             break
         out.extend(records)
         page += 1
         time.sleep(0.2)  # be polite to the rate-limited API
     return out[:limit]
+
+
+def fetch_exclusions_extract(api_key: str, endpoint: str, limit: int, poll_timeout: int = 240) -> list[dict]:
+    """One-call extract path (for a higher-tier key or the full list). Requests
+    format=json, which the v4 API generates asynchronously and exposes via a
+    download token/URL; polls that URL until the file is ready, then caps locally.
+    Written against the documented contract; the exact envelope is confirmed on the
+    first real run (raw shape is logged), so treat this as validated-on-first-use."""
+    qs = urllib.parse.urlencode({"api_key": api_key, "format": "json"})
+    first = _get_json(f"{endpoint}?{qs}", timeout=90)
+    # The generation response may already carry records, or a token / download URL.
+    recs = _records_from_payload(first)
+    if recs:
+        return recs[:limit]
+    token = first.get("token") or (first.get("_embedded") or {}).get("token")
+    dl = first.get("downloadUrl") or first.get("link")
+    if not (token or dl):
+        raise RuntimeError(f"extract response had neither records nor a token/url; keys={list(first.keys())}")
+    base = endpoint.rsplit("/", 1)[0] + "/download-exclusions"
+    url = dl or f"{base}?{urllib.parse.urlencode({'api_key': api_key, 'token': token})}"
+    waited = 0
+    while waited <= poll_timeout:
+        try:
+            payload = _get_json(url, timeout=90)
+        except urllib.error.HTTPError as exc:
+            if exc.code in (202, 404):  # still generating
+                time.sleep(10)
+                waited += 10
+                continue
+            raise
+        recs = _records_from_payload(payload) or (payload if isinstance(payload, list) else [])
+        if recs:
+            return recs[:limit]
+        time.sleep(10)
+        waited += 10
+    raise TimeoutError(f"extract not ready after {poll_timeout}s")
 
 
 def _records_from_payload(payload: dict) -> list[dict]:
@@ -91,49 +158,52 @@ def _records_from_payload(payload: dict) -> list[dict]:
 
 # ---- normalize (pure, unit-tested; no network, no Bedrock) ------------------
 
-def _record_name(raw: dict) -> str:
-    """SAM stores firms under entityName and individuals under name parts. Prefer an
-    explicit entity/legal-business name; fall back to assembled person-name parts."""
-    for k in ("entityName", "exclusionName", "name", "legalBusinessName"):
-        v = raw.get(k)
-        if isinstance(v, str) and v.strip():
-            return v.strip()
-    parts = [raw.get("firstName"), raw.get("middleName"), raw.get("lastName")]
-    assembled = " ".join(p.strip() for p in parts if isinstance(p, str) and p.strip())
-    return assembled.strip()
+def _record_name(ident: dict) -> str:
+    """SAM populates entityName for both firms and individuals; fall back to the
+    assembled person-name parts (prefix/first/middle/last/suffix) for robustness."""
+    v = ident.get("entityName")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+    parts = [ident.get("prefix"), ident.get("firstName"), ident.get("middleName"),
+             ident.get("lastName"), ident.get("suffix")]
+    return " ".join(p.strip() for p in parts if isinstance(p, str) and p.strip()).strip()
 
 
 def _is_active(raw: dict) -> bool:
-    status = str(raw.get("recordStatus") or raw.get("classificationStatus") or "").strip().lower()
-    if status:
-        return status == "active"
-    # some payloads use a boolean/date instead of a status string
-    if "isActive" in raw:
-        return bool(raw["isActive"])
-    term = raw.get("terminationDate") or raw.get("terminationDateData")
-    return not term  # no termination date -> treat as active
+    """Active when any action carries recordStatus 'Active'. The real v4 shape nests
+    these under exclusionActions.listOfActions; a flat recordStatus is also accepted
+    for schema-drift tolerance."""
+    actions = (raw.get("exclusionActions") or {}).get("listOfActions") or []
+    statuses = [str(a.get("recordStatus") or "").strip().lower() for a in actions]
+    if statuses:
+        return "active" in statuses
+    flat = str(raw.get("recordStatus") or "").strip().lower()
+    return flat == "active"  # no actions and no active status -> drop (conservative)
 
 
 def normalize_record(raw: dict) -> dict | None:
-    """Map one raw SAM exclusion to the reference-list schema, or None to drop it.
-    SAM has NO TIN, so tin is empty and matching runs on name only (exact/fuzzy/
-    semantic); ueiSAM is carried for audit provenance, not for matching."""
+    """Map one raw SAM v4 exclusion (nested exclusionDetails/exclusionIdentification/
+    exclusionActions) to the reference-list schema, or None to drop it. SAM has NO
+    TIN, so tin is empty and matching runs on name only (exact/fuzzy/semantic);
+    ueiSAM is carried for audit provenance, not for matching."""
     if not _is_active(raw):
         return None
-    name = _record_name(raw)
+    ident = raw.get("exclusionIdentification") or {}
+    details = raw.get("exclusionDetails") or {}
+    name = _record_name(ident)
     if not name:
         return None
-    exclusion_type = str(raw.get("exclusionType") or "").strip()
-    classification = str(raw.get("classificationType") or raw.get("classification") or "").strip()
+    exclusion_type = str(details.get("exclusionType") or "").strip()
+    classification = str(details.get("classificationType") or "").strip()
     return {
         "name": name,
         "tin": "",  # SAM keys on name / UEI, never a TIN
-        "uei": (raw.get("ueiSAM") or raw.get("uei") or "").strip() or None,
+        "uei": (ident.get("ueiSAM") or "").strip() or None,
         "source": SAM_SOURCE,
         "severity": SEVERITY_BY_EXCLUSION_TYPE.get(exclusion_type, "high"),
         "classification": classification or None,
         "exclusion_type": exclusion_type or None,
-        "excluding_agency": (raw.get("excludingAgencyName") or "").strip() or None,
+        "excluding_agency": (details.get("excludingAgencyName") or "").strip() or None,
     }
 
 
@@ -214,20 +284,38 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bucket", required=True, help="reference-store bucket, e.g. treasury-dev-reference-<acct>")
     ap.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
-    ap.add_argument("--limit", type=int, default=300, help="cap on real SAM entries (in-store-cosine budget)")
+    ap.add_argument("--limit", type=int, default=90,
+                    help="cap on real SAM entries. Default 90 fits the free 10/day tier (<=9 paginated calls) "
+                         "and the in-store-cosine budget; raise it with --extract or a higher-tier key.")
+    ap.add_argument("--extract", action="store_true",
+                    help="use the one-call async extract endpoint instead of paginating (for the full list / a "
+                         "higher-tier key); confirmed on first real run.")
     ap.add_argument("--dry-run", action="store_true", help="fetch + normalize + summarize, do NOT publish")
     args = ap.parse_args()
 
     api_key = os.environ.get("SAM_API_KEY")
     if not api_key:
-        sys.exit("SAM_API_KEY is not set. Provision a SAM.gov system-account API key "
-                 "(https://open.gsa.gov/api/exclusions-api/) and export it; it is never committed.")
+        sys.exit("SAM_API_KEY is not set. Put a SAM.gov API key in .sam_api_key (gitignored) and export it, "
+                 "e.g. SAM_API_KEY=$(cat .sam_api_key) python scripts/ingest_sam_exclusions.py ...")
+
+    pages_needed = (args.limit + PAGE_SIZE - 1) // PAGE_SIZE
+    if not args.extract and pages_needed > FREE_TIER_DAILY_CALLS:
+        print(f"  WARNING: --limit {args.limit} needs {pages_needed} paginated calls; the free tier allows "
+              f"{FREE_TIER_DAILY_CALLS}/day. Lower --limit to <= {FREE_TIER_DAILY_CALLS * PAGE_SIZE} or use --extract.")
 
     os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-2")
     s3 = boto3.client("s3", region_name="us-east-2")
 
-    print(f"Fetching up to {args.limit} active SAM exclusions from {args.endpoint} ...")
-    raw = fetch_exclusions(api_key, args.endpoint, args.limit)
+    mode = "extract (one call)" if args.extract else f"paginated ({pages_needed} calls)"
+    print(f"Fetching up to {args.limit} SAM exclusions via {mode} from {args.endpoint} ...")
+    try:
+        raw = (fetch_exclusions_extract if args.extract else fetch_exclusions)(api_key, args.endpoint, args.limit)
+    except RateLimited as exc:
+        sys.exit(f"RATE LIMITED: {exc}")
+    if raw:
+        # Log the first raw record's top-level shape so the normalizer can be
+        # confirmed/adjusted against whatever envelope the live API returned.
+        print(f"  first raw record keys: {list(raw[0].keys())}")
     entries = normalize_all(raw)
     print(f"  fetched {len(raw)} raw, {len(entries)} active+named+deduped")
     by_class: dict = {}

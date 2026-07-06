@@ -18,12 +18,24 @@ def _load():
     return m
 
 
+def _sam(name=None, uei=None, classification="Firm", exclusion_type="Prohibition/Restriction",
+         agency="GSA", status="Active", parts=None):
+    """Build a record in the REAL nested SAM v4 shape (verified against the live API)."""
+    ident = {"ueiSAM": uei, "entityName": name}
+    if parts:
+        ident.update(parts)  # prefix/firstName/middleName/lastName/suffix, entityName None
+    return {
+        "exclusionDetails": {"classificationType": classification, "exclusionType": exclusion_type,
+                             "excludingAgencyName": agency},
+        "exclusionIdentification": ident,
+        "exclusionActions": {"listOfActions": [{"recordStatus": status, "terminationDate": "03-31-2227"}]},
+    }
+
+
 def test_normalize_firm_record_maps_schema_and_drops_tin():
     ing = _load()
-    e = ing.normalize_record({
-        "entityName": "Bad Vendor LLC", "ueiSAM": "ABC123DEF456",
-        "classificationType": "Firm", "exclusionType": "Prohibition/Restriction",
-        "excludingAgencyName": "GSA", "recordStatus": "Active"})
+    e = ing.normalize_record(_sam(name="Bad Vendor LLC", uei="ABC123DEF456",
+                                  classification="Firm", exclusion_type="Prohibition/Restriction"))
     assert e["name"] == "Bad Vendor LLC"
     assert e["tin"] == "" and e["uei"] == "ABC123DEF456"
     assert e["source"] == "sam_exclusions" and e["severity"] == "high"
@@ -32,38 +44,41 @@ def test_normalize_firm_record_maps_schema_and_drops_tin():
 
 def test_normalize_individual_assembles_name_parts():
     ing = _load()
-    e = ing.normalize_record({
-        "firstName": "Jane", "middleName": "Q", "lastName": "Public",
-        "classificationType": "Individual", "exclusionType": "Voluntary Exclusion",
-        "recordStatus": "Active"})
+    e = ing.normalize_record(_sam(name=None, classification="Individual",
+                                  exclusion_type="Voluntary Exclusion",
+                                  parts={"firstName": "Jane", "middleName": "Q", "lastName": "Public"}))
     assert e["name"] == "Jane Q Public"
     assert e["severity"] == "medium"  # voluntary exclusion maps a step down
     assert e["classification"] == "Individual"
 
 
+def test_completed_proceedings_maps_high():
+    ing = _load()
+    e = ing.normalize_record(_sam(name="Debarred Co", exclusion_type="Ineligible (Proceedings Complete)"))
+    assert e["severity"] == "high"
+
+
 def test_inactive_and_nameless_records_are_dropped():
     ing = _load()
-    assert ing.normalize_record({"entityName": "Terminated Co", "recordStatus": "Inactive"}) is None
-    assert ing.normalize_record({"entityName": "", "recordStatus": "Active"}) is None
-    # no status + a termination date -> inactive
-    assert ing.normalize_record({"entityName": "Old Co", "terminationDate": "2020-01-01"}) is None
-    # no status + no termination -> active
-    assert ing.normalize_record({"entityName": "Live Co"})["name"] == "Live Co"
+    assert ing.normalize_record(_sam(name="Terminated Co", status="Inactive")) is None
+    assert ing.normalize_record(_sam(name="", status="Active")) is None
+    # no actions at all -> cannot confirm active -> dropped (conservative)
+    assert ing.normalize_record({"exclusionIdentification": {"entityName": "Orphan Co"}}) is None
 
 
 def test_unknown_exclusion_type_defaults_to_high():
     ing = _load()
-    e = ing.normalize_record({"entityName": "Mystery Co", "exclusionType": "Something New", "recordStatus": "Active"})
+    e = ing.normalize_record(_sam(name="Mystery Co", exclusion_type="Something New"))
     assert e["severity"] == "high"  # fail-safe: unknown -> treat as strong signal
 
 
 def test_normalize_all_dedupes_on_name_and_uei():
     ing = _load()
     raw = [
-        {"entityName": "Dup Co", "ueiSAM": "U1", "recordStatus": "Active"},
-        {"entityName": "dup co", "ueiSAM": "U1", "recordStatus": "Active"},  # same name+uei -> dropped
-        {"entityName": "Dup Co", "ueiSAM": "U2", "recordStatus": "Active"},  # same name, diff uei -> kept
-        {"entityName": "Gone", "recordStatus": "Inactive"},                   # dropped
+        _sam(name="Dup Co", uei="U1"),
+        _sam(name="dup co", uei="U1"),   # same name+uei -> dropped
+        _sam(name="Dup Co", uei="U2"),   # same name, diff uei -> kept
+        _sam(name="Gone", status="Inactive"),  # dropped
     ]
     out = ing.normalize_all(raw)
     assert len(out) == 2
@@ -74,6 +89,37 @@ def test_records_from_payload_tolerates_shapes():
     assert ing._records_from_payload({"excludedEntity": [{"a": 1}]}) == [{"a": 1}]
     assert ing._records_from_payload({"_embedded": {"results": [{"b": 2}]}}) == [{"b": 2}]
     assert ing._records_from_payload({"nothing": True}) == []
+
+
+def test_extract_returns_records_directly(monkeypatch):
+    ing = _load()
+    monkeypatch.setattr(ing, "_get_json",
+                        lambda url, timeout=60: {"excludedEntity": [_sam(name="A"), _sam(name="B"), _sam(name="C")]})
+    raw = ing.fetch_exclusions_extract("k", ing.DEFAULT_ENDPOINT, limit=2)
+    assert len(raw) == 2  # capped
+
+
+def test_extract_polls_download_when_token_returned(monkeypatch):
+    ing = _load()
+    calls = {"n": 0}
+
+    def fake(url, timeout=60):
+        calls["n"] += 1
+        return {"token": "T"} if calls["n"] == 1 else {"excludedEntity": [_sam(name="X")]}
+    monkeypatch.setattr(ing, "_get_json", fake)
+    raw = ing.fetch_exclusions_extract("k", ing.DEFAULT_ENDPOINT, limit=10)
+    assert len(raw) == 1 and calls["n"] == 2  # generation call, then download call
+
+
+def test_paginated_fetch_propagates_rate_limit(monkeypatch):
+    import pytest
+    ing = _load()
+
+    def boom(url, timeout=60):
+        raise ing.RateLimited("429 Too Many Requests")
+    monkeypatch.setattr(ing, "_get_json", boom)
+    with pytest.raises(ing.RateLimited):
+        ing.fetch_exclusions("k", ing.DEFAULT_ENDPOINT, limit=10)
 
 
 def test_build_doc_preserves_synthetic_replaces_sam_and_versions():
