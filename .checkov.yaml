@@ -57,3 +57,6 @@ skip-check:
   # Idempotency dedup table (Component A, DEC-13, added v0.2.0):
   - CKV_AWS_119 # DynamoDB CMK: the table is a short-lived dedup CACHE (TTL) holding payment_id + status + queue message-id only — no amounts, payee PII, or disposition rationale. AWS-managed SSE (aws/dynamodb) is enabled; a dedicated CMK is disproportionate. Decision data lives in Component D's CMK-encrypted S3 Object Lock audit record.
   - CKV2_AWS_16 # DynamoDB autoscaling: deliberately low, FIXED-capacity dedup cache (5/5 RCU/WCU, provisioned for free-tier per DEC-13). Autoscaling targets variable production workloads and adds app-autoscaling resources for no benefit at capstone volumes. Revisit if intake is ever load-tested or carries production traffic.
+
+  # Scheduled feeder (Component F, v3.3.0, DEC-23):
+  - CKV_AWS_297 # EventBridge Scheduler CMK: the schedule carries no payload or secret, it just fires a fixed Lambda target on a cron. AWS-managed encryption applies; a dedicated CMK is disproportionate (same rationale as CKV_AWS_119 / CKV_AWS_149). Screening data lives in Component D's CMK-encrypted S3 Object Lock audit record.

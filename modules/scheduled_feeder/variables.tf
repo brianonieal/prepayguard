@@ -16,9 +16,15 @@ variable "batch_bucket_arn" {
 }
 
 variable "schedule_expression" {
-  description = "EventBridge schedule (DEC-23: hourly). rate(1 hour) by default."
+  description = "EventBridge Scheduler expression. Default: top of each hour 9am-5pm, evaluated in schedule_timezone, all 7 days (DEC-23 amendment)."
   type        = string
-  default     = "rate(1 hour)"
+  default     = "cron(0 9-17 * * ? *)"
+}
+
+variable "schedule_timezone" {
+  description = "IANA timezone the schedule is evaluated in; America/New_York auto-tracks EST/EDT so business hours do not drift at DST."
+  type        = string
+  default     = "America/New_York"
 }
 
 variable "enabled" {

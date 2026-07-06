@@ -102,27 +102,59 @@ resource "aws_lambda_alias" "live" {
 }
 
 # ---------------------------------------------------------------------------
-# EventBridge schedule -> feeder 'live' alias. `enabled=false` is the stop switch.
+# EventBridge Scheduler -> feeder 'live' alias. Uses a timezone-aware schedule
+# (DEC-23 amendment) so "business hours Eastern" tracks the EST/EDT DST shift
+# automatically, which a UTC-only classic rule cannot. `enabled=false` is the
+# stop switch. The scheduler assumes a dedicated role to invoke the feeder.
 # ---------------------------------------------------------------------------
 
-resource "aws_cloudwatch_event_rule" "schedule" {
-  name                = "${local.function_name}-schedule"
-  description         = "Automated real-data feed (DEC-23): pull USAspending awards into the screening pipeline."
-  schedule_expression = var.schedule_expression
-  state               = var.enabled ? "ENABLED" : "DISABLED"
+data "aws_iam_policy_document" "scheduler_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
 }
 
-resource "aws_cloudwatch_event_target" "feeder" {
-  rule      = aws_cloudwatch_event_rule.schedule.name
-  target_id = "feeder"
-  arn       = aws_lambda_alias.live.arn
+resource "aws_iam_role" "scheduler" {
+  name               = "${local.function_name}-scheduler-role"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
 }
 
-resource "aws_lambda_permission" "allow_eventbridge" {
-  statement_id  = "AllowEventBridgeInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.feeder.function_name
-  qualifier     = aws_lambda_alias.live.name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.schedule.arn
+data "aws_iam_policy_document" "scheduler" {
+  statement {
+    sid       = "InvokeFeeder"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_alias.live.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name   = "${local.function_name}-scheduler-policy"
+  role   = aws_iam_role.scheduler.id
+  policy = data.aws_iam_policy_document.scheduler.json
+}
+
+resource "aws_scheduler_schedule" "feed" {
+  name       = "${local.function_name}-schedule"
+  group_name = "default"
+  state      = var.enabled ? "ENABLED" : "DISABLED"
+
+  # Business hours Eastern, all 7 days: fire at the top of each hour 9am to 5pm
+  # in America/New_York (auto-adjusts EST/EDT). DEC-23 amendment.
+  schedule_expression          = var.schedule_expression
+  schedule_expression_timezone = var.schedule_timezone
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_alias.live.arn
+    role_arn = aws_iam_role.scheduler.arn
+  }
 }
