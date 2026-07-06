@@ -11,3 +11,16 @@ payee="Definitely Clean Vendor LLC"
   match_count: 0 | reference_version: 4
 
 VERDICT: real federal exclusion screens against the live store at reference_version 4 -> PASS
+
+--- LIVE END-TO-END (real name through the full pipeline into the console) ---
+Submitted via intake API (SigV4 as treasury-dev-payment-submitter), 2026-07-06:
+  POST /payments {"payment_id":"SAM-REAL-DEMO-1","payee":"YATAI SMART INDUSTRIAL NEW CITY","amount":50000}
+  -> 200 {"status":"queued"}
+Pipeline result (reviews table, treasury-dev-reviews):
+  payment_id: SAM-REAL-DEMO-1
+  payee:      YATAI SMART INDUSTRIAL NEW CITY   (a REAL SAM.gov exclusion)
+  match:      name . sam_exclusions
+  score:      60
+  status:     pending  (routed to human review)
+VERDICT: a real federal exclusion, screened against reference v4, flows end to end
+into the live reviewer console -> PASS
