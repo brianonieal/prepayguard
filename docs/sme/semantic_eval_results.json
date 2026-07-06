@@ -1,5 +1,5 @@
 {
-  "eval_set": "scripts\\semantic_eval_set.json",
+  "eval_set": "scripts/semantic_eval_set.json",
   "embed_model": "amazon.titan-embed-text-v2:0",
   "deployed_threshold": 0.72,
   "n_positive": 10,
