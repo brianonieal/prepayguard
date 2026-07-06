@@ -22,3 +22,12 @@ End-to-end result (Component E ingested each feed file, pipeline screened):
 VERDICT: real federal payees flow automatically into the console (auto-approve),
 the semantic flag path is demonstrable on demand, and overlapping pulls dedupe -> PASS
 Stop switch: set feeder_enabled=false in terraform.tfvars and re-apply.
+
+--- SCHEDULE UPDATE (2026-07-06): business hours Eastern ---
+Moved from a 24/7 classic EventBridge rule (rate(1 hour), UTC) to EventBridge
+Scheduler so the window is timezone-aware (auto EST/EDT). Verified live:
+  aws scheduler get-schedule --name treasury-dev-feeder-schedule ->
+    state ENABLED, cron(0 9-17 * * ? *), timezone America/New_York,
+    target treasury-dev-feeder:live
+Effect: the feeder fires at the top of each hour 9am to 5pm ET, all 7 days.
+Stop switch unchanged: feeder_enabled=false + re-apply.

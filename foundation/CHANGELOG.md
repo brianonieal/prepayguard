@@ -2,7 +2,7 @@
 
 ## v3.3.0: Automated Real-Data Feed (2026-07-06)
 
-**Component F (scheduled feeder, DEC-23): an EventBridge schedule pulls real federal awards from the public keyless USAspending API hourly and drops them into the batch-imports bucket, which Component E ingests (DEC-16), so real payees flow into the console with no manual upload.**
+**Component F (scheduled feeder, DEC-23): an EventBridge Scheduler schedule (business hours Eastern, 9am-5pm ET, all 7 days, DST-aware) pulls real federal awards from the public keyless USAspending API and drops them into the batch-imports bucket, which Component E ingests (DEC-16), so real payees flow into the console with no manual upload.**
 
 - New Lambda `component_f_feeder` (container image, DEC-2): maps USAspending awards to payments (deterministic `USASPEND-{Award ID}` id so overlapping pulls dedupe on the shared idempotency table), writes `batch-imports/feed-{ts}/payments.json`. Degrades gracefully on an API error (logs and skips, never raises).
 - New `modules/scheduled_feeder`: Lambda + version/alias (DEC-10) + EventBridge rule/target + least-privilege IAM (`s3:PutObject` on the feed prefix only; no secret, no queue, no Bedrock). `feeder_enabled` tfvar (default true) is the stop switch.
