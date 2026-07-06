@@ -68,8 +68,8 @@ The reference-store schema is `{name, tin, source, severity}` plus a per-entry
 3. **Exclusion-type variety.** Mapped to `severity` by an explicit, documented table
    (above), with an unknown-type fail-safe to `high` so a new SAM exclusion type
    never silently downgrades to low signal.
-4. **Active-only filtering.** Records with `recordStatus` inactive, or with a
-   `terminationDate` and no active status, are dropped, so the screen reflects
+4. **Active-only filtering.** Records are kept only when an action carries `recordStatus`
+   "Active" (or a flat `recordStatus` is "Active"); everything else is dropped so the screen reflects
    currently-excluded parties, not historical ones.
 5. **Name-variant noise and duplicates.** Deduped on `(normalized name, UEI)` so the
    same party listed under two programs does not double-count.
