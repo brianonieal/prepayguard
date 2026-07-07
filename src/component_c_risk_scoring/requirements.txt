@@ -1,4 +1,4 @@
 # Component C runtime dependencies.
 # boto3 ships in the Lambda base image; pinned for the build + pip-audit (DEC-8).
 # Scoring uses only the standard library - no extra deps.
-boto3>=1.34,<2
+boto3>=1.43.41,<2
