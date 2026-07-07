@@ -1,12 +1,17 @@
 #!/bin/bash
 # Build + deploy the Treasury Console SPA to S3 + CloudFront.
 # Terraform owns the bucket/distribution; this owns their CONTENTS.
+#
+# The bucket, distribution, and URL are resolved from `terraform output`, so this
+# script is account-agnostic: it works against whatever account/region the state
+# in environments/dev points at (no hardcoded account id, bucket, or domain).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SITE="treasury-dev-console-<ACCOUNT_ID>"
-DIST=$(aws cloudfront list-distributions \
-  --query "DistributionList.Items[?DomainName=='d2rbxaf6pqgvb1.cloudfront.net'].Id" --output text)
+TF="terraform -chdir=environments/dev"
+SITE=$($TF output -raw console_site_bucket)
+DIST=$($TF output -raw console_distribution_id)
+URL=$($TF output -raw console_url)
 
 echo "→ config from terraform outputs"
 bash scripts/gen-console-config.sh
@@ -24,4 +29,4 @@ aws s3 cp console/dist/index.html "s3://$SITE/index.html" \
 echo "→ invalidate CloudFront ($DIST)"
 aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*" \
   --query 'Invalidation.Status' --output text
-echo "done → https://d2rbxaf6pqgvb1.cloudfront.net"
+echo "done → $URL"

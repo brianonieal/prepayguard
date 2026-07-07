@@ -48,6 +48,16 @@ output "console_url" {
   value       = module.console.console_url
 }
 
+output "console_site_bucket" {
+  description = "S3 bucket that holds the console SPA contents (scripts/deploy-console.sh syncs to it)."
+  value       = module.console.site_bucket_name
+}
+
+output "console_distribution_id" {
+  description = "CloudFront distribution ID for the console (scripts/deploy-console.sh invalidates it)."
+  value       = module.console.distribution_id
+}
+
 output "console_cognito" {
   description = "Cognito wiring for the SPA (v1.3.0/v1.4.0)."
   value = {

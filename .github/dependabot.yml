@@ -1,0 +1,35 @@
+# DEC-8 (supply chain): keep dependencies current and surface advisories that the
+# blocking CI gates (pip-audit --strict, npm audit --omit=dev) do not fail on, e.g.
+# dev-toolchain advisories. Grouped weekly PRs, capped so they do not flood review.
+version: 2
+updates:
+  # Console SPA (React / Vite / Amplify): runtime and dev toolchain.
+  - package-ecosystem: npm
+    directory: /console
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      console-deps:
+        patterns:
+          - "*"
+
+  # Python handlers (one requirements.txt per component) plus the dev requirements.
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /src/*
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-deps:
+        patterns:
+          - "*"
+
+  # The GitHub Actions used by ci.yml and plan.yml.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

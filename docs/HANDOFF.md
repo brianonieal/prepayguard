@@ -163,10 +163,13 @@ vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
   provisioned users; roles submitter/reviewer/admin/auditor). Verified serving 2026-07-06.
 - **Intake API:** `POST https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev/payments`,
   SigV4 as `treasury-dev-payment-submitter` (DEC-5). Client: `scripts/send_payment.py`.
-- **Deploy:** staged (ECR → build/push images → apply). `terraform apply` is always
-  manual (DEC-6, CI is plan-only). Bedrock: `amazon.titan-embed-text-v2:0` +
-  `amazon.nova-lite-v1:0`. The audit bucket is not destroyable while Object Lock holds
-  (DEC-4, by design). Full procedure: `README.md` / `ARCHITECTURE.md`.
+- **Deploy:** staged (create ECR repos → `scripts/build-push-images.sh` → `terraform
+  apply` → `scripts/deploy-console.sh`). `terraform apply` is always manual (DEC-6, CI
+  is plan-only). Bedrock: `amazon.titan-embed-text-v2:0` + `amazon.nova-lite-v1:0`. The
+  audit bucket is not destroyable while Object Lock holds (DEC-4, by design). The
+  scripts resolve account/region/bucket/distribution/repos from `terraform output`, so
+  no ids are hardcoded. **Fresh-account setup runbook (Bedrock enablement, images,
+  apply, secret, seed, users, console, verify): `docs/BOOTSTRAP.md`.**
 - **CI/CD (DEC-6):** GitHub Actions, `ci.yml` (fmt/validate/tflint/pytest/ruff/pip-audit/
   checkov, no creds) and `plan.yml` (terraform plan on PRs, no auto-apply).
 

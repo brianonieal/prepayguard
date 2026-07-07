@@ -169,6 +169,11 @@ sources, the USAspending API (Component F) and the SAM.gov exclusions mirror
 
 ## Working with the Terraform
 
+To stand the whole system up on a fresh AWS account (Bedrock model access, ECR
+repos, image build/push, apply, secret, seed, users, console deploy, and
+verification), follow the step-by-step runbook in
+[docs/BOOTSTRAP.md](docs/BOOTSTRAP.md). Day-to-day Terraform:
+
 ```sh
 cd environments/dev
 terraform init

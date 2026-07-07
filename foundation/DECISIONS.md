@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 26 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 27 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -95,6 +95,7 @@
 **Severity:** LIGHTWEIGHT
 **Decision:** pip-audit against each component's requirements.txt; Grype against each built ECR image. Both run in CI (see DEC-6).
 **Rationale:** answers the course's vulnerable-package and dependency-security objective. Reuses a tool (Grype) already used successfully in this program's prior security labs.
+**Amendment (v3.7.2, 2026-07-07):** the CI in `.github/workflows/ci.yml` is deliberately hermetic (DEC-6: no AWS credentials, no image build in CI), so container images are not built there and Grype cannot scan them in-pipeline. Image scanning is instead provided by **ECR scan-on-push** (`modules/ecr_repo/main.tf`, `scan_on_push = true`) on every pushed image, and JS dependencies gained a blocking `npm audit --omit=dev --audit-level=high` gate plus Dependabot. Net posture is unchanged (pip-audit for Python packages, ECR scan for images, npm audit for JS), but the mechanism differs from the original "Grype in CI" wording; running Grype in a credentialed deploy workflow is recorded as optional follow-on.
 **Resolution:** PROCEED
 **Status:** LOCKED
 

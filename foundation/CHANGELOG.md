@@ -1,5 +1,15 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.7.2: Handoff hardening (docs currency, risk table, supply chain, bootstrap) (2026-07-07)
+
+**A documentation and operability pass closing the gaps from a rubric self-review: the top-level docs described an earlier system than what ships, the mandated security risk-rating table was missing, JS dependencies were unscanned, and there was no fresh-account setup runbook or image build script.**
+
+- Docs brought current to v3.7.1: README, ARCHITECTURE, and HANDOFF now reflect seven components (added F feeder + G refresher), 27 decisions, pytest 135/135 and vitest 34/34, the console restructure, and Phase 5; the stale "no non-AWS services" and "no reviewer UI exists or is planned" claims were corrected. ARCHITECTURE gained E/F/G failure modes and the corrected message schema.
+- Security risk-rating table (DEC-11) added to `docs/HANDOFF.md` section 4: eleven findings rated High/Medium/Low with affected area, remediation status, and evidence. No High-severity finding is open; the table honestly discloses that CloudWatch alarms have no notification target and that JS deps were unscanned.
+- Supply chain: `.github/workflows/ci.yml` gained a blocking `npm audit --omit=dev --audit-level=high` gate (runtime deps clean at 0 vulnerabilities); added `.github/dependabot.yml` (npm, pip, github-actions). DEC-8 amended: image scanning is provided by ECR scan-on-push (CI is hermetic, no Grype-in-pipeline).
+- Handoff operability: new `docs/BOOTSTRAP.md` (fresh-account runbook: Bedrock enablement, ECR, image build/push, apply, secret, seed, users, console, verify), new `scripts/build-push-images.sh` (builds and pushes all eight images at the Terraform tag, Docker v2 media type), and `scripts/deploy-console.sh` de-hardcoded to resolve bucket/distribution/URL from `terraform output` (new `console_site_bucket` / `console_distribution_id` outputs). Removed committed `tfplan` binaries and fixed the `.gitignore` glob.
+- Verified: terraform validate + fmt clean, both scripts syntax-check, npm audit (runtime) clean, no em dashes. Frontend/docs/CI/scripts only; no infra apply.
+
 ## v3.7.1: Feed builder layout fix (2026-07-07)
 
 **The admin Feed page was misaligned and sprawling: the global `input{width:100%}` rule stretched every checkbox and radio to full width so its glyph floated far from its label, and the global uppercase-mono `label{}` rule hit the toggle labels too. Reworked into a clean, compact, aligned layout.**
