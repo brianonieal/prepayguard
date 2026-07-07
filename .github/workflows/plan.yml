@@ -42,7 +42,7 @@ jobs:
         if: ${{ secrets.AWS_PLAN_ROLE_ARN != '' }}
         run: terraform -chdir=environments/dev plan -no-color -input=false 2>&1 | tee plan.txt
         continue-on-error: true
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
