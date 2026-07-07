@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.6.0: Full Feed Builder (2026-07-07)
+
+**The admin Feed tab is now the full USAspending Custom Award Data search surface (DEC-26): award types (incl. Contract IDVs, Insurance, Other, and a Prime/Sub-Awards toggle), awarding/funding agency + sub-agency, location (recipient or place of performance, country + state), date type, and a from/to date range.**
+
+- Feeder: `_fetch_awards` builds the full `spending_by_award` filter object plus the `subawards` flag; `_to_payment` maps prime vs sub fields (sub ids prefixed `USASPEND-SUB-`). Backward compatible with the scheduled defaults.
+- Console API: `_validate_feed` validates the richer config (award codes incl. IDVs, agency/location shapes, date_type, ISO dates, size 1-100). No new IAM/routes (same config store + feeder invoke).
+- Console: `Feed.jsx` rebuilt with the mode toggle, agency + sub-agency dropdowns (fetched keyless directly from USAspending, CORS-open), state dropdown, date controls; `lib/usaspending.js` for the agency fetches + static states.
+- Verified locally: pytest 135/135, vitest 34/34, ruff clean, checkov 662/0/3, tflint + terraform validate clean.
+
 ## v3.5.0: In-Console Feed Control (2026-07-06)
 
 **New admin Feed tab (DEC-25): a USAspending-style builder in the console. The admin picks award types, a look-back window, and a per-pull size; Save persists it for the scheduled feed, Run now pulls immediately with those filters. No CSV download or upload.**

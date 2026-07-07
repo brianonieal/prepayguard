@@ -48,7 +48,11 @@ def _s3_client():
 
 
 CONFIG_KEY = "reference/feeder-config/current.json"
-_CONFIG_FIELDS = ("award_type_codes", "time_period_days", "limit")
+# v3.6.0: full USAspending builder. subawards flips prime<->sub; agencies and location
+# lists narrow the query; date_type + explicit start/end refine the window.
+_CONFIG_FIELDS = ("award_type_codes", "subawards", "date_type", "time_period_days",
+                  "start_date", "end_date", "limit", "agencies",
+                  "recipient_locations", "place_of_performance_locations")
 
 
 def _page_for_now() -> int:
@@ -81,15 +85,33 @@ def _load_config(event: dict) -> dict:
     return cfg
 
 
-def _fetch_awards(config: dict) -> list[dict]:
+def _time_period(config: dict) -> dict:
+    """Explicit start/end if given, else a look-back window; carry the date_type."""
     today = datetime.datetime.now(datetime.UTC).date()
-    start = (today - datetime.timedelta(days=int(config["time_period_days"]))).isoformat()
+    if config.get("start_date") and config.get("end_date"):
+        start, end = str(config["start_date"]), str(config["end_date"])
+    else:
+        start = (today - datetime.timedelta(days=int(config.get("time_period_days", 365)))).isoformat()
+        end = today.isoformat()
+    tp = {"start_date": start, "end_date": end}
+    if config.get("date_type"):
+        tp["date_type"] = config["date_type"]  # action_date | last_modified_date
+    return tp
+
+
+def _fetch_awards(config: dict) -> list[dict]:
+    subawards = bool(config.get("subawards"))
+    filters = {"award_type_codes": list(config["award_type_codes"]), "time_period": [_time_period(config)]}
+    # Optional narrowing filters (USAspending accepts these on spending_by_award).
+    for key in ("agencies", "recipient_locations", "place_of_performance_locations"):
+        if config.get(key):
+            filters[key] = config[key]
+    fields = (["Sub-Award ID", "Sub-Awardee Name", "Sub-Award Amount"] if subawards
+              else ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency"])
     body = json.dumps({
-        "filters": {"award_type_codes": list(config["award_type_codes"]),
-                    "time_period": [{"start_date": start, "end_date": today.isoformat()}]},
-        "fields": ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency"],
+        "subawards": subawards, "filters": filters, "fields": fields,
         "limit": int(config["limit"]), "page": config.get("page") or _page_for_now(),
-        "sort": "Award Amount", "order": "desc",
+        "sort": "Sub-Award Amount" if subawards else "Award Amount", "order": "desc",
     }).encode()
     req = urllib.request.Request(  # noqa: S310 (fixed https host)
         USASPENDING_URL, data=body,
@@ -98,18 +120,23 @@ def _fetch_awards(config: dict) -> list[dict]:
         return json.loads(resp.read()).get("results", [])
 
 
-def _to_payment(award: dict) -> dict | None:
-    """Map one USAspending award to a payment row, or None to drop it. No TIN (SAM/
-    USAspending key on UEI); amount must be positive."""
-    name = str(award.get("Recipient Name") or "").strip()
-    aid = str(award.get("Award ID") or "").strip()
+def _to_payment(award: dict, subawards: bool = False) -> dict | None:
+    """Map one USAspending prime award OR sub-award to a payment row, or None to drop
+    it. No TIN (USAspending keys on UEI); amount must be positive."""
+    if subawards:
+        name, aid, amt = award.get("Sub-Awardee Name"), award.get("Sub-Award ID"), award.get("Sub-Award Amount")
+        prefix = "USASPEND-SUB-"
+    else:
+        name, aid, amt = award.get("Recipient Name"), award.get("Award ID"), award.get("Award Amount")
+        prefix = "USASPEND-"
+    name, aid = str(name or "").strip(), str(aid or "").strip()
     try:
-        amount = round(float(award.get("Award Amount") or 0), 2)
+        amount = round(float(amt or 0), 2)
     except (TypeError, ValueError):
         return None
     if not name or not aid or amount <= 0:
         return None
-    return {"payment_id": f"USASPEND-{aid}", "payee": name, "amount": amount}
+    return {"payment_id": f"{prefix}{aid}", "payee": name, "amount": amount}
 
 
 def _demo_positive() -> dict:
@@ -122,12 +149,14 @@ def _demo_positive() -> dict:
 def _build_payments(event: dict) -> tuple[list[dict], str]:
     if event.get("demo_positive"):
         return [_demo_positive()], "demo_positive"
+    config = _load_config(event)
+    subawards = bool(config.get("subawards"))
     try:
-        awards = _fetch_awards(_load_config(event))
+        awards = _fetch_awards(config)
     except Exception as exc:  # never crash the schedule on an upstream hiccup
         print(f"feeder: USAspending fetch failed, skipping run: {type(exc).__name__}: {exc}")
         return [], "fetch_error"
-    payments = [p for a in awards if (p := _to_payment(a)) is not None]
+    payments = [p for a in awards if (p := _to_payment(a, subawards)) is not None]
     return payments, "usaspending"
 
 

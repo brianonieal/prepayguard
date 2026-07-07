@@ -1,0 +1,26 @@
+LIVE FEED BUILDER PROOF (full USAspending search surface, v3.6.0, DEC-26) - 2026-07-07
+
+Deployed to us-east-2: all 8 images retagged/rebuilt v3.6.0 (6 via ECR manifest-copy,
+feeder + console-api rebuilt from source); terraform apply reconciled clean; console
+SPA redeployed (site HTTP 200) with the full Feed builder UI.
+
+Feeder verified live honoring the full config (the exact calls the Feed tab makes):
+- Prime, awarding agency = Dept of Veterans Affairs, recipient state = VA, size 5:
+    -> 200 {"written": 5, "source": "usaspending"}
+- Sub-Awards (subawards flag), size 5:
+    -> 200 {"written": 5}; payment_ids prefixed USASPEND-SUB- with real sub-awardee
+       names (JACOBS ENGINEERING GROUP INC., SERCO INC., THE BOEING COMPANY).
+
+Live API facts (verified 2026-07-07): spending_by_award accepts agencies (awarding/
+funding, toptier/subtier) + recipient_locations / place_of_performance_locations;
+sub-awards via {"subawards": true} (Sub-Award ID / Sub-Awardee Name / Sub-Award Amount);
+agency list /references/toptier_agencies/ + sub-agency /agency/{code}/sub_agency/;
+USAspending sends access-control-allow-origin: * so the console fetches agency lists
+directly (no proxy).
+
+Local suite: pytest 135/135, console vitest 34/34, ruff clean, checkov 662/0/3,
+tflint + terraform validate clean.
+
+VERDICT: the admin Feed tab is the full usaspending.gov Custom Award Data search
+surface (award types incl. IDVs + Prime/Sub, agency + sub-agency, location, date type
++ range), driving the real API pull end to end -> PASS

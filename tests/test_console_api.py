@@ -608,3 +608,32 @@ def test_feed_run_is_admin_only(console_api):
     for caller in (REV, AUDITOR):
         assert console_api["app"].handler(_event("POST", "/feed/run", caller=caller,
             body={"award_type_codes": ["A"], "limit": 10}))["statusCode"] == 403
+
+
+# --- v3.6.0: full builder config validation ---
+
+def test_feed_config_full_builder_roundtrips(console_api):
+    full = {
+        "award_type_codes": ["A", "B", "C", "D", "IDV_A"], "subawards": True,
+        "date_type": "last_modified_date", "start_date": "2026-01-01", "end_date": "2026-07-07",
+        "limit": 15,
+        "agencies": [{"type": "awarding", "tier": "toptier", "name": "Department of Veterans Affairs"}],
+        "recipient_locations": [{"country": "USA", "state": "VA"}],
+    }
+    assert console_api["app"].handler(_event("PUT", "/feed/config", caller=ADMIN, body=full))["statusCode"] == 200
+    got = json.loads(console_api["app"].handler(_event("GET", "/feed/config", caller=ADMIN))["body"])["config"]
+    assert got["subawards"] is True and got["date_type"] == "last_modified_date"
+    assert got["agencies"][0]["name"] == "Department of Veterans Affairs"
+    assert got["recipient_locations"] == [{"country": "USA", "state": "VA"}]
+    assert got["start_date"] == "2026-01-01" and "IDV_A" in got["award_type_codes"]
+
+
+def test_feed_config_rejects_bad_builder_fields(console_api):
+    bad = [
+        {"award_type_codes": ["A"], "date_type": "bogus"},
+        {"award_type_codes": ["A"], "agencies": [{"type": "sideways", "tier": "toptier", "name": "X"}]},
+        {"award_type_codes": ["A"], "recipient_locations": [{"state": "VA"}]},  # no country
+        {"award_type_codes": ["A"], "start_date": "not-a-date", "end_date": "2026-07-07"},
+    ]
+    for body in bad:
+        assert console_api["app"].handler(_event("PUT", "/feed/config", caller=ADMIN, body=body))["statusCode"] == 400
