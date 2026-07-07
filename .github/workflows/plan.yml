@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         if: ${{ secrets.AWS_PLAN_ROLE_ARN != '' }}
         with:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
