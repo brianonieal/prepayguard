@@ -1,2 +1,2 @@
 # Console API runtime dependencies (boto3 pinned for build + pip-audit, DEC-8).
-boto3>=1.34,<2
+boto3>=1.43.41,<2
