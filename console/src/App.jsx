@@ -4,12 +4,11 @@ import ReviewQueue from "./screens/ReviewQueue.jsx";
 import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
-import ReferenceData from "./screens/ReferenceData.jsx";
-import Feed from "./screens/Feed.jsx";
+import Admin from "./screens/Admin.jsx";
 import Analytics from "./screens/Analytics.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
+import Tour from "./screens/Tour.jsx";
 import SubmitModal from "./components/SubmitModal.jsx";
-import AdminMenu from "./components/AdminMenu.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
 
@@ -59,13 +58,13 @@ export default function App() {
   const canDecide = ["reviewer", "admin"].includes(role);
   const canAnalytics = ["admin", "auditor"].includes(role);
   const isAdmin = role === "admin";
-  const landing = canReview ? "#/dashboard" : "#/profile";
-  // Role guards: bounce a user off any route their role can't see.
+  const landing = canReview ? "#/dashboard" : "#/tour";
+  // Role guards: bounce a user off any route their role can't see. Tour is open to all.
   useEffect(() => {
     if (!user || !role) return;
     const r = parts[0];
     if ((r === "dashboard" && !canReview) || (r === "reviews" && !canReview) ||
-        (r === "reference" && !isAdmin) || (r === "feed" && !isAdmin) ||
+        ((r === "admin" || r === "reference" || r === "feed") && !isAdmin) ||
         (r === "analytics" && !canAnalytics)) {
       nav(landing);
     }
@@ -81,6 +80,7 @@ export default function App() {
 
   const route = parts[0];
   const onReviews = route === "reviews";
+  const onAdmin = route === "admin" || route === "reference" || route === "feed";
   const detailId = onReviews ? parts[1] : null;
   const signOut = async () => { await logout(); setUser(null); };
   const emailLabel = user?.signInDetails?.loginId || user?.username || "signed in";
@@ -88,12 +88,15 @@ export default function App() {
   return (
     <div className={`app ${settings.density === "compact" ? "compact" : ""}`}>
       <header className="topbar">
-        <div className="seal">T</div>
-        <b>Treasury Console</b>
-        <span className="env">DEV · us-east-2</span>
+        <div className="brandmark">PG</div>
+        <div className="brand">
+          <b>PrePayGuard</b>
+          <span className="brand-sub">Treasury payment integrity console</span>
+        </div>
         {role && role !== "none" && <span className="rolechip" data-testid="role-chip">{role}</span>}
+        <div className="topbar-spacer" />
         {canSubmit && (
-          <button className="btn btn-primary btn-sm" style={{ marginLeft: "auto" }} onClick={() => setSubmitOpen(true)}>
+          <button className="btn btn-primary btn-sm" onClick={() => setSubmitOpen(true)}>
             + Submit payment
           </button>
         )}
@@ -109,21 +112,24 @@ export default function App() {
         {canAnalytics && (
           <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Audit log</button>
         )}
-        {isAdmin && <AdminMenu route={route} onNav={nav} />}
+        {isAdmin && (
+          <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Admin</button>
+        )}
+        <button className={route === "tour" ? "on" : ""} onClick={() => nav("#/tour")}>Tour</button>
       </nav>
       <main className="content">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}
         {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} canDecide={canDecide} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
         {route === "analytics" && canAnalytics && <Analytics />}
-        {route === "reference" && isAdmin && <ReferenceData />}
-        {route === "feed" && isAdmin && <Feed />}
+        {onAdmin && isAdmin && <Admin initial={route === "feed" ? "feed" : "reference"} />}
+        {route === "tour" && <Tour onNav={nav} canReview={canReview} isAdmin={isAdmin} />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>
       {submitOpen && <SubmitModal onClose={() => setSubmitOpen(false)} />}
       <footer className="foot">
-        <span>Treasury Console · v3.2.1</span>
+        <span>PrePayGuard · v3.2.1</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited · S3 Object Lock (COMPLIANCE)</span>
       </footer>

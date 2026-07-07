@@ -4,7 +4,7 @@ import { getShowcase } from "../lib/api.js";
 // v3.0.0 Executive Showcase, condensed + plain-English pass (v3.2.x).
 // Live data, hand-built SVG charts, no chart library, and no em dashes anywhere.
 
-const DISPO = {
+export const DISPO = {
   approve: { label: "Approve", color: "var(--green)", pill: "p-approved" },
   review: { label: "Review", color: "var(--amber)", pill: "p-pending" },
   reject: { label: "Reject", color: "var(--red)", pill: "p-rejected" },
@@ -54,7 +54,7 @@ function matchSentence(m) {
 
 // --- charts -----------------------------------------------------------------
 
-function Donut({ mix, total }) {
+export function Donut({ mix, total }) {
   const r = 54, C = 2 * Math.PI * r;
   let acc = 0;
   const segs = ["approve", "review", "reject"].map((d) => {
@@ -79,7 +79,7 @@ function Donut({ mix, total }) {
   );
 }
 
-function Gauge({ value }) {
+export function Gauge({ value }) {
   const r = 52, cx = 70, cy = 74;
   const v = Math.max(0, Math.min(100, Number(value) || 0));
   const a = Math.PI * (1 - v / 100);
@@ -95,7 +95,7 @@ function Gauge({ value }) {
   );
 }
 
-function FlagBars({ matchTypes, sample }) {
+export function FlagBars({ matchTypes, sample }) {
   const rows = FLAG_ORDER.filter((k) => (matchTypes[k] || 0) > 0).map((k) => ({ k, n: matchTypes[k] }));
   if (!rows.length) return <div className="sub" style={{ margin: 0 }}>No payments checked yet.</div>;
   const max = Math.max(...rows.map((r) => r.n));
@@ -117,7 +117,7 @@ function FlagBars({ matchTypes, sample }) {
   );
 }
 
-function PipelineFlow() {
+export function PipelineFlow() {
   const stages = [
     ["A", "Intake", "de-duplicated"],
     ["B", "Screening", "name and ID checks"],
@@ -170,7 +170,7 @@ function PipelineFlow() {
 
 // --- worked example ---------------------------------------------------------
 
-function ExampleCard({ ex }) {
+export function ExampleCard({ ex }) {
   if (!ex) return null;
   const d = DISPO[ex.disposition] || DISPO.review;
   return (

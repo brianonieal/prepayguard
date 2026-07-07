@@ -322,9 +322,8 @@ test("admin role sees both tabs and the role chip", async () => {
 test("admin edits the reference list and publishes a new version", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Reference Data" }));
-  expect(await screen.findByText("Reference data")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));  // Admin tab (defaults to Reference data)
+  expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   expect((await screen.findAllByText("v1")).length).toBeGreaterThan(0); // stat card + history pill
   // Edit an entry name -> the working copy is dirty -> publish becomes available.
   fireEvent.change(screen.getByLabelText("entry 0 name"), { target: { value: "Acme Shell Holdings LLC" } });
@@ -335,19 +334,19 @@ test("admin edits the reference list and publishes a new version", async () => {
   }));
 });
 
-test("reviewer role has no Reference Data tab", async () => {
+test("reviewer role has no Admin tab (no reference or feed access)", async () => {
   currentGroups.mockResolvedValue(["reviewer"]);
   render(<App />);
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Reference Data" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
 });
 
 test("admin configures the full feed (agency + award types) and runs it", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Feed" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   expect(await screen.findByText("Award types")).toBeInTheDocument();
   expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config (prime mode)
   // the agency dropdown is populated from the (mocked) USAspending fetch
@@ -364,8 +363,8 @@ test("admin configures the full feed (agency + award types) and runs it", async 
 test("admin can switch the feed to Sub-Awards", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Feed" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   fireEvent.click(await screen.findByLabelText("Sub-Awards"));
   expect(screen.getByLabelText("Sub-Contracts")).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "Run now" }));
@@ -373,12 +372,13 @@ test("admin can switch the feed to Sub-Awards", async () => {
   expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ subawards: true }));
 });
 
-test("reviewer role has no Feed tab", async () => {
-  currentGroups.mockResolvedValue(["reviewer"]);
+test("tour walks through the feature steps", async () => {
   render(<App />);
   await signIn();
-  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Feed" })).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "Tour" }));
+  expect(await screen.findByText("What PrePayGuard actually does")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+  expect(await screen.findByText("Your dashboard, at a glance")).toBeInTheDocument();
 });
 
 test("audit detail cites the reference list version", async () => {
@@ -389,15 +389,15 @@ test("audit detail cites the reference list version", async () => {
   expect(await screen.findByText(/v3 \(list version screened against\)/)).toBeInTheDocument();
 });
 
-test("Dashboard renders the live story, charts and worked examples", async () => {
+test("Dashboard renders the operations view (KPIs + charts)", async () => {
   render(<App />);
   await signIn();
   fireEvent.click(await screen.findByRole("button", { name: "Dashboard" }));
-  expect(await screen.findByText(/payments checked/)).toBeInTheDocument();       // hero live stat
-  expect(screen.getByText("How a payment moves through the system")).toBeInTheDocument();
-  expect(screen.getByText("Three real decisions")).toBeInTheDocument();
-  expect(screen.getByText("Globex Overseas Incorporated")).toBeInTheDocument();   // review example
-  expect(screen.getByText("Zeta Shell Holdings LLC")).toBeInTheDocument();        // reject example
+  expect(await screen.findByText("Operations dashboard")).toBeInTheDocument();
+  expect(screen.getByText("Payments checked")).toBeInTheDocument();               // KPI card
+  expect(screen.getByText("Waiting on a person")).toBeInTheDocument();            // KPI card
+  expect(screen.getByText("Outcome mix")).toBeInTheDocument();                    // donut panel
+  expect(screen.getByText("What the screening found")).toBeInTheDocument();       // match-type panel
 });
 
 test("submitter role does not see the Dashboard tab", async () => {

@@ -122,7 +122,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
                 <td className="mono">{r.payment_id}</td>
                 <td>{r.payee || "-"}</td>
                 <td>{r.match || "-"}</td>
-                <td><span className="score s-mid">{r.score}</span></td>
+                <td><span className={`score ${Number(r.score) >= 80 ? "s-high" : Number(r.score) >= 30 ? "s-mid" : "s-low"}`}>{r.score}</span></td>
                 <td>{AGE(r.received_at)}</td>
                 <td><span className={`pill p-${r.status}`}>{r.status}</span></td>
                 <td><button className="rowlink" onClick={() => onOpen(r.payment_id)}>
