@@ -118,7 +118,7 @@ export default function Feed() {
   if (!loaded) return <div className="body"><div className="sub">Loading feed config…</div></div>;
 
   return (
-    <div className="body">
+    <div className="body feed">
       <h2>Feed</h2>
       <div className="sub">
         Configure the real federal data the feeder pulls from USAspending: award types,
@@ -126,82 +126,96 @@ export default function Feed() {
         pulls immediately. Each pull screens real payees and writes permanent audit records.
       </div>
 
-      {msg && <div className="result-ok" style={{ marginTop: 0 }}>{msg}</div>}
-      {err && <div className="verdict bad">{err}</div>}
+      {msg && <div className="result-ok" style={{ marginTop: 0, marginBottom: 16 }}>{msg}</div>}
+      {err && <div className="verdict bad" style={{ marginBottom: 16 }}>{err}</div>}
 
       <div className="detail-grid">
         <div className="panel">
           <h3>Award types</h3>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ marginRight: 14 }}><input type="radio" name="mode" aria-label="Prime Awards" checked={mode === "prime"} onChange={() => setModeReset("prime")} /> Prime Awards</label>
-            <label><input type="radio" name="mode" aria-label="Sub-Awards" checked={mode === "sub"} onChange={() => setModeReset("sub")} /> Sub-Awards</label>
+          <div className="toggle">
+            <label><input type="radio" name="mode" aria-label="Prime Awards" checked={mode === "prime"} onChange={() => setModeReset("prime")} /> Prime awards</label>
+            <label><input type="radio" name="mode" aria-label="Sub-Awards" checked={mode === "sub"} onChange={() => setModeReset("sub")} /> Sub-awards</label>
           </div>
-          {cats(mode).map((c) => (
-            <label key={c.key} style={{ display: "block", marginBottom: 6 }}>
-              <input type="checkbox" aria-label={c.label} checked={!!sel[c.key]} onChange={() => toggle(c.key)} /> {c.label}
-            </label>
-          ))}
-          {noTypes && <div className="sub" style={{ color: "#b00", margin: "4px 0 0" }}>Pick at least one award type.</div>}
+          <div className="checklist">
+            {cats(mode).map((c) => (
+              <label key={c.key}>
+                <input type="checkbox" aria-label={c.label} checked={!!sel[c.key]} onChange={() => toggle(c.key)} /> {c.label}
+              </label>
+            ))}
+          </div>
+          {noTypes && <div className="warn">Pick at least one award type.</div>}
         </div>
 
         <div className="panel">
           <h3>Agency</h3>
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ marginRight: 14 }}><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
+          <div className="toggle">
+            <label><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
             <label><input type="radio" name="agtype" aria-label="Funding Agency" checked={agencyType === "funding"} onChange={() => setAgencyType("funding")} /> Funding</label>
           </div>
-          <label style={{ display: "block", marginBottom: 8 }}>Agency (optional)
-            <select aria-label="agency" value={agencyCode} onChange={(e) => { setAgencyCode(e.target.value); setSubAgency(""); }} style={{ display: "block", maxWidth: 320 }}>
+          <div className="field">
+            <span>Agency (optional)</span>
+            <select aria-label="agency" value={agencyCode} onChange={(e) => { setAgencyCode(e.target.value); setSubAgency(""); }}>
               <option value="">Any agency</option>
               {agencies.map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}
             </select>
-          </label>
-          <label style={{ display: "block" }}>Sub-agency (optional)
-            <select aria-label="sub-agency" value={subAgency} onChange={(e) => setSubAgency(e.target.value)} disabled={!subAgencies.length} style={{ display: "block", maxWidth: 320 }}>
+          </div>
+          <div className="field">
+            <span>Sub-agency (optional)</span>
+            <select aria-label="sub-agency" value={subAgency} onChange={(e) => setSubAgency(e.target.value)} disabled={!subAgencies.length}>
               <option value="">Any sub-agency</option>
               {subAgencies.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-          </label>
+          </div>
         </div>
 
         <div className="panel">
           <h3>Location</h3>
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ marginRight: 14 }}><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
+          <div className="toggle">
+            <label><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
             <label><input type="radio" name="loc" aria-label="Place of Performance" checked={locType === "pop"} onChange={() => setLocType("pop")} /> Place of performance</label>
           </div>
-          <label style={{ display: "block", marginBottom: 8 }}>Country
-            <select aria-label="country" value={country} onChange={(e) => setCountry(e.target.value)} style={{ display: "block", maxWidth: 200 }}>
-              <option value="USA">United States</option>
-              <option value="">Any country</option>
-            </select>
-          </label>
-          <label style={{ display: "block" }}>State (optional)
-            <select aria-label="state" value={state} onChange={(e) => setState(e.target.value)} style={{ display: "block", maxWidth: 200 }}>
-              <option value="">Any state</option>
-              {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
+          <div className="field-row">
+            <div className="field">
+              <span>Country</span>
+              <select aria-label="country" value={country} onChange={(e) => setCountry(e.target.value)}>
+                <option value="USA">United States</option>
+                <option value="">Any country</option>
+              </select>
+            </div>
+            <div className="field">
+              <span>State (optional)</span>
+              <select aria-label="state" value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="">Any state</option>
+                {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="panel">
           <h3>Dates and size</h3>
-          <label style={{ display: "block", marginBottom: 8 }}>Date type
-            <select aria-label="date type" value={dateType} onChange={(e) => setDateType(e.target.value)} style={{ display: "block", maxWidth: 220 }}>
+          <div className="field">
+            <span>Date type</span>
+            <select aria-label="date type" value={dateType} onChange={(e) => setDateType(e.target.value)}>
               <option value="action_date">Action date</option>
               <option value="last_modified_date">Last modified date</option>
             </select>
-          </label>
-          <label style={{ display: "inline-block", marginRight: 12 }}>From
-            <input type="date" aria-label="from" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ display: "block" }} />
-          </label>
-          <label style={{ display: "inline-block", marginBottom: 8 }}>To
-            <input type="date" aria-label="to" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ display: "block" }} />
-          </label>
-          <label style={{ display: "block", marginBottom: 10 }}>Payments per pull (max 100)
-            <input type="number" aria-label="limit" min="1" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} style={{ display: "block", maxWidth: 140 }} />
-          </label>
-          <div style={{ display: "flex", gap: 10 }}>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <span>From</span>
+              <input type="date" aria-label="from" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <span>To</span>
+              <input type="date" aria-label="to" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="field">
+            <span>Payments per pull (max 100)</span>
+            <input type="number" aria-label="limit" min="1" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} />
+          </div>
+          <div className="actions">
             <button className="btn btn-ghost btn-sm" disabled={!!busy || noTypes} onClick={doSave}>{busy === "save" ? "Saving…" : "Save"}</button>
             <button className="btn btn-primary btn-sm" disabled={!!busy || noTypes} onClick={doRun}>{busy === "run" ? "Pulling…" : "Run now"}</button>
           </div>
