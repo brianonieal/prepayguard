@@ -77,6 +77,12 @@ vi.mock("./lib/api.js", () => {
   };
 });
 
+vi.mock("./lib/usaspending.js", () => ({
+  fetchAgencies: vi.fn(async () => [{ name: "Department of Veterans Affairs", code: "036" }]),
+  fetchSubAgencies: vi.fn(async () => ["Veterans Benefits Administration"]),
+  STATES: ["VA", "CA", "NY"],
+}));
+
 import { bulkDecide, putReference, resetData, runFeed } from "./lib/api.js";
 import { currentGroups, changePassword, startTotpSetup, confirmTotpSetup } from "./lib/auth.js";
 
@@ -332,16 +338,32 @@ test("reviewer role has no Reference Data tab", async () => {
   expect(screen.queryByRole("button", { name: "Reference Data" })).toBeNull();
 });
 
-test("admin configures the feed and runs it on demand", async () => {
+test("admin configures the full feed (agency + award types) and runs it", async () => {
   render(<App />);
   await signIn();
   fireEvent.click(await screen.findByRole("button", { name: "Feed" }));
   expect(await screen.findByText("Award types")).toBeInTheDocument();
-  expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config
+  expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config (prime mode)
+  // the agency dropdown is populated from the (mocked) USAspending fetch
+  fireEvent.change(await screen.findByLabelText("agency"), { target: { value: "036" } });
   fireEvent.change(screen.getByLabelText("limit"), { target: { value: "5" } });
   fireEvent.click(screen.getByRole("button", { name: "Run now" }));
   expect(await screen.findByText(/Pulled now: 10 payment/)).toBeInTheDocument();
-  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ limit: 5, award_type_codes: ["A", "B", "C", "D"] }));
+  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({
+    limit: 5, subawards: false, award_type_codes: ["A", "B", "C", "D"],
+    agencies: [{ type: "awarding", tier: "toptier", name: "Department of Veterans Affairs" }],
+  }));
+});
+
+test("admin can switch the feed to Sub-Awards", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Feed" }));
+  fireEvent.click(await screen.findByLabelText("Sub-Awards"));
+  expect(screen.getByLabelText("Sub-Contracts")).toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Run now" }));
+  await screen.findByText(/Pulled now/);
+  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ subawards: true }));
 });
 
 test("reviewer role has no Feed tab", async () => {

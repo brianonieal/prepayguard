@@ -159,3 +159,55 @@ def test_fetch_awards_uses_config(monkeypatch):
     f._fetch_awards({"award_type_codes": ["06", "10"], "time_period_days": 30, "limit": 7, "page": 3})
     assert captured["body"]["filters"]["award_type_codes"] == ["06", "10"]
     assert captured["body"]["limit"] == 7 and captured["body"]["page"] == 3
+
+
+# --- v3.6.0: full builder (agencies, locations, sub-awards, date type/range) ---
+
+def test_to_payment_prime_and_sub():
+    f = _load()
+    prime = f._to_payment({"Recipient Name": "LOCKHEED MARTIN CORP", "Award ID": "P1", "Award Amount": 100})
+    assert prime == {"payment_id": "USASPEND-P1", "payee": "LOCKHEED MARTIN CORP", "amount": 100.0}
+    sub = f._to_payment({"Sub-Awardee Name": "AVNET INC", "Sub-Award ID": "S1", "Sub-Award Amount": 55000}, subawards=True)
+    assert sub == {"payment_id": "USASPEND-SUB-S1", "payee": "AVNET INC", "amount": 55000.0}
+    # prime fields on a subaward map (and vice versa) -> dropped, no crash
+    assert f._to_payment({"Recipient Name": "X", "Award ID": "P"}, subawards=True) is None
+
+
+def _capture_body(f, monkeypatch):
+    captured = {}
+
+    class FakeResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return json.dumps({"results": []}).encode()
+    monkeypatch.setattr(f.urllib.request, "urlopen",
+                        lambda req, timeout=25: captured.__setitem__("body", json.loads(req.data.decode())) or FakeResp())
+    return captured
+
+
+def test_fetch_awards_full_filters_and_subawards(monkeypatch):
+    f = _load()
+    captured = _capture_body(f, monkeypatch)
+    f._fetch_awards({
+        "award_type_codes": ["A", "B", "C", "D"], "subawards": True, "limit": 10,
+        "date_type": "last_modified_date", "start_date": "2026-01-01", "end_date": "2026-07-07",
+        "agencies": [{"type": "awarding", "tier": "toptier", "name": "Department of Veterans Affairs"}],
+        "recipient_locations": [{"country": "USA", "state": "VA"}],
+    })
+    b = captured["body"]
+    assert b["subawards"] is True
+    assert b["fields"] == ["Sub-Award ID", "Sub-Awardee Name", "Sub-Award Amount"]
+    assert b["sort"] == "Sub-Award Amount"
+    assert b["filters"]["agencies"][0]["name"] == "Department of Veterans Affairs"
+    assert b["filters"]["recipient_locations"] == [{"country": "USA", "state": "VA"}]
+    tp = b["filters"]["time_period"][0]
+    assert tp == {"start_date": "2026-01-01", "end_date": "2026-07-07", "date_type": "last_modified_date"}
+
+
+def test_fetch_awards_prime_defaults_no_extra_filters(monkeypatch):
+    f = _load()
+    captured = _capture_body(f, monkeypatch)
+    f._fetch_awards({"award_type_codes": ["A"], "time_period_days": 365, "limit": 5})
+    b = captured["body"]
+    assert b["subawards"] is False and b["fields"][0] == "Award ID"
+    assert "agencies" not in b["filters"] and "recipient_locations" not in b["filters"]

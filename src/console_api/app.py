@@ -473,8 +473,41 @@ def _put_reference(event, caller: str) -> dict:
 
 FEED_CONFIG_KEY = "reference/feeder-config/current.json"
 # Valid USAspending award_type_codes (the console maps friendly labels to these).
-_VALID_AWARD_CODES = {"A", "B", "C", "D", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"}
-_FEED_DEFAULTS = {"award_type_codes": ["A", "B", "C", "D"], "time_period_days": 365, "limit": 10}
+_VALID_AWARD_CODES = {"A", "B", "C", "D", "IDV_A", "IDV_B", "IDV_C", "IDV_D", "IDV_E",
+                      "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"}
+_VALID_DATE_TYPES = {"action_date", "last_modified_date"}
+_FEED_DEFAULTS = {"award_type_codes": ["A", "B", "C", "D"], "subawards": False,
+                  "date_type": "action_date", "time_period_days": 365, "limit": 10}
+
+
+def _valid_agencies(v):
+    if v is None:
+        return True, None
+    if not isinstance(v, list):
+        return False, None
+    out = []
+    for a in v:
+        if not isinstance(a, dict) or a.get("type") not in ("awarding", "funding") \
+                or a.get("tier") not in ("toptier", "subtier") or not str(a.get("name") or "").strip():
+            return False, None
+        out.append({"type": a["type"], "tier": a["tier"], "name": str(a["name"]).strip()})
+    return True, out
+
+
+def _valid_locations(v):
+    if v is None:
+        return True, None
+    if not isinstance(v, list):
+        return False, None
+    out = []
+    for loc in v:
+        if not isinstance(loc, dict) or not str(loc.get("country") or "").strip():
+            return False, None
+        one = {"country": str(loc["country"]).strip()}
+        if loc.get("state"):
+            one["state"] = str(loc["state"]).strip()
+        out.append(one)
+    return True, out
 
 
 def _feed_config(event) -> dict:
@@ -500,7 +533,32 @@ def _validate_feed(body):
         return None, "time_period_days and limit must be integers"
     if not (1 <= days <= 3650) or not (1 <= limit <= 100):
         return None, "time_period_days must be 1-3650 and limit 1-100"
-    return {"award_type_codes": list(codes), "time_period_days": days, "limit": limit}, None
+    date_type = body.get("date_type") or "action_date"
+    if date_type not in _VALID_DATE_TYPES:
+        return None, "date_type must be action_date or last_modified_date"
+    start, end = body.get("start_date"), body.get("end_date")
+    if start or end:
+        try:
+            datetime.date.fromisoformat(str(start))
+            datetime.date.fromisoformat(str(end))
+        except (TypeError, ValueError):
+            return None, "start_date and end_date must both be YYYY-MM-DD"
+    ag_ok, agencies = _valid_agencies(body.get("agencies"))
+    if not ag_ok:
+        return None, "agencies must be a list of {type: awarding|funding, tier: toptier|subtier, name}"
+    rl_ok, recip = _valid_locations(body.get("recipient_locations"))
+    pop_ok, pop = _valid_locations(body.get("place_of_performance_locations"))
+    if not (rl_ok and pop_ok):
+        return None, "locations must be a list of {country, state?}"
+    cfg = {"award_type_codes": list(codes), "subawards": bool(body.get("subawards")),
+           "date_type": date_type, "time_period_days": days, "limit": limit}
+    if start and end:
+        cfg["start_date"], cfg["end_date"] = str(start), str(end)
+    for key, val in (("agencies", agencies), ("recipient_locations", recip),
+                     ("place_of_performance_locations", pop)):
+        if val:
+            cfg[key] = val
+    return cfg, None
 
 
 def _save_feed_config(event, caller: str) -> dict:

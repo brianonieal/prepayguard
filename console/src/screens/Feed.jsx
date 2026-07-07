@@ -1,77 +1,129 @@
 import { useEffect, useState } from "react";
 import { getFeedConfig, putFeedConfig, runFeed } from "../lib/api.js";
+import { fetchAgencies, fetchSubAgencies, STATES } from "../lib/usaspending.js";
 
-// USAspending award_type_codes grouped into friendly categories (mirrors the
-// usaspending.gov download builder). The saved config stores the flat code list.
-const CATEGORIES = [
+// USAspending award_type_codes grouped into the builder's friendly categories.
+// A single query is EITHER prime OR sub-awards (the API's subawards flag is global),
+// so the mode toggle picks which set of checkboxes shows.
+const PRIME = [
   { key: "contracts", label: "Contracts", codes: ["A", "B", "C", "D"] },
+  { key: "idvs", label: "Contract IDVs", codes: ["IDV_A", "IDV_B", "IDV_C", "IDV_D", "IDV_E"] },
   { key: "grants", label: "Grants", codes: ["02", "03", "04", "05"] },
   { key: "direct", label: "Direct Payments", codes: ["06", "10"] },
   { key: "loans", label: "Loans", codes: ["07", "08"] },
-  { key: "other", label: "Other Financial Assistance", codes: ["09", "11"] },
+  { key: "insurance", label: "Insurance", codes: ["09"] },
+  { key: "other", label: "Other Financial Assistance", codes: ["11"] },
+];
+const SUB = [
+  { key: "subcontracts", label: "Sub-Contracts", codes: ["A", "B", "C", "D"] },
+  { key: "subgrants", label: "Sub-Grants", codes: ["02", "03", "04", "05"] },
 ];
 
-const selFromCodes = (codes) => {
+const cats = (mode) => (mode === "sub" ? SUB : PRIME);
+const selFromCodes = (codes, mode) => {
   const set = new Set(codes || []);
-  const sel = {};
-  for (const c of CATEGORIES) sel[c.key] = c.codes.every((x) => set.has(x));
-  return sel;
+  const s = {};
+  for (const c of cats(mode)) s[c.key] = c.codes.every((x) => set.has(x));
+  return s;
 };
-const codesFromSel = (sel) => CATEGORIES.filter((c) => sel[c.key]).flatMap((c) => c.codes);
+const codesFromSel = (sel, mode) => cats(mode).filter((c) => sel[c.key]).flatMap((c) => c.codes);
+const isoDaysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
 
 export default function Feed() {
-  const [sel, setSel] = useState({});
-  const [days, setDays] = useState(365);
+  const [mode, setMode] = useState("prime");            // prime | sub
+  const [sel, setSel] = useState({ contracts: true });
+  const [agencyType, setAgencyType] = useState("awarding");
+  const [agencies, setAgencies] = useState([]);
+  const [agencyCode, setAgencyCode] = useState("");     // toptier_code
+  const [subAgencies, setSubAgencies] = useState([]);
+  const [subAgency, setSubAgency] = useState("");
+  const [locType, setLocType] = useState("recipient");  // recipient | pop
+  const [country, setCountry] = useState("USA");
+  const [state, setState] = useState("");
+  const [dateType, setDateType] = useState("action_date");
+  const [startDate, setStartDate] = useState(isoDaysAgo(365));
+  const [endDate, setEndDate] = useState(isoDaysAgo(0));
   const [limit, setLimit] = useState(10);
   const [loaded, setLoaded] = useState(false);
-  const [busy, setBusy] = useState("");   // "save" | "run" | ""
+  const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [lastRun, setLastRun] = useState(null);
 
+  useEffect(() => { fetchAgencies().then(setAgencies).catch(() => {}); }, []);
+
   useEffect(() => {
-    getFeedConfig().then(({ config }) => {
-      setSel(selFromCodes(config.award_type_codes));
-      setDays(config.time_period_days ?? 365);
-      setLimit(config.limit ?? 10);
+    getFeedConfig().then(({ config: c }) => {
+      const m = c.subawards ? "sub" : "prime";
+      setMode(m);
+      setSel(selFromCodes(c.award_type_codes, m));
+      setDateType(c.date_type || "action_date");
+      if (c.start_date) setStartDate(c.start_date);
+      if (c.end_date) setEndDate(c.end_date);
+      setLimit(c.limit ?? 10);
+      const ag = (c.agencies || [])[0];
+      if (ag) setAgencyType(ag.type);
+      const sub = (c.agencies || []).find((a) => a.tier === "subtier");
+      if (sub) setSubAgency(sub.name);
+      const loc = (c.recipient_locations || c.place_of_performance_locations || [])[0];
+      if (c.place_of_performance_locations) setLocType("pop");
+      if (loc) { setCountry(loc.country || "USA"); if (loc.state) setState(loc.state); }
       setLoaded(true);
     }).catch((e) => setErr(String(e.message || e)));
   }, []);
 
-  const cfg = () => ({ award_type_codes: codesFromSel(sel), time_period_days: Number(days), limit: Number(limit) });
-  const noTypes = codesFromSel(sel).length === 0;
+  // Sub-agency list follows the selected toptier agency.
+  useEffect(() => {
+    if (!agencyCode) { setSubAgencies([]); return; }
+    fetchSubAgencies(agencyCode).then(setSubAgencies).catch(() => setSubAgencies([]));
+  }, [agencyCode]);
 
-  const save = async () => {
-    setBusy("save"); setErr(""); setMsg("");
-    try {
-      await putFeedConfig(cfg());
-      setMsg("Saved. The scheduled feed will use these filters on its next run.");
-    } catch (ex) { setErr(String(ex?.message || "save failed")); }
-    finally { setBusy(""); }
+  const setModeReset = (m) => { setMode(m); setSel(m === "sub" ? { subcontracts: true } : { contracts: true }); };
+  const toggle = (k) => setSel((p) => ({ ...p, [k]: !p[k] }));
+  const codes = codesFromSel(sel, mode);
+  const agencyName = agencies.find((a) => a.code === agencyCode)?.name || "";
+
+  const cfg = () => {
+    const c = {
+      award_type_codes: codes, subawards: mode === "sub", date_type: dateType,
+      start_date: startDate, end_date: endDate, limit: Number(limit),
+    };
+    if (agencyName) {
+      c.agencies = [{ type: agencyType, tier: "toptier", name: agencyName }];
+      if (subAgency) c.agencies.push({ type: agencyType, tier: "subtier", name: subAgency });
+    }
+    if (country && (state || locType)) {
+      const loc = [{ country, ...(state ? { state } : {}) }];
+      c[locType === "pop" ? "place_of_performance_locations" : "recipient_locations"] = loc;
+    }
+    return c;
   };
+  const noTypes = codes.length === 0;
 
-  const run = async () => {
+  const doSave = async () => {
+    setBusy("save"); setErr(""); setMsg("");
+    try { await putFeedConfig(cfg()); setMsg("Saved. The scheduled feed will use these filters next run."); }
+    catch (ex) { setErr(String(ex?.message || "save failed")); } finally { setBusy(""); }
+  };
+  const doRun = async () => {
     setBusy("run"); setErr(""); setMsg("");
     try {
       const r = await runFeed(cfg());
       setLastRun(r.result || {});
       setMsg(`Pulled now: ${r.result?.written ?? 0} payment(s) screened. They appear in the console shortly.`);
-    } catch (ex) { setErr(String(ex?.message || "run failed")); }
-    finally { setBusy(""); }
+    } catch (ex) { setErr(String(ex?.message || "run failed")); } finally { setBusy(""); }
   };
 
   if (err && !loaded) return <div className="body"><div className="verdict bad">Failed to load feed config: {err}</div></div>;
   if (!loaded) return <div className="body"><div className="sub">Loading feed config…</div></div>;
 
-  const toggle = (k) => setSel((p) => ({ ...p, [k]: !p[k] }));
-
   return (
     <div className="body">
       <h2>Feed</h2>
       <div className="sub">
-        Configure the real federal data the feeder pulls from USAspending. Save sets what
-        the scheduled feed uses; Run now pulls immediately with these filters. Each pull
-        screens real payees and writes permanent audit records, bounded by the size below.
+        Configure the real federal data the feeder pulls from USAspending: award types,
+        agency, location, and date range. Save sets what the scheduled feed uses; Run now
+        pulls immediately. Each pull screens real payees and writes permanent audit records.
       </div>
 
       {msg && <div className="result-ok" style={{ marginTop: 0 }}>{msg}</div>}
@@ -80,40 +132,80 @@ export default function Feed() {
       <div className="detail-grid">
         <div className="panel">
           <h3>Award types</h3>
-          {CATEGORIES.map((c) => (
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ marginRight: 14 }}><input type="radio" name="mode" aria-label="Prime Awards" checked={mode === "prime"} onChange={() => setModeReset("prime")} /> Prime Awards</label>
+            <label><input type="radio" name="mode" aria-label="Sub-Awards" checked={mode === "sub"} onChange={() => setModeReset("sub")} /> Sub-Awards</label>
+          </div>
+          {cats(mode).map((c) => (
             <label key={c.key} style={{ display: "block", marginBottom: 6 }}>
-              <input type="checkbox" aria-label={c.label} checked={!!sel[c.key]} onChange={() => toggle(c.key)} />{" "}
-              {c.label}
+              <input type="checkbox" aria-label={c.label} checked={!!sel[c.key]} onChange={() => toggle(c.key)} /> {c.label}
             </label>
           ))}
           {noTypes && <div className="sub" style={{ color: "#b00", margin: "4px 0 0" }}>Pick at least one award type.</div>}
         </div>
 
         <div className="panel">
-          <h3>Window and size</h3>
-          <label style={{ display: "block", marginBottom: 10 }}>
-            Look back (days)
-            <input type="number" aria-label="days" min="1" max="3650" value={days}
-              onChange={(e) => setDays(e.target.value)} style={{ display: "block", maxWidth: 140 }} />
-          </label>
-          <label style={{ display: "block", marginBottom: 10 }}>
-            Payments per pull (max 100)
-            <input type="number" aria-label="limit" min="1" max="100" value={limit}
-              onChange={(e) => setLimit(e.target.value)} style={{ display: "block", maxWidth: 140 }} />
-          </label>
-          <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-            <button className="btn btn-ghost btn-sm" disabled={!!busy || noTypes} onClick={save}>
-              {busy === "save" ? "Saving…" : "Save"}
-            </button>
-            <button className="btn btn-primary btn-sm" disabled={!!busy || noTypes} onClick={run}>
-              {busy === "run" ? "Pulling…" : "Run now"}
-            </button>
+          <h3>Agency</h3>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ marginRight: 14 }}><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
+            <label><input type="radio" name="agtype" aria-label="Funding Agency" checked={agencyType === "funding"} onChange={() => setAgencyType("funding")} /> Funding</label>
           </div>
-          {lastRun && (
-            <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>
-              Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.
-            </div>
-          )}
+          <label style={{ display: "block", marginBottom: 8 }}>Agency (optional)
+            <select aria-label="agency" value={agencyCode} onChange={(e) => { setAgencyCode(e.target.value); setSubAgency(""); }} style={{ display: "block", maxWidth: 320 }}>
+              <option value="">Any agency</option>
+              {agencies.map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "block" }}>Sub-agency (optional)
+            <select aria-label="sub-agency" value={subAgency} onChange={(e) => setSubAgency(e.target.value)} disabled={!subAgencies.length} style={{ display: "block", maxWidth: 320 }}>
+              <option value="">Any sub-agency</option>
+              {subAgencies.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="panel">
+          <h3>Location</h3>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ marginRight: 14 }}><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
+            <label><input type="radio" name="loc" aria-label="Place of Performance" checked={locType === "pop"} onChange={() => setLocType("pop")} /> Place of performance</label>
+          </div>
+          <label style={{ display: "block", marginBottom: 8 }}>Country
+            <select aria-label="country" value={country} onChange={(e) => setCountry(e.target.value)} style={{ display: "block", maxWidth: 200 }}>
+              <option value="USA">United States</option>
+              <option value="">Any country</option>
+            </select>
+          </label>
+          <label style={{ display: "block" }}>State (optional)
+            <select aria-label="state" value={state} onChange={(e) => setState(e.target.value)} style={{ display: "block", maxWidth: 200 }}>
+              <option value="">Any state</option>
+              {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="panel">
+          <h3>Dates and size</h3>
+          <label style={{ display: "block", marginBottom: 8 }}>Date type
+            <select aria-label="date type" value={dateType} onChange={(e) => setDateType(e.target.value)} style={{ display: "block", maxWidth: 220 }}>
+              <option value="action_date">Action date</option>
+              <option value="last_modified_date">Last modified date</option>
+            </select>
+          </label>
+          <label style={{ display: "inline-block", marginRight: 12 }}>From
+            <input type="date" aria-label="from" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ display: "block" }} />
+          </label>
+          <label style={{ display: "inline-block", marginBottom: 8 }}>To
+            <input type="date" aria-label="to" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ display: "block" }} />
+          </label>
+          <label style={{ display: "block", marginBottom: 10 }}>Payments per pull (max 100)
+            <input type="number" aria-label="limit" min="1" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} style={{ display: "block", maxWidth: 140 }} />
+          </label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="btn btn-ghost btn-sm" disabled={!!busy || noTypes} onClick={doSave}>{busy === "save" ? "Saving…" : "Save"}</button>
+            <button className="btn btn-primary btn-sm" disabled={!!busy || noTypes} onClick={doRun}>{busy === "run" ? "Pulling…" : "Run now"}</button>
+          </div>
+          {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
       </div>
     </div>

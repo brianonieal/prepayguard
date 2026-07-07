@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 25 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 26 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -351,4 +351,20 @@ Section-level detail:
 
 ---
 
-# 25 decisions logged. 25 LOCKED, 0 OPEN.
+## DEC-26 - Full Feed Builder: agencies, locations, sub-awards (v3.6.0, extends DEC-25)
+**Date:** 2026-07-07
+**Severity:** FULL
+**Decision:** Extend the admin Feed builder (DEC-25) to the full USAspending search surface: award types now include Contract IDVs (IDV_A..E), Insurance (09), Other (11), and a Prime/Sub-Awards mode toggle (Sub-Contracts / Sub-Grants); awarding-or-funding **agency + sub-agency**; **location** (recipient or place-of-performance, country + state); **date type** (action / last-modified) and an explicit **from/to date range**. The feeder's `_fetch_awards` builds the full `spending_by_award` `filters` object plus the `subawards` flag (verified live 2026-07-07: sub-awards are the same endpoint with `{"subawards": true}` and `Sub-Award ID`/`Sub-Awardee Name`/`Sub-Award Amount` fields); `_to_payment` maps prime vs sub field names (sub ids prefixed `USASPEND-SUB-`). The console fetches the agency and sub-agency lists DIRECTLY from USAspending in the browser (verified `access-control-allow-origin: *`), so no backend proxy; states are a static list. Console API `_validate_feed` validates the richer config (known award codes incl. IDVs, agency `{type,tier,name}` shapes, location `{country,state?}`, date_type enum, ISO dates, size 1-100).
+**Alternatives considered:**
+- Proxy the agency/location lists through the console API (rejected: USAspending is CORS-open and keyless, so the browser fetches directly, no new backend/IAM).
+- Let one query mix prime and sub-awards (rejected: the API's `subawards` flag is global per request; a Prime/Sub mode toggle is the honest model, matching how usaspending.gov produces separate files).
+- Free-text agency entry (rejected: a dropdown from the live toptier list + dependent sub-agency dropdown is less error-prone and matches the builder).
+**Rationale:** gives the admin the full usaspending.gov Custom Award Data search surface inside the console, reusing the DEC-25 config store, endpoints, IAM, and admin-gating unchanged (no new Terraform/IAM). Backward compatible: absent fields fall back to the v3.3.0 scheduled defaults.
+**Risk acknowledged:** (1) A narrow filter set (e.g. a small agency + state + short window) can return zero rows; the feeder writes nothing and reports it, no crash. (2) `date_type` on the time_period is included in the request; if a future API change rejects it the feeder degrades to fetch_error (logged), never a bad screening. (3) More filter surface means more user input; all validated server-side before reaching the feeder. (4) Sub-award amounts/names are a different data shape; mapped explicitly and dropped if malformed.
+**Confidence:** HIGH. **Reversibility:** HIGH - additive form controls + config fields; the feeder ignores unknown/absent fields and falls back to defaults.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 26 decisions logged. 26 LOCKED, 0 OPEN.
