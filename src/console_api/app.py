@@ -25,6 +25,7 @@ from botocore.exceptions import ClientError
 
 _dynamodb = None
 _s3 = None
+_lambda = None
 
 COMPONENT_VERSION = "3.1.0"
 BULK_DECISION_MAX = 50  # cap per bulk call (API GW/Lambda time budget)
@@ -48,6 +49,13 @@ def _s3_client():
     if _s3 is None:
         _s3 = boto3.client("s3")
     return _s3
+
+
+def _lambda_client():
+    global _lambda
+    if _lambda is None:
+        _lambda = boto3.client("lambda")
+    return _lambda
 
 
 def _caller_identity(event) -> str:
@@ -457,6 +465,73 @@ def _put_reference(event, caller: str) -> dict:
                            "updated_by": caller})
 
 
+# --- v3.5.0: in-console feed control (admin-only) ----------------------------
+# The console Feed tab edits the USAspending query the feeder (Component F) runs.
+# Save persists it to S3 (drives the scheduled runs); Run invokes the feeder now
+# with the posted filters inline. Admin-only at both the edge (resource policy)
+# and here (_is_admin), mirroring the reference-publish control.
+
+FEED_CONFIG_KEY = "reference/feeder-config/current.json"
+# Valid USAspending award_type_codes (the console maps friendly labels to these).
+_VALID_AWARD_CODES = {"A", "B", "C", "D", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"}
+_FEED_DEFAULTS = {"award_type_codes": ["A", "B", "C", "D"], "time_period_days": 365, "limit": 10}
+
+
+def _feed_config(event) -> dict:
+    if not _is_admin(event):
+        return _response(403, {"error": "admin_only", "detail": "feed configuration requires the admin role"})
+    try:
+        cfg = json.loads(_s3_client().get_object(
+            Bucket=os.environ["REFERENCE_BUCKET"], Key=FEED_CONFIG_KEY)["Body"].read())
+    except ClientError:
+        cfg = dict(_FEED_DEFAULTS)
+    return _response(200, {"config": cfg, "defaults": _FEED_DEFAULTS})
+
+
+def _validate_feed(body):
+    """Return (config, None) or (None, error). Bounds keep the feed cheap and the
+    audit-record growth bounded (limit 1-100)."""
+    codes = body.get("award_type_codes")
+    if not isinstance(codes, list) or not codes or any(c not in _VALID_AWARD_CODES for c in codes):
+        return None, "award_type_codes must be a non-empty list of valid USAspending codes"
+    try:
+        days, limit = int(body.get("time_period_days", 365)), int(body.get("limit", 10))
+    except (TypeError, ValueError):
+        return None, "time_period_days and limit must be integers"
+    if not (1 <= days <= 3650) or not (1 <= limit <= 100):
+        return None, "time_period_days must be 1-3650 and limit 1-100"
+    return {"award_type_codes": list(codes), "time_period_days": days, "limit": limit}, None
+
+
+def _save_feed_config(event, caller: str) -> dict:
+    if not _is_admin(event):
+        return _response(403, {"error": "admin_only", "detail": "feed configuration requires the admin role"})
+    cfg, err = _validate_feed(json.loads(event.get("body") or "{}"))
+    if err:
+        return _response(400, {"error": "invalid_config", "detail": err})
+    cfg["updated_by"] = caller
+    cfg["updated_at"] = datetime.datetime.now(datetime.UTC).isoformat()
+    _s3_client().put_object(Bucket=os.environ["REFERENCE_BUCKET"], Key=FEED_CONFIG_KEY,
+                            Body=json.dumps(cfg).encode(), ContentType="application/json")
+    return _response(200, {"status": "saved", "config": cfg})
+
+
+def _run_feed(event) -> dict:
+    if not _is_admin(event):
+        return _response(403, {"error": "admin_only", "detail": "running the feed requires the admin role"})
+    cfg, err = _validate_feed(json.loads(event.get("body") or "{}"))
+    if err:
+        return _response(400, {"error": "invalid_config", "detail": err})
+    try:
+        resp = _lambda_client().invoke(
+            FunctionName=os.environ["FEEDER_FUNCTION_ARN"],
+            Payload=json.dumps({"invoke_type": "on_demand", "feeder_config": cfg}).encode())
+        result = json.loads(resp["Payload"].read() or "{}")
+    except Exception as exc:  # the feeder is optional to reach; never 500 the console over it
+        return _response(502, {"error": "feed_run_failed", "detail": str(exc)[:200]})
+    return _response(200, {"status": "ran", "config": cfg, "result": result})
+
+
 def _list_reference_versions() -> dict:
     resp = _s3_client().list_objects_v2(
         Bucket=os.environ["REFERENCE_BUCKET"], Prefix="reference/versions/")
@@ -783,6 +858,13 @@ def handler(event, context=None):
         # Demo reset (v3.1.0, admin-only; clears the working tables)
         if method == "POST" and parts == ["admin", "reset"]:
             return _reset(event)
+        # v3.5.0: in-console feed control (admin-only)
+        if method == "GET" and parts == ["feed", "config"]:
+            return _feed_config(event)
+        if method == "PUT" and parts == ["feed", "config"]:
+            return _save_feed_config(event, caller)
+        if method == "POST" and parts == ["feed", "run"]:
+            return _run_feed(event)
         # Batch ingestion (v1.6.0)
         if method == "POST" and parts == ["batches"]:
             return _presign_batch(json.loads(event.get("body") or "{}"))

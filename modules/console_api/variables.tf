@@ -109,6 +109,12 @@ variable "reference_bucket_arn" {
   type = string
 }
 
+# v3.5.0: the console API invokes the feeder alias for on-demand feed runs.
+variable "feeder_alias_arn" {
+  description = "Component F feeder 'live' alias ARN, for admin on-demand feed runs (POST /feed/run)."
+  type        = string
+}
+
 # v2.2.0: console_api embeds reference entries on publish (Bedrock).
 variable "embed_model" {
   description = "Bedrock embedding model id (e.g. amazon.titan-embed-text-v2:0)."

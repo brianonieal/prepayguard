@@ -1,5 +1,16 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.5.0: In-Console Feed Control (2026-07-06)
+
+**New admin Feed tab (DEC-25): a USAspending-style builder in the console. The admin picks award types, a look-back window, and a per-pull size; Save persists it for the scheduled feed, Run now pulls immediately with those filters. No CSV download or upload.**
+
+- Console: new `console/src/screens/Feed.jsx` (award-type category checkboxes mapped to USAspending codes, window, size, Save + Run now), `getFeedConfig`/`putFeedConfig`/`runFeed` in `lib/api.js`, wired into `App.jsx` as an admin-only tab.
+- Console API (admin-only, `_is_admin` + edge deny on `*/feed/*`): `GET /feed/config`, `PUT /feed/config` (validated), `POST /feed/run` (invokes the feeder alias with the posted filters inline).
+- Feeder: `_load_config(event)` precedence inline event > saved S3 config > env defaults; `_fetch_awards(config)` is now query-driven. Scheduled runs unchanged (defaults + per-hour page rotation).
+- IAM: console API gains `lambda:InvokeFunction` on the feeder alias (config lives under the `reference/*` it already writes); feeder gains `s3:GetObject` on `reference/feeder-config/*`.
+- Deferred (DEC-25): agency and location filters (need a picker + heavier API filters).
+- Verified locally: pytest 130/130, vitest 33/33, ruff clean, checkov 662/0/3, tflint + terraform validate clean.
+
 ## v3.4.0: Automated Reference Refresh (2026-07-06)
 
 **Component G (scheduled refresher, DEC-24): a daily EventBridge Scheduler run re-pulls the real SAM.gov exclusions (keyless OpenSanctions mirror), re-embeds them, and republishes the versioned reference document (DEC-18) only when the list changed, so the Do Not Pay watchlist stays current on its own. With Component F keeping payments current, both sides of the data are now automatic.**

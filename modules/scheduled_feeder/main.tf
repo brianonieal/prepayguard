@@ -47,6 +47,13 @@ data "aws_iam_policy_document" "feeder" {
   }
 
   statement {
+    sid       = "ReadFeedConfig"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.reference_bucket_arn}/reference/feeder-config/*"]
+  }
+
+  statement {
     sid       = "XRayTracing"
     effect    = "Allow"
     actions   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords"]
@@ -85,9 +92,10 @@ resource "aws_lambda_function" "feeder" {
 
   environment {
     variables = {
-      BATCH_BUCKET       = var.batch_bucket_name
-      FEED_LIMIT         = tostring(var.feed_limit)
-      DEMO_POSITIVE_NAME = var.demo_positive_name
+      BATCH_BUCKET         = var.batch_bucket_name
+      FEED_LIMIT           = tostring(var.feed_limit)
+      DEMO_POSITIVE_NAME   = var.demo_positive_name
+      FEEDER_CONFIG_BUCKET = var.reference_bucket_name
     }
   }
 

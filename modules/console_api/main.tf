@@ -152,6 +152,15 @@ data "aws_iam_policy_document" "api" {
     resources = [var.idempotency_table_arn]
   }
 
+  # v3.5.0: on-demand feed runs. The config object lives under reference/ and is
+  # already covered by ReferenceStoreReadWrite; this only adds invoking the feeder.
+  statement {
+    sid       = "InvokeFeederOnDemand"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [var.feeder_alias_arn]
+  }
+
   statement {
     sid       = "XRayTracing"
     effect    = "Allow"
@@ -208,6 +217,7 @@ resource "aws_lambda_function" "api" {
       AUDITOR_ROLE_NAME   = local.auditor_role_name
       EMBED_MODEL         = var.embed_model
       BRIEF_MODEL         = var.brief_model
+      FEEDER_FUNCTION_ARN = var.feeder_alias_arn
       CONSOLE_ORIGIN      = var.console_origin
     }
   }
@@ -380,6 +390,20 @@ data "aws_iam_policy_document" "resource_policy" {
     }
     actions   = ["execute-api:Invoke"]
     resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/POST/admin/reset"]
+  }
+
+  # v3.5.0: in-console feed control is admin-only (handler enforces _is_admin).
+  # Edge-deny every non-admin named role on the feed routes (defense in depth); the
+  # Deny overrides the auditor's GET-only allow for GET /feed/config too.
+  statement {
+    sid    = "DenyNonAdminFeedControl"
+    effect = "Deny"
+    principals {
+      type        = "AWS"
+      identifiers = [var.reviewer_role_arn, var.auditor_role_arn, var.submitter_role_arn]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.console.execution_arn}/*/*/feed/*"]
   }
 
   # Submitters: ONLY the batch-upload routes (upload a CSV + poll its summary).

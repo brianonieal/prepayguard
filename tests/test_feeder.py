@@ -68,7 +68,7 @@ def test_handler_writes_real_feed(monkeypatch):
     f = _load()
     with mock_aws():
         s3 = _bucket(monkeypatch)
-        monkeypatch.setattr(f, "_fetch_awards", lambda limit, page: [
+        monkeypatch.setattr(f, "_fetch_awards", lambda config: [
             {"Recipient Name": "LOCKHEED MARTIN CORP", "Award ID": "A1", "Award Amount": 100},
             {"Recipient Name": "HUMANA GOVERNMENT BUSINESS INC", "Award ID": "A2", "Award Amount": 200},
         ])
@@ -90,7 +90,7 @@ def test_handler_demo_positive_flag(monkeypatch):
         s3 = _bucket(monkeypatch)
         monkeypatch.setenv("DEMO_POSITIVE_NAME", "Globex Overseas Incorporated")
         called = []
-        monkeypatch.setattr(f, "_fetch_awards", lambda limit, page: called.append(1) or [])
+        monkeypatch.setattr(f, "_fetch_awards", lambda config: called.append(1) or [])
         out = f.handler({"demo_positive": True})
         assert out["written"] == 1 and out["source"] == "demo_positive"
         assert called == []  # demo path never calls USAspending
@@ -105,9 +105,57 @@ def test_handler_fetch_error_writes_nothing(monkeypatch):
     with mock_aws():
         s3 = _bucket(monkeypatch)
 
-        def boom(limit, page):
+        def boom(config):
             raise RuntimeError("usaspending down")
         monkeypatch.setattr(f, "_fetch_awards", boom)
         out = f.handler({})
         assert out["written"] == 0 and out["source"] == "fetch_error"  # graceful, no raise
         assert _feed_objects(s3) == []
+
+
+# --- v3.5.0: config precedence (event > saved S3 > defaults) ---
+
+def test_load_config_defaults(monkeypatch):
+    f = _load()
+    monkeypatch.setenv("FEED_LIMIT", "10")
+    monkeypatch.delenv("FEEDER_CONFIG_BUCKET", raising=False)
+    cfg = f._load_config({})
+    assert cfg["award_type_codes"] == ["A", "B", "C", "D"]
+    assert cfg["time_period_days"] == 365 and cfg["limit"] == 10
+
+
+def test_load_config_inline_event_wins(monkeypatch):
+    f = _load()
+    cfg = f._load_config({"feeder_config": {"award_type_codes": ["02", "03"], "limit": 25}})
+    assert cfg["award_type_codes"] == ["02", "03"] and cfg["limit"] == 25
+    assert cfg["time_period_days"] == 365  # unspecified field keeps the default
+
+
+def test_load_config_reads_saved_s3(monkeypatch):
+    f = _load()
+    with mock_aws():
+        s3 = boto3.client("s3", region_name=REGION)
+        s3.create_bucket(Bucket=BUCKET, CreateBucketConfiguration={"LocationConstraint": REGION})
+        s3.put_object(Bucket=BUCKET, Key="reference/feeder-config/current.json",
+                      Body=json.dumps({"award_type_codes": ["07"], "time_period_days": 90, "limit": 5}).encode())
+        monkeypatch.setenv("FEEDER_CONFIG_BUCKET", BUCKET)
+        cfg = f._load_config({})  # scheduled run (no inline) -> reads S3
+        assert cfg["award_type_codes"] == ["07"] and cfg["time_period_days"] == 90 and cfg["limit"] == 5
+
+
+def test_fetch_awards_uses_config(monkeypatch):
+    f = _load()
+    captured = {}
+
+    class FakeResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return json.dumps({"results": []}).encode()
+
+    def fake_urlopen(req, timeout=25):
+        captured["body"] = json.loads(req.data.decode())
+        return FakeResp()
+    monkeypatch.setattr(f.urllib.request, "urlopen", fake_urlopen)
+    f._fetch_awards({"award_type_codes": ["06", "10"], "time_period_days": 30, "limit": 7, "page": 3})
+    assert captured["body"]["filters"]["award_type_codes"] == ["06", "10"]
+    assert captured["body"]["limit"] == 7 and captured["body"]["page"] == 3

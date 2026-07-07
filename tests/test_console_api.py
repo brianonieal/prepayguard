@@ -543,3 +543,68 @@ def test_reset_is_admin_only(console_api):
     for caller in (REV, AUDITOR):
         assert console_api["app"].handler(_event("POST", "/admin/reset", body={"confirm": "RESET"}, caller=caller))["statusCode"] == 403
     assert console_api["table"].scan()["Count"] > 0  # untouched by the forbidden callers
+
+
+# --- v3.5.0: in-console feed control -----------------------------------------
+
+def test_feed_config_get_defaults_admin(console_api):
+    resp = console_api["app"].handler(_event("GET", "/feed/config", caller=ADMIN))
+    assert resp["statusCode"] == 200
+    body = json.loads(resp["body"])
+    assert body["config"]["award_type_codes"] == ["A", "B", "C", "D"]  # defaults, nothing saved yet
+    assert body["defaults"]["limit"] == 10
+
+
+def test_feed_config_get_is_admin_only(console_api):
+    for caller in (REV, AUDITOR):
+        assert console_api["app"].handler(_event("GET", "/feed/config", caller=caller))["statusCode"] == 403
+
+
+def test_feed_config_save_then_get_roundtrips(console_api):
+    saved = console_api["app"].handler(_event("PUT", "/feed/config", caller=ADMIN,
+        body={"award_type_codes": ["A", "B", "C", "D"], "time_period_days": 90, "limit": 25}))
+    assert saved["statusCode"] == 200 and json.loads(saved["body"])["status"] == "saved"
+    got = json.loads(console_api["app"].handler(_event("GET", "/feed/config", caller=ADMIN))["body"])
+    assert got["config"]["time_period_days"] == 90 and got["config"]["limit"] == 25
+
+
+def test_feed_config_save_rejects_invalid(console_api):
+    r1 = console_api["app"].handler(_event("PUT", "/feed/config", caller=ADMIN,
+        body={"award_type_codes": ["ZZ"], "limit": 10}))
+    assert r1["statusCode"] == 400
+    r2 = console_api["app"].handler(_event("PUT", "/feed/config", caller=ADMIN,
+        body={"award_type_codes": ["A"], "limit": 9999}))
+    assert r2["statusCode"] == 400
+    assert console_api["app"].handler(_event("PUT", "/feed/config", caller=REV,
+        body={"award_type_codes": ["A"], "limit": 10}))["statusCode"] == 403
+
+
+def test_feed_run_invokes_feeder_admin(console_api, monkeypatch):
+    monkeypatch.setenv("FEEDER_FUNCTION_ARN", "arn:aws:lambda:us-east-2:1:function:treasury-dev-feeder:live")
+    captured = {}
+
+    class _Payload:
+        def read(self):
+            return json.dumps({"written": 10, "source": "usaspending"}).encode()
+
+    class _Lambda:
+        def invoke(self, FunctionName, Payload):
+            captured["fn"] = FunctionName
+            captured["payload"] = json.loads(Payload)
+            return {"Payload": _Payload()}
+    monkeypatch.setattr(console_api["app"], "_lambda_client", lambda: _Lambda())
+
+    resp = console_api["app"].handler(_event("POST", "/feed/run", caller=ADMIN,
+        body={"award_type_codes": ["A", "B", "C", "D"], "time_period_days": 30, "limit": 10}))
+    assert resp["statusCode"] == 200
+    body = json.loads(resp["body"])
+    assert body["result"]["written"] == 10
+    # the posted filters are passed inline to the feeder
+    assert captured["payload"]["feeder_config"]["time_period_days"] == 30
+    assert captured["payload"]["invoke_type"] == "on_demand"
+
+
+def test_feed_run_is_admin_only(console_api):
+    for caller in (REV, AUDITOR):
+        assert console_api["app"].handler(_event("POST", "/feed/run", caller=caller,
+            body={"award_type_codes": ["A"], "limit": 10}))["statusCode"] == 403

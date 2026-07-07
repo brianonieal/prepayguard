@@ -47,9 +47,8 @@ def _s3_client():
     return _s3
 
 
-def _window():
-    today = datetime.datetime.now(datetime.UTC).date()
-    return (today - datetime.timedelta(days=365)).isoformat(), today.isoformat()
+CONFIG_KEY = "reference/feeder-config/current.json"
+_CONFIG_FIELDS = ("award_type_codes", "time_period_days", "limit")
 
 
 def _page_for_now() -> int:
@@ -57,13 +56,40 @@ def _page_for_now() -> int:
     return (int(time.time()) // 3600) % _PAGE_ROTATION + 1
 
 
-def _fetch_awards(limit: int, page: int) -> list[dict]:
-    start, end = _window()
+def _defaults() -> dict:
+    return {"award_type_codes": ["A", "B", "C", "D"], "time_period_days": 365,
+            "limit": int(os.environ.get("FEED_LIMIT", "10"))}
+
+
+def _load_config(event: dict) -> dict:
+    """Query filters, in precedence order: an inline event `feeder_config` (admin
+    Run-now) > the saved S3 config object (drives scheduled runs, written by the
+    console Save) > env defaults (v3.3.0 behavior). The schedule sends no inline
+    config, so it reads S3 or falls back to defaults, unchanged."""
+    cfg = _defaults()
+    inline = event.get("feeder_config")
+    if isinstance(inline, dict):
+        cfg.update({k: inline[k] for k in _CONFIG_FIELDS if inline.get(k) is not None})
+        return cfg
+    bucket = os.environ.get("FEEDER_CONFIG_BUCKET")
+    if bucket:
+        try:
+            saved = json.loads(_s3_client().get_object(Bucket=bucket, Key=CONFIG_KEY)["Body"].read())
+            cfg.update({k: saved[k] for k in _CONFIG_FIELDS if saved.get(k) is not None})
+        except Exception:
+            pass  # no saved config yet -> defaults
+    return cfg
+
+
+def _fetch_awards(config: dict) -> list[dict]:
+    today = datetime.datetime.now(datetime.UTC).date()
+    start = (today - datetime.timedelta(days=int(config["time_period_days"]))).isoformat()
     body = json.dumps({
-        "filters": {"award_type_codes": ["A", "B", "C", "D"],
-                    "time_period": [{"start_date": start, "end_date": end}]},
+        "filters": {"award_type_codes": list(config["award_type_codes"]),
+                    "time_period": [{"start_date": start, "end_date": today.isoformat()}]},
         "fields": ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency"],
-        "limit": limit, "page": page, "sort": "Award Amount", "order": "desc",
+        "limit": int(config["limit"]), "page": config.get("page") or _page_for_now(),
+        "sort": "Award Amount", "order": "desc",
     }).encode()
     req = urllib.request.Request(  # noqa: S310 (fixed https host)
         USASPENDING_URL, data=body,
@@ -96,9 +122,8 @@ def _demo_positive() -> dict:
 def _build_payments(event: dict) -> tuple[list[dict], str]:
     if event.get("demo_positive"):
         return [_demo_positive()], "demo_positive"
-    limit = int(os.environ.get("FEED_LIMIT", "10"))
     try:
-        awards = _fetch_awards(limit, _page_for_now())
+        awards = _fetch_awards(_load_config(event))
     except Exception as exc:  # never crash the schedule on an upstream hiccup
         print(f"feeder: USAspending fetch failed, skipping run: {type(exc).__name__}: {exc}")
         return [], "fetch_error"

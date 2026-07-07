@@ -218,7 +218,9 @@ module "console_api" {
   # v2.3.0: advisory LLM adjudication briefs.
   brief_model     = local.brief_model
   brief_model_arn = local.brief_model_arn
-  stage           = var.environment
+  # v3.5.0: on-demand feed runs from the admin Feed tab invoke the feeder alias.
+  feeder_alias_arn = module.feeder.alias_arn
+  stage            = var.environment
 }
 
 # ---------------------------------------------------------------------------
@@ -251,11 +253,13 @@ module "batch_ingest" {
 module "feeder" {
   source = "../../modules/scheduled_feeder"
 
-  name_prefix       = local.name_prefix
-  image_uri         = "${module.ecr["feeder"].repository_url}:${var.placeholder_image_tag}"
-  batch_bucket_name = module.batch_ingest.batch_bucket_name
-  batch_bucket_arn  = module.batch_ingest.batch_bucket_arn
-  enabled           = var.feeder_enabled
+  name_prefix           = local.name_prefix
+  image_uri             = "${module.ecr["feeder"].repository_url}:${var.placeholder_image_tag}"
+  batch_bucket_name     = module.batch_ingest.batch_bucket_name
+  batch_bucket_arn      = module.batch_ingest.batch_bucket_arn
+  reference_bucket_name = module.reference_store.bucket_name
+  reference_bucket_arn  = module.reference_store.bucket_arn
+  enabled               = var.feeder_enabled
 }
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,24 @@
+LIVE FEED CONTROL PROOF (in-console Feed tab, v3.5.0, DEC-25) - 2026-07-06
+
+Deployed to us-east-2 (account <ACCOUNT_ID>):
+- All 8 component images rebuilt/retagged v3.5.0; terraform apply reconciled clean
+  (final "No changes. Your infrastructure matches the configuration.").
+- console_api Lambda updated: GET/PUT /feed/config + POST /feed/run routes, admin-only
+  (edge Deny on */*/feed/* for reviewer/auditor/submitter + handler _is_admin),
+  lambda:InvokeFunction on the feeder alias.
+- feeder Lambda updated: _load_config precedence (inline event > saved S3 > defaults),
+  _fetch_awards config-driven; s3:GetObject on reference/feeder-config/*.
+- console SPA rebuilt + deployed (S3 sync + CloudFront invalidation); new admin Feed tab.
+
+Backend verified live (the exact call the console API's POST /feed/run makes):
+  aws lambda invoke treasury-dev-feeder:live
+    payload {"invoke_type":"on_demand","feeder_config":{"award_type_codes":["A","B","C","D"],"time_period_days":30,"limit":5}}
+    -> 200 {"written": 5, "source": "usaspending", ...}   (honored the size=5 filter)
+
+Local suite green: pytest 130/130, console vitest 33/33, ruff clean, checkov 662/0/3,
+tflint + terraform validate clean.
+
+VERDICT: an admin can configure the USAspending query (award types, window, size) in the
+console and Run it on demand; the feeder honors the filters end to end -> PASS
+Browser check (admin): Feed tab -> set filters -> Save (schedule) / Run now (immediate).
+Deferred: agency and location filters (DEC-25).
