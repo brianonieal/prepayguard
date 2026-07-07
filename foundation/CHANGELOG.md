@@ -1,5 +1,16 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.8.0: Console UI/UX refinement, brand refresh, and guided Tour (DEC-28) (2026-07-07)
+
+**A visual and information-architecture pass applying an external design handoff, plus a new plain-English guided tour. The primary nav is a clean left-to-right set of up to five tabs, the dashboard becomes an executive operations view, and a first-time user can learn the whole tool in about two minutes.**
+
+- Brand top bar: a `PG` mark, "PrePayGuard", and a "Treasury payment integrity console" subtitle replace the old `T` seal / "Treasury Console". A flex spacer keeps the `+ Submit payment` button and account menu right-aligned.
+- Navigation: up to five primary tabs, `Dashboard | Review Queue | Audit log | Admin | Tour`, role-gated. The v3.7.0 "Admin" nav dropdown is retired; Reference data and Feed builder are consolidated into one **Admin** tab with sub-sections (`screens/Admin.jsx`), removing two loose pages. Old `#/reference` and `#/feed` links still resolve to the right Admin sub-tab.
+- Operations dashboard (`screens/Dashboard.jsx`, rebuilt): a live indicator, the flagged-item hero, four plain-English KPI cards (Payments checked / Flagged for risk / Stopped before payout / Waiting on a person), the outcome donut, the flagged gauge, and the match-type breakdown. Reuses the existing hand-built SVG charts (now exported from `Showcase.jsx`).
+- Guided **Tour** (`screens/Tour.jsx`, new): an eight-step, semi-casual/semi-professional walkthrough of the top features (the core idea, the dashboard, the transparent points system, the review queue, screening evidence + the score explainer, the advisory AI brief, the tamper-proof audit trail, and keeping the watchlist/feed current). Each step can deep-link to the real screen; role-gated links only show when the viewer can follow them.
+- Minor: review-queue risk score now colors by band (>=80 red, 30-79 amber, <30 green).
+- No behavior change to screening, decisions, or the API. The adjudication-note-into-decision flow the design flags as a "fix" was already shipped. Verified: vitest 34/34, production build clean, layout verified in a live preview (5 tabs, equal KPI columns, centered tour card, no horizontal overflow), no em dashes.
+
 ## v3.7.3: Fix v3.7.2 review findings (deploy regression, runbook commands) (2026-07-07)
 
 **A max-effort code review of v3.7.2 found that the de-hardcoded deploy script regressed the live console deploy and that six BOOTSTRAP runbook commands fail as written. Fixed all of it, verifying each command runs this time.**

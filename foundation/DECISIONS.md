@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 27 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 28 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -384,4 +384,21 @@ Section-level detail:
 
 ---
 
-# 27 decisions logged. 27 LOCKED, 0 OPEN.
+## DEC-28 - Console UI refinement: up-to-5-tab nav, consolidated Admin, guided Tour (v3.8.0)
+**Date:** 2026-07-07
+**Severity:** FULL
+**Decision:** Apply an external design handoff plus a user-directed IA change. (1) Primary nav becomes a clean left-to-right set of up to five role-gated tabs: `Dashboard | Review Queue | Audit log | Admin | Tour`. The v3.7.0 "Admin" nav dropdown (DEC-27) is retired and Reference data + Feed builder are consolidated into ONE `Admin` tab with sub-sections (`screens/Admin.jsx`), removing two loose pages; old `#/reference` / `#/feed` links resolve to the right Admin sub-tab for back-compat. (2) `Dashboard` is rebuilt as an executive operations view (live indicator, flagged-item hero, four plain-English KPI cards, outcome donut, flagged gauge, match-type bars) reusing the hand-built SVG charts, now exported from `Showcase.jsx`. (3) A new plain-English guided **Tour** (`screens/Tour.jsx`) walks a first-time user through eight top features in a semi-casual, semi-professional voice, with role-gated deep links. (4) Brand refresh (PG mark + "PrePayGuard" + subtitle). No backend, API, or screening-behavior change.
+**Alternatives considered:**
+- The handoff's exact IA (3 tabs, Admin + How-it-works moved into the account menu) (rejected on the user's direction: they wanted a 4-5 tab left-to-right flow, and burying admin config two levels deep in the avatar menu hurts discoverability for admins who use Reference data / Feed often).
+- Keep Reference data and Feed as separate top tabs (rejected: that pushes an admin to six tabs; consolidating into one Admin tab with sub-sections hits the target 4-5 and groups the two "data that drives screening" surfaces).
+- A spotlight-overlay product tour that highlights live DOM elements (rejected: fragile element targeting and positioning; a self-contained stepper page with deep links is robust, testable, and matches "showcase the top features").
+- Keep the long narrative Showcase as its own tab (rejected: the Tour supersedes it as the explain-the-system surface; Showcase.jsx is retained only as the source of the reusable chart components).
+**Rationale:** matches the design the user liked, hits their requested 4-5 tab flow, and adds an onboarding surface a stranger can learn the tool from, while reusing existing components/CSS and changing no screening behavior. The adjudication-note-into-decision "fix" the handoff calls substantive was already shipped (AuditDetail binds and submits the note), so it is a no-op here.
+**Risk acknowledged:** (1) Sub-tab chips and nav buttons must stay plain buttons (no `role="tab"`/`menuitem`), or `getByRole("button")` in the suite breaks, same gotcha as DEC-27's menu items. (2) Retiring the standalone Showcase route drops the long narrative (points-system, three-decisions, built-for-trust essay) from the UI; the Tour covers the highlights, and the content can be re-surfaced if wanted. (3) Frontend-only, so role gating and edge Deny policies are unchanged and the reshuffle cannot widen access.
+**Confidence:** HIGH. **Reversibility:** HIGH - pure frontend refactor; reverting the console bundle restores the prior IA, and no data, IAM, or infra was touched.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 28 decisions logged. 28 LOCKED, 0 OPEN.
