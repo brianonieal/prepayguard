@@ -115,6 +115,27 @@ export async function getReferenceVersion(n) {
   return unwrap(await c.fetch(`${config.consoleApi}/reference/versions/${n}`));
 }
 
+// v3.5.0 in-console feed control (admin-only): read/save the USAspending query the
+// feeder runs, and trigger an on-demand pull with the current filters.
+export async function getFeedConfig() {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/feed/config`));
+}
+
+export async function putFeedConfig(cfg) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/feed/config`, {
+    method: "PUT", body: JSON.stringify(cfg), headers: { "Content-Type": "application/json" },
+  }));
+}
+
+export async function runFeed(cfg) {
+  const c = await client();
+  return unwrap(await c.fetch(`${config.consoleApi}/feed/run`, {
+    method: "POST", body: JSON.stringify(cfg), headers: { "Content-Type": "application/json" },
+  }));
+}
+
 // v2.4.0 analytics & compliance (admin + read-only auditor).
 export async function getAnalytics() {
   const c = await client();

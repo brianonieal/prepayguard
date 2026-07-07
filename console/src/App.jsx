@@ -6,6 +6,7 @@ import AuditDetail from "./screens/AuditDetail.jsx";
 import Profile from "./screens/Profile.jsx";
 import Settings from "./screens/Settings.jsx";
 import ReferenceData from "./screens/ReferenceData.jsx";
+import Feed from "./screens/Feed.jsx";
 import Analytics from "./screens/Analytics.jsx";
 import Showcase from "./screens/Showcase.jsx";
 import UserMenu from "./components/UserMenu.jsx";
@@ -63,8 +64,8 @@ export default function App() {
     if (!user || !role) return;
     const r = parts[0];
     if ((r === "submit" && !canSubmit) || (r === "reviews" && !canReview) ||
-        (r === "reference" && !isAdmin) || (r === "analytics" && !canAnalytics) ||
-        (r === "showcase" && !canReview)) {
+        (r === "reference" && !isAdmin) || (r === "feed" && !isAdmin) ||
+        (r === "analytics" && !canAnalytics) || (r === "showcase" && !canReview)) {
       nav(landing);
     }
   }, [user, role, parts]); // eslint-disable-line
@@ -108,6 +109,9 @@ export default function App() {
         {isAdmin && (
           <button className={route === "reference" ? "on" : ""} onClick={() => nav("#/reference")}>Reference Data</button>
         )}
+        {isAdmin && (
+          <button className={route === "feed" ? "on" : ""} onClick={() => nav("#/feed")}>Feed</button>
+        )}
       </nav>
       <main className="content">
         {route === "showcase" && canReview && <Showcase />}
@@ -116,6 +120,7 @@ export default function App() {
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
         {route === "analytics" && canAnalytics && <Analytics />}
         {route === "reference" && isAdmin && <ReferenceData />}
+        {route === "feed" && isAdmin && <Feed />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>

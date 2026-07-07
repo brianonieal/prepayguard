@@ -7,3 +7,8 @@ output "schedule_name" {
   description = "EventBridge Scheduler schedule name (disable / set feeder_enabled=false to stop the feed)."
   value       = aws_scheduler_schedule.feed.name
 }
+
+output "alias_arn" {
+  description = "Feeder 'live' alias ARN (the console API invokes this for on-demand runs, v3.5.0)."
+  value       = aws_lambda_alias.live.arn
+}

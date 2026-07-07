@@ -15,6 +15,15 @@ variable "batch_bucket_arn" {
   type = string
 }
 
+variable "reference_bucket_name" {
+  description = "Reference-store bucket holding the console-saved feed config (reference/feeder-config/current.json)."
+  type        = string
+}
+
+variable "reference_bucket_arn" {
+  type = string
+}
+
 variable "schedule_expression" {
   description = "EventBridge Scheduler expression. Default: top of each hour 9am-5pm, evaluated in schedule_timezone, all 7 days (DEC-23 amendment)."
   type        = string

@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 24 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 25 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -334,4 +334,21 @@ Section-level detail:
 
 ---
 
-# 24 decisions logged. 24 LOCKED, 0 OPEN.
+## DEC-25 - In-Console Feed Control (admin Feed tab, v3.5.0)
+**Date:** 2026-07-06
+**Severity:** FULL
+**Decision:** Add an admin-only **Feed** tab to the console that configures the USAspending query the feeder (Component F) runs: award types (friendly categories mapped to USAspending `award_type_codes`), a look-back window, and a per-pull size. **Save** (PUT /feed/config) persists a small JSON config to `reference/feeder-config/current.json` (which the SCHEDULED feeder reads each run); **Run now** (POST /feed/run) invokes the feeder `live` alias immediately with the posted filters inline. The feeder gains `_load_config(event)` with precedence: inline event `feeder_config` (Run-now) > the saved S3 config (schedule) > env defaults (v3.3.0 behavior unchanged). Admin-only is enforced BOTH at the edge (a resource-policy Deny on `*/*/feed/*` for reviewer/auditor/submitter, overriding the auditor GET-allow) AND in the handler (`_is_admin`), mirroring the reference-publish control. The console API's execution role gains `lambda:InvokeFunction` on the feeder alias (the `reference/*` R/W it already had covers the config object); the feeder gains `s3:GetObject` on `reference/feeder-config/*`.
+**Alternatives considered:**
+- Keep filters in Terraform only (rejected: the request is to pick the data from inside the app, not by editing tfvars and re-applying).
+- A full USAspending-builder clone (award types + AGENCY + LOCATION + date type) (deferred: agency/location need a picker and heavier API filters; the MVP is award types + window + size + Run-now, a clean fast-follow for agency/location).
+- Store the config in the batch bucket or a new bucket (rejected: the reference bucket already has console-API R/W IAM under `reference/*`, so `reference/feeder-config/` is zero new IAM for the console; the feeder adds one narrow GetObject).
+- Have Run-now read the saved S3 config (rejected in favor of passing the form's filters inline, so a run uses exactly what is on screen without forcing a Save first; Save still persists for the schedule).
+**Rationale:** gives the admin a USAspending-style builder in-app that drives the real API pull on demand and on the schedule, reusing the feeder, the versioned-config idea, and the existing admin-gating pattern. Backward compatible: the schedule with no saved config still runs the v3.3.0 defaults.
+**Risk acknowledged:** (1) Run-now writes real payments and permanent audit records immediately; bounded by the size cap (1-100, validated server-side) and the dev 1-day retention. (2) The config is user input; validated server-side (valid award codes only, window 1-3650, size 1-100) before it reaches the feeder. (3) The console API now invokes a Lambda (a new capability for that role); scoped to the one feeder alias ARN. (4) Agency/location filtering is deferred, so the in-app builder is narrower than usaspending.gov's; documented.
+**Confidence:** HIGH. **Reversibility:** HIGH - the tab and routes are additive; removing them is a handler + UI revert, and the feeder falls back to defaults if the config object is absent.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 25 decisions logged. 25 LOCKED, 0 OPEN.

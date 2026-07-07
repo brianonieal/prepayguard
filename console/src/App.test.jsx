@@ -60,6 +60,9 @@ vi.mock("./lib/api.js", () => {
     putReference: vi.fn(async () => ({ version: 2, entry_count: 2 })),
     listReferenceVersions: async () => ({ versions: [{ version: 1, published_at: "2026-07-04T00:00:00+00:00", size: 500 }] }),
     getReferenceVersion: async () => ({ version: 1, updated_by: "seed", entries: [] }),
+    getFeedConfig: async () => ({ config: { award_type_codes: ["A", "B", "C", "D"], time_period_days: 365, limit: 10 }, defaults: { award_type_codes: ["A", "B", "C", "D"], time_period_days: 365, limit: 10 } }),
+    putFeedConfig: vi.fn(async (c) => ({ status: "saved", config: c })),
+    runFeed: vi.fn(async (c) => ({ status: "ran", config: c, result: { written: 10, source: "usaspending" } })),
     getShowcase: async () => ({
       summary: { total_screened: 178, disposition_mix: { approve: 136, review: 31, reject: 11 }, hit_rate: 23.6,
         throughput: [{ day: "2026-07-04", count: 42 }], queue: { pending: 31, avg_pending_score: 55, oldest_pending: "2026-07-03" }, reviewer_productivity: [] },
@@ -74,7 +77,7 @@ vi.mock("./lib/api.js", () => {
   };
 });
 
-import { bulkDecide, putReference, resetData } from "./lib/api.js";
+import { bulkDecide, putReference, resetData, runFeed } from "./lib/api.js";
 import { currentGroups, changePassword, startTotpSetup, confirmTotpSetup } from "./lib/auth.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
@@ -327,6 +330,26 @@ test("reviewer role has no Reference Data tab", async () => {
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Reference Data" })).toBeNull();
+});
+
+test("admin configures the feed and runs it on demand", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Feed" }));
+  expect(await screen.findByText("Award types")).toBeInTheDocument();
+  expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config
+  fireEvent.change(screen.getByLabelText("limit"), { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("button", { name: "Run now" }));
+  expect(await screen.findByText(/Pulled now: 10 payment/)).toBeInTheDocument();
+  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ limit: 5, award_type_codes: ["A", "B", "C", "D"] }));
+});
+
+test("reviewer role has no Feed tab", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]);
+  render(<App />);
+  await signIn();
+  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Feed" })).toBeNull();
 });
 
 test("audit detail cites the reference list version", async () => {
