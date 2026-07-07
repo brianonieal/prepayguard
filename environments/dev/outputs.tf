@@ -72,6 +72,11 @@ output "console_api_endpoint" {
   value       = module.console_api.api_endpoint
 }
 
+output "reference_bucket_name" {
+  description = "Versioned Do Not Pay reference-list bucket (scripts/seed_reference_data.py and scripts/ingest_sam_exclusions.py write to it)."
+  value       = module.reference_store.bucket_name
+}
+
 output "reviews_table_name" {
   description = "Queryable review items (console dashboard source)."
   value       = module.console.reviews_table_name

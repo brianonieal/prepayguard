@@ -1,6 +1,8 @@
 # DEC-8 (supply chain): keep dependencies current and surface advisories that the
-# blocking CI gates (pip-audit --strict, npm audit --omit=dev) do not fail on, e.g.
-# dev-toolchain advisories. Grouped weekly PRs, capped so they do not flood review.
+# CI npm audit reports but does not block on. Minor/patch bumps are grouped into one
+# weekly PR to reduce noise; MAJOR bumps are deliberately left ungrouped so a breaking
+# major (e.g. vite 6->7) arrives as its own reviewable/bisectable PR, not bundled with
+# unrelated updates.
 version: 2
 updates:
   # Console SPA (React / Vite / Amplify): runtime and dev toolchain.
@@ -10,9 +12,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
-      console-deps:
+      console-minor-patch:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   # Python handlers (one requirements.txt per component) plus the dev requirements.
   - package-ecosystem: pip
@@ -23,9 +28,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
-      python-deps:
+      python-minor-patch:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   # The GitHub Actions used by ci.yml and plan.yml.
   - package-ecosystem: github-actions
