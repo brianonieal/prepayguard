@@ -23,7 +23,7 @@ locals {
   # One ECR repo per component image (DEC-2) + the console API router (v1.2.0)
   # + the batch-ingest worker (Component E, v1.6.0) + the scheduled feeder
   # (Component F, v3.3.0).
-  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api", "batch_ingest", "feeder"]
+  components = ["intake", "enrichment", "risk_scoring", "disposition", "console_api", "batch_ingest", "feeder", "refresher"]
 
   # Lambda timeouts, defined once so queue visibility timeouts can be computed
   # from their CONSUMER's timeout (AWS guidance: visibility >= 6x timeout).
@@ -256,6 +256,26 @@ module "feeder" {
   batch_bucket_name = module.batch_ingest.batch_bucket_name
   batch_bucket_arn  = module.batch_ingest.batch_bucket_arn
   enabled           = var.feeder_enabled
+}
+
+# ---------------------------------------------------------------------------
+# Component G (v3.4.0, DEC-24): the scheduled reference refresher. EventBridge
+# Scheduler invokes it daily; it re-pulls the real SAM.gov exclusions (keyless
+# OpenSanctions mirror), re-embeds them, and republishes the versioned reference
+# document (DEC-18) only when the list changed, so the Do Not Pay watchlist stays
+# current on its own. `refresher_enabled=false` (default true) is the stop switch.
+# ---------------------------------------------------------------------------
+
+module "refresher" {
+  source = "../../modules/scheduled_refresher"
+
+  name_prefix           = local.name_prefix
+  image_uri             = "${module.ecr["refresher"].repository_url}:${var.placeholder_image_tag}"
+  reference_bucket_name = module.reference_store.bucket_name
+  reference_bucket_arn  = module.reference_store.bucket_arn
+  embed_model           = local.embed_model
+  embed_model_arn       = local.embed_model_arn
+  enabled               = var.refresher_enabled
 }
 
 resource "aws_iam_role_policy" "reviewer_invoke" {

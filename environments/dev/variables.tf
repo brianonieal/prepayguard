@@ -36,3 +36,9 @@ variable "feeder_enabled" {
   type        = bool
   default     = true
 }
+
+variable "refresher_enabled" {
+  description = "Component G (DEC-24) stop switch: false disables the daily reference-refresh schedule."
+  type        = bool
+  default     = true
+}

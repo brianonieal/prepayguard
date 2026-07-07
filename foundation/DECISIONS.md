@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 23 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 24 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -317,4 +317,21 @@ Section-level detail:
 
 ---
 
-# 23 decisions logged. 23 LOCKED, 0 OPEN.
+## DEC-24 - Automated Reference-List Refresh: Scheduled Refresher (Component G, v3.4.0)
+**Date:** 2026-07-06
+**Severity:** FULL
+**Decision:** Add a new Lambda **Component G (refresher)**, a container image (DEC-2), invoked by an **EventBridge Scheduler** schedule **daily** (`cron(0 6 * * ? *)` in `America/New_York`). Each run re-pulls the real SAM.gov exclusions (keyless OpenSanctions mirror, the same source as the v4 publish, DEC-22), re-embeds them with Titan (DEC-19), and republishes a NEW versioned reference document through the existing versioned-store lifecycle (DEC-18) - but ONLY when the SAM list actually changed (compared on the set of normalized name + UEI keys), so an unchanged day does not churn the version or spend embedding cost. The three synthetic restricted sources (SSA DMF, TOP, OIG LEIE) are carried verbatim with their existing embeddings. A `refresher_enabled` tfvar (default true) toggles the schedule as a stop switch. Least-privilege IAM: read/write the reference bucket's `reference/*` prefix + `bedrock:InvokeModel` on the one embed-model ARN + logs/xray; no secret (public source), no queue.
+**Alternatives considered:**
+- Leave the SAM list as a one-time snapshot (rejected: the whole point is "the data on PrePayGuard automatically"; a static list goes stale as SAM publishes daily).
+- Republish every run unconditionally (rejected: churns the version number and re-embeds daily for no change; the change-detection guard skips unchanged days).
+- Fold the refresh into the Component F feeder (rejected: different concern and different IAM - the feeder writes the batch bucket only, the refresher needs reference-bucket read/write + Bedrock; a separate component keeps each least-privilege).
+- The authoritative SAM.gov public extract instead of the OpenSanctions mirror (viable follow-on; OpenSanctions is the same GSA data, keyless and already proven in DEC-22, so it is reused for consistency; a swap is contained to `_fetch_sam`).
+**Rationale:** completes "the data automatically on PrePayGuard" on BOTH sides - Component F keeps the payments current, Component G keeps the Do Not Pay watchlist current - reusing the DEC-18 versioned lifecycle and DEC-19 in-store cosine unchanged. Honest note preserved: even with a current list, real payees rarely match (that is debarment working); the refresh is about currency, not manufacturing flags.
+**Risk acknowledged:** (1) External dependency on the OpenSanctions/SAM feed: the refresher logs and keeps the current version on any fetch error, never raising. (2) Publish latency scales with the entry count (N sequential Titan embeds); capped at REFRESH_LIMIT (90) for the in-store-cosine budget (DEC-19), same cap as the v4 publish. (3) Each real change mints a new immutable versions/{N}.json; version numbers grow over time (expected, human-readable history). (4) CKV_AWS_297 (Scheduler CMK) is a justified skip (the schedule carries no payload/secret).
+**Confidence:** HIGH. **Reversibility:** HIGH - set `refresher_enabled=false` to stop refreshes, or `terraform destroy -target=module.refresher`; the reference store and its history are untouched, and any version can be restored by repointing current.json.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 24 decisions logged. 24 LOCKED, 0 OPEN.
