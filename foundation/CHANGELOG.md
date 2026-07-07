@@ -1,5 +1,16 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.7.0: Console Restructure (2026-07-07)
+
+**The console collapses from six flat tabs into three surfaces (DEC-27): Dashboard, Review Queue, and an Audit log tab, with admin-only config folded under an Admin dropdown and Submit Payment turned into a header button + modal. The exec sees the system at a glance; the occasional actions get out of the way.**
+
+- Dashboard (`screens/Dashboard.jsx`, new): a flagged-item hero (N payments awaiting review, with a jump to the queue) on top of the existing executive Overview. Merges the old Overview tab.
+- Audit log tab: the former Analytics screen, retitled "Audit log & compliance", with the headline counters removed (they live on the Dashboard) and the immutable audit log + CSV export kept for auditors.
+- Admin menu (`components/AdminMenu.jsx`, new): a single "Admin" dropdown grouping Reference Data, Feed, and Demo controls, so the top bar stays clean; admin-only.
+- Submit (`components/SubmitModal.jsx`, new): the four-field form now opens from a "+ Submit payment" header button as a modal dialog (the feeder is the real intake now), retiring the Submit tab.
+- Role-aware landing: reviewers/admins/auditors land on the Dashboard; submitters land on their profile with the Submit button. Route guards bounce any role off a surface it cannot see.
+- Frontend-only gate: no Lambda, IAM, or Terraform change. Verified locally: vitest 34/34, backend unchanged (pytest 135/135 from v3.6.0).
+
 ## v3.6.0: Full Feed Builder (2026-07-07)
 
 **The admin Feed tab is now the full USAspending Custom Award Data search surface (DEC-26): award types (incl. Contract IDVs, Insurance, Other, and a Prime/Sub-Awards toggle), awarding/funding agency + sub-agency, location (recipient or place of performance, country + state), date type, and a from/to date range.**

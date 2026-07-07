@@ -367,4 +367,20 @@ Section-level detail:
 
 ---
 
-# 26 decisions logged. 26 LOCKED, 0 OPEN.
+## DEC-27 - Console restructure: three surfaces, Admin menu, Submit modal (v3.7.0)
+**Date:** 2026-07-07
+**Severity:** FULL
+**Decision:** Collapse the console's six flat tabs into three primary surfaces and fold the occasional actions out of the top bar. (1) **Dashboard** (new `screens/Dashboard.jsx`): a flagged-item hero ("N payment(s) awaiting human review" with a jump to the queue, shown only when the queue is non-empty) on top of the existing executive Overview (`Showcase.jsx`), replacing the old Overview tab. (2) **Review Queue**: unchanged. (3) **Audit log**: the former Analytics screen (`canAnalytics`), retitled "Audit log & compliance", with the three headline counter cards removed (they now live on the Dashboard) and the immutable audit log + CSV export kept for auditors. Reference Data, Feed, and Demo controls move under a single admin-only **"Admin" dropdown** (`components/AdminMenu.jsx`); Submit Payment becomes a **"+ Submit payment" header button** opening the four-field form in a modal (`components/SubmitModal.jsx`), since the feeder is the real intake now. Landing is role-aware: `canReview` roles land on `#/dashboard`, others on `#/profile`; existing route guards bounce any role off a surface it cannot see.
+**Alternatives considered:**
+- Keep Submit as a full tab (rejected: it is now an occasional manual action, not the primary intake; a header button + modal declutters the nav and matches the streamlining request).
+- Merge the audit log into the Dashboard too (rejected: the Dashboard is the at-a-glance exec view; the full audit table + CSV export is an auditor workflow that deserves its own surface, and keeping it `canAnalytics`-gated preserves the existing role boundary).
+- A hamburger/sidebar nav (rejected: three top tabs + one Admin dropdown + the profile menu is simpler and preserves the existing tab styling; no new layout system).
+**Rationale:** the exec sees the system (flagged item + live numbers) the moment they land, the review workflow is one click away, and admin config is grouped without cluttering the primary nav. Frontend-only: no Lambda, IAM, API, or Terraform change, so the gate is low-risk and deploys via the console SPA pipeline alone.
+**Risk acknowledged:** (1) Menu items carry `role="menuitem"` (explicit role overrides the implicit button role); the test suite targets them by that role. (2) Moving Reference Data/Feed under a dropdown adds one click for admins; acceptable for a cleaner top bar. (3) No backend change means the role gating and edge Deny policies from DEC-25/DEC-26 are unchanged and still authoritative; the UI reshuffle cannot widen access.
+**Confidence:** HIGH. **Reversibility:** HIGH - pure frontend refactor; reverting the console bundle restores the six-tab layout, and no data, IAM, or infra was touched.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 27 decisions logged. 27 LOCKED, 0 OPEN.
