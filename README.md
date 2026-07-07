@@ -21,7 +21,8 @@ flow (login, submit, flag, review, decide) is captured under `docs/evidence/`.
 
 ## What it does
 
-1. A payment is submitted (single via the API, or in bulk by uploading a CSV).
+1. A payment is submitted (single via the API, in bulk by uploading a CSV, or
+   automatically on a schedule by the feeder pulling real awards from USAspending).
 2. The pipeline screens the payee and TIN against Do Not Pay reference sources.
 3. A transparent, rule-based risk score produces one of three dispositions:
    approve, route to human review, or reject.
@@ -32,8 +33,9 @@ flow (login, submit, flag, review, decide) is captured under `docs/evidence/`.
 
 ## Architecture
 
-Five pipeline components plus a console API, all Lambda container images
-decoupled by SQS and defined entirely in Terraform:
+Seven Lambda components (a five-stage screening pipeline plus two scheduled data
+feeders) and a console API, all Lambda container images decoupled by SQS and
+defined entirely in Terraform:
 
 | Component | Role | Module |
 |---|---|---|
@@ -42,15 +44,24 @@ decoupled by SQS and defined entirely in Terraform:
 | **C. Risk-Scoring and Decision Engine** | Score risk, decide approve / review / reject | `modules/queue_worker_stage` (shared) |
 | **D. Disposition Router and Audit Logger** | Immutable audit write, route ambiguous cases to review, webhook notify | `modules/queue_worker_stage` (shared) |
 | **E. Batch Ingest** | S3-triggered bulk **CSV / Excel / JSON** intake, reuses A's idempotency store and queue | `modules/batch_ingest_stage` |
-| **Console API** | Read/action router: reviews, audit, decisions, batches, reference data, LLM briefs, analytics | `modules/console_api` |
+| **F. Feeder** | Scheduled (EventBridge, business-hours ET) pull of real awards from the public USAspending API, dropped to Component E for screening | `modules/scheduled_feeder` |
+| **G. Refresher** | Scheduled (EventBridge, daily) re-pull of the real SAM.gov exclusions, re-embed, and republish of the versioned reference list when it changed | `modules/scheduled_refresher` |
+| **Console API** | Read/action router: reviews, audit, decisions, batches, reference data, feed config, LLM briefs, analytics | `modules/console_api` |
+
+Components F and G make the data flow automatic: F feeds real federal payments in
+on a schedule (no manual upload) by dropping a file for Component E, and G keeps
+the Do Not Pay watchlist current on its own. Both use keyless public sources,
+degrade gracefully on a source error (skip the run, never crash the schedule), and
+have an `enabled` stop switch.
 
 Supporting modules: `audit_store` (S3 Object Lock, COMPLIANCE mode),
 `review_queue` (human-review path), `console_foundation` (Cognito, S3 and
 CloudFront hosting, reviews table), `reference_store` (versioned screening lists),
-`ecr_repo` (per-component registries, 6x).
+`scheduled_feeder` / `scheduled_refresher` (the F/G schedules and least-privilege
+roles), `ecr_repo` (per-component registries, 8x).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system overview, failure
-modes, rollback mechanism, and known unknowns. All 21 architectural decisions are
+modes, rollback mechanism, and known unknowns. All 27 architectural decisions are
 locked in [foundation/DECISIONS.md](foundation/DECISIONS.md).
 
 ## Screening intelligence
@@ -64,31 +75,39 @@ screening-list version it was judged against:
   "Globex Offshore Inc"), by cosine similarity over per-entry vectors stored in
   the versioned reference document. No vector database.
 * **Versioned reference data**: admins publish new Do Not Pay lists through the
-  console; each screening record cites the list version it matched.
+  console; each screening record cites the list version it matched. The live list
+  includes the real **SAM.gov exclusions** (federal debarment) alongside three
+  synthetic modeled sources; Component G re-pulls and republishes SAM daily, only
+  when it changed, so the watchlist stays current on its own (DEC-22, DEC-24).
 * **LLM adjudication briefs** (Bedrock Nova Lite): an on-demand, evidence-grounded
   summary for reviewers. Advisory only, never written to the immutable audit record.
 
 ## The reviewer console
 
-A React and Vite single-page app hosted on S3 behind CloudFront:
+A React and Vite single-page app hosted on S3 behind CloudFront. As of v3.7.0 the
+console is organized into three primary surfaces (Dashboard, Review Queue, Audit
+log) with admin configuration grouped under an **Admin** menu and payment submission
+moved to a header button and modal:
 
 * Cognito login to temporary IAM credentials, then browser SigV4 (aws4fetch) to
   the APIs. No static keys in the browser.
-* Submit a single payment or upload a batch file (**CSV, Excel, or JSON**),
-  ingested server-side by Component E.
-* Review queue with server-side status filters, cursor pagination, search, and
-  bulk approve / reject.
-* Audit detail with client-side integrity verification, score explainability,
-  semantic-match evidence, and an optional AI brief.
-* Admin **reference-data** editor (publish versioned lists) and an **analytics /
-  compliance** dashboard with an auditor CSV export over the audit log.
-* An **Overview** tab (the executive showcase): a live, narrative walkthrough of
-  what the platform is, how it decides, and what it has actually processed. It
-  renders hand-built charts (disposition mix, risk hit rate, and the match types
-  the screening found), a pipeline diagram, a plain-English explanation of the
-  scoring rules, and three real worked examples of an approved, a flagged, and a
-  rejected payment. Written for a program or executive audience and visible to
-  reviewers, admins, and auditors.
+* Submit a single payment (a header button that opens a modal) or upload a batch
+  file (**CSV, Excel, or JSON**), ingested server-side by Component E.
+* **Dashboard**: a flagged-item hero (the count awaiting human review, with a jump
+  to the queue) on top of the executive showcase, a live, narrative walkthrough of
+  what the platform is, how it decides, and what it has processed, with hand-built
+  charts (disposition mix, risk hit rate, match types), a pipeline diagram, the
+  scoring rules in plain English, and three real worked examples (approved, flagged,
+  rejected).
+* **Review Queue** with server-side status filters, cursor pagination, search, and
+  bulk approve / reject; audit detail with client-side integrity verification, score
+  explainability, semantic-match evidence, and an optional AI brief.
+* **Audit log** tab: the immutable audit log with an auditor CSV export, plus
+  throughput and reviewer-productivity views (auditor and admin).
+* **Admin** menu (admin only): a **reference-data** editor (publish versioned lists),
+  a **Feed** builder (a USAspending-style search that configures what Component F
+  pulls: award types, agency and sub-agency, location, and date range, with Save and
+  Run-now), and **Demo controls**.
 * Account self-service in **Profile**: change your password and enroll in
   time-based one-time-password (TOTP) two-factor, both through Cognito. MFA is
   optional and opt-in, so existing sign-ins are unchanged unless a user enables it.
@@ -114,7 +133,7 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
 
 ## Status and roadmap
 
-**Everything through Phase 4 (v0.1.0 to v3.2.0) is complete and live.**
+**Everything through v3.7.1 is complete and live.**
 
 * **Phase 1 (v0.1.0 to v1.0.0):** the backend pipeline plus the capstone deliverable.
 * **Phase 2 (v1.1.0 to v1.4.0):** the reviewer console, deployed and live.
@@ -127,16 +146,26 @@ A React and Vite single-page app hosted on S3 behind CloudFront:
 * **Phase 4, "Showcase and Demo Readiness":** v3.0.0 the executive Overview tab,
   v3.1.0 admin demo-reset controls, v3.2.0 a real Profile (live identity fields,
   password change, and optional TOTP two-factor) with an honest Settings screen.
+* **Phase 5, "Automated data and console restructure":** v3.3.0 the automated
+  USAspending feeder (Component F) on a business-hours schedule, v3.4.0 the daily
+  SAM refresher (Component G), v3.5.0 to v3.6.0 the in-console Feed builder (the
+  full USAspending search surface driving what F pulls), v3.7.0 the console
+  restructure into three surfaces plus an Admin menu, and v3.7.1 a Feed-page layout
+  fix.
 
-Verified at the final gate: `pytest` 90/90, console `vitest` 31/31, `checkov`
-clean, `terraform plan` shows no drift, and a live end-to-end run per gate. Full
-history: [foundation/VERSION_ROADMAP.md](foundation/VERSION_ROADMAP.md).
+Verified per gate: `pytest` 135/135, console `vitest` 34/34, `checkov` clean, `ruff`
+clean, `terraform validate` clean, and a live end-to-end run. Full history:
+[foundation/VERSION_ROADMAP.md](foundation/VERSION_ROADMAP.md) and
+[foundation/CHANGELOG.md](foundation/CHANGELOG.md).
 
 ## Tech stack
 
 AWS (Lambda, SQS, S3 Object Lock, DynamoDB, API Gateway, Cognito, CloudFront,
-KMS, Secrets Manager, ECR), Terraform, Python for the handlers, React and Vite
-for the console. No non-AWS services.
+KMS, Secrets Manager, EventBridge Scheduler, Bedrock, ECR), Terraform, Python for
+the handlers, React and Vite for the console. The infrastructure is AWS-only; the
+one external dependency is read-only calls to two keyless public federal data
+sources, the USAspending API (Component F) and the SAM.gov exclusions mirror
+(Component G), each of which degrades gracefully if the source is unavailable.
 
 ## Working with the Terraform
 
@@ -164,12 +193,14 @@ modules/
   queue_worker_stage/    # SHARED (DEC-1): used 3x via for_each (B, C, D)
   api_intake_stage/      # Component A: API GW (AWS_IAM) + Lambda + out-queue
   batch_ingest_stage/    # Component E: S3-triggered bulk CSV ingest
+  scheduled_feeder/      # Component F: EventBridge feeder (USAspending)
+  scheduled_refresher/   # Component G: EventBridge SAM refresher
   audit_store/           # S3 Object Lock COMPLIANCE (commitment 4)
   review_queue/          # human-review path (commitment 2)
   console_foundation/    # Cognito, S3 + CloudFront hosting, reviews table
   console_api/           # console read/action router API
-  ecr_repo/              # per-component container registry (6x)
-src/                     # component handlers (A through E) + console API
+  ecr_repo/              # per-component container registry (8x)
+src/                     # component handlers (A through G) + console API
 console/                 # React and Vite reviewer console (SPA)
 tests/                   # commitment and behavior tests (see table above)
 foundation/              # project contract, decisions, roadmap, memory

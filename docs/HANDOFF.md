@@ -2,7 +2,7 @@
 
 **JHU Certificate in AI Engineering, CO.EN.AIE.LLL.2026.01**
 **Author:** Brian Onieal · **Repo:** github.com/brianonieal/prepayguard (private)
-**Original package:** 2026-07-03 (v1.0.0) · **Refreshed:** 2026-07-06 (through v3.2.1 + SME hardening)
+**Original package:** 2026-07-03 (v1.0.0) · **Refreshed:** 2026-07-07 (through v3.7.1: automated data feeds + console restructure)
 
 A cloud-native pre-payment integrity screening pipeline modeled on the U.S. Treasury
 Bureau of the Fiscal Service **Do Not Pay** program. Payments are screened before
@@ -10,12 +10,14 @@ disbursement: clean → approve, ambiguous → human review, improper → reject
 decision is recorded immutably, and every disposition cites the exact screening-list
 version it was judged against.
 
-**Status at this refresh:** everything through Phase 4 is complete and **live on AWS**
-(us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **22 architectural
-decisions locked.** Verified green: **pytest 109/109, console vitest 31/31, checkov
-clean, ruff clean, terraform validate clean.** The one differentiating component (the
-semantic matcher) is now **measured**, and the screening list includes **one real
-federal source** (SAM.gov exclusions) alongside three modeled ones.
+**Status at this refresh:** everything through Phase 5 (v3.7.1) is complete and **live
+on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **27
+architectural decisions locked.** Verified green: **pytest 135/135, console vitest
+34/34, checkov clean, ruff clean, terraform validate clean.** The one differentiating
+component (the semantic matcher) is **measured**, the screening list includes **one
+real federal source** (SAM.gov exclusions) alongside three modeled ones and is kept
+current automatically by a daily refresher, and real federal payments now flow in
+automatically on a schedule via the USAspending feeder (no manual upload).
 
 ---
 
@@ -36,14 +38,17 @@ caller (SigV4) ─> API Gateway (AWS_IAM) ─> [A] Intake, payment-ID idempotenc
                      ├─> SQS review queue (ambiguous → human, commitment 2)
                      └─> webhook (URL from Secrets Manager, DEC-7)
 [E] Batch Ingest (S3-triggered CSV/Excel/JSON) reuses A's queue + idempotency table (DEC-16)
-Console API (AWS_IAM): reviews, audit, decisions, batches, reference publish, LLM briefs, analytics
+[F] Feeder (EventBridge, business-hours ET) → pulls real USAspending awards → drops a file for [E] (DEC-23)
+[G] Refresher (EventBridge, daily) → re-pulls real SAM.gov exclusions → re-embeds → republishes the versioned list on change (DEC-24)
+Console API (AWS_IAM): reviews, audit, decisions, batches, reference publish, feed config, LLM briefs, analytics
 Reviewer Console: React/Vite SPA on S3 + CloudFront; Cognito → temp IAM creds → SigV4 (DEC-15)
 ```
 
-Five Lambda container images (DEC-2) plus a console API, x86_64, `publish=true` behind
+Seven Lambda container images (DEC-2) plus a console API, x86_64, `publish=true` behind
 a `live` alias (DEC-10). Terraform: shared `queue_worker_stage` module 3× via `for_each`
-for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
-`review_queue`, `console_foundation`, `console_api`, `reference_store`, `ecr_repo` (6×).
+for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_feeder`,
+`scheduled_refresher`, `audit_store`, `review_queue`, `console_foundation`,
+`console_api`, `reference_store`, `ecr_repo` (8×).
 
 ### 1.2 Components
 
@@ -54,7 +59,9 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
 | C | Risk-Scoring & Decision | Transparent rule-based score → three-way disposition | DEC-14 |
 | D | Disposition Router & Audit Logger | Immutable audit write; route review; webhook notify | DEC-4, DEC-7 |
 | E | Batch Ingest | S3-triggered bulk CSV/Excel/JSON; reuses A's queue + idempotency table | DEC-16 |
-|, | Console API | Reviews, audit, decisions, batches, reference publish, LLM briefs, analytics | DEC-15, DEC-17..21 |
+| F | Feeder | Scheduled USAspending pull (business-hours ET), drops a file for E; deterministic ids dedupe | DEC-23, DEC-25, DEC-26 |
+| G | Refresher | Scheduled daily SAM.gov re-pull, re-embed, republish the versioned list only on change | DEC-24 |
+|, | Console API | Reviews, audit, decisions, batches, reference publish, feed config, LLM briefs, analytics | DEC-15, DEC-17..27 |
 
 ### 1.3 Screening intelligence (Phase 3)
 
@@ -83,6 +90,14 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `audit_store`,
   reviewer productivity; read-only auditor role; client-side audit-log CSV export.
 - **Phase 4:** executive Overview tab, admin demo-reset (never touches Object Lock),
   Profile self-service (password change, optional TOTP MFA).
+- **Phase 5 (automated data + restructure):** the USAspending feeder (F, DEC-23) on a
+  business-hours schedule and the daily SAM refresher (G, DEC-24) make both sides of the
+  data automatic; the in-console **Feed** builder (DEC-25/26) gives admins the full
+  USAspending search surface (award types, agency/sub-agency, location, date range) that
+  drives what F pulls (Save for the schedule, Run-now on demand); v3.7.0 (DEC-27)
+  restructures the console into three surfaces plus an Admin menu. Feed control is
+  admin-only, enforced at the resource-policy edge (`Deny` non-admin on `/feed/*`) and in
+  the handler.
 
 ### 1.5 Rollback (DEC-10)
 
@@ -106,8 +121,8 @@ alias to the prior version (seconds, no rebuild). Reference-data rollback: repoi
 
 ## 2. Tests
 
-Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest 109/109,
-vitest 31/31**, both green locally and in CI. Registry: `foundation/TESTS.md`.
+Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest 135/135,
+vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
 
 ### 2.1 Graded-commitment evidence
 
@@ -124,6 +139,8 @@ vitest 31/31**, both green locally and in CI. Registry: `foundation/TESTS.md`.
 |, | Console API (roles, briefs, analytics, reference) | `test_console_api.py` | PASS |
 |, | Semantic-eval metric math (objective 5) | `test_semantic_eval.py` | PASS |
 |, | Real SAM ingestion (objective 10) | `test_sam_ingest.py` | PASS |
+|, | Feeder: USAspending pull, mapping, config (F) | `test_feeder.py` | PASS + **live** |
+|, | Refresher: SAM re-pull, change-only publish (G) | `test_refresher.py` | PASS + **live** |
 
 ### 2.2 Live end-to-end (real AWS)
 
@@ -178,8 +195,30 @@ defense-in-depth:
   record, and never written to S3/the audit record/the decision (code-verified,
   `docs/sme/BEDROCK_COST.md` §5). The semantic matcher only ever adds a REVIEW flag.
 
-Risk-rating table and full scan output: **Appendix A**; every checkov skip is justified
-in `.checkov.yaml`.
+### 4.1 Risk-rating table (DEC-11)
+
+Findings rated High / Medium / Low by likelihood × impact at course scope. **No High-
+severity finding is open:** the load-bearing controls (AWS_IAM auth + resource-policy
+scoping, Object Lock COMPLIANCE immutability live-verified, SSE-KMS, maker/checker
+segregation of duties) are in place and evidenced. The open items are Medium/Low
+hardening, observability, and scope, each with a remediation status.
+
+| # | Finding | Area / component | Severity | Status | Evidence |
+|---|---|---|---|---|---|
+| 1 | CloudWatch alarms (queue-depth, DLQ-not-empty) have no notification target (`alarm_actions` empty); an operator is not paged when a DLQ fills | Observability / B-C-D, review queue | **Medium** | Open (follow-on: wire an SNS topic). Partial backstop: the review queue's `ApproximateAgeOfOldestMessage` alarm covers the human-review path | `modules/queue_worker_stage/main.tf` (alarms), DEC-19 |
+| 2 | Console JS dependencies are not CVE-scanned in CI (`npm ci --no-audit`, no Dependabot); Python side is covered by `pip-audit --strict` | Supply chain / console | **Medium** | Open (follow-on: enable `npm audit` / Dependabot) | `.github/workflows/ci.yml` |
+| 3 | Local Terraform state; safe for one operator, unsafe for team/CI applies | Deployment / state | **Medium** | Accepted at course scope; remote state + OIDC plan role is the production upgrade | `environments/dev/backend.tf`, `plan.yml` |
+| 4 | One real screening source (SAM exclusions) capped to a demo-sized slice; three sources remain synthetic | Data fidelity / reference list | **Medium** | Accepted / documented; full extract + record linkage is follow-on | DEC-22, `docs/sme/REAL_SOURCE_INGEST.md` |
+| 5 | Semantic-matcher accuracy measured only on a 27-case synthetic set; no adversarial name obfuscation; English/Latin only | Model evaluation scope | **Medium** | Accepted / measured + scoped (precision 0.83 / recall 1.00 / F1 0.91) | `docs/sme/SEMANTIC_EVAL.md` §7 |
+| 6 | Bedrock is a soft dependency in B; an outage silently degrades the semantic net to rule-based screening | Availability / component B | **Low** | Mitigated: fails safe to deterministic rules (not blind); a Bedrock-availability alarm is follow-on | `src/component_b_enrichment/app.py` (semantic degrade) |
+| 7 | Single webhook notification path for review routing (DEC-7) | Review routing / component D | **Low** | Mitigated by the age-of-oldest-message alarm; a second path is follow-on | DEC-7, `modules/review_queue/main.tf` |
+| 8 | MFA is optional (opt-in TOTP), not enforced | Identity / Cognito | **Low** | Accepted; operator-provisioned users only, no public sign-up | `modules/console_foundation/main.tf` |
+| 9 | `OPTIONS` preflight is unauthenticated (`Principal:"*"`, MOCK integration, no data path) for browser CORS | API surface | **Low** | Accepted; the `Deny`-all-but-named-roles policy exempts only anonymous `OPTIONS`, and the mock returns headers only | `modules/*_stage/main.tf`, `modules/console_api/main.tf` |
+| 10 | WAF absent on the APIs and CloudFront; no cross-region replication of the audit bucket | Edge protection / DR | **Low** | Accepted at course scope (IAM-authed, resource-policy-scoped, single-region); recorded as residual risk | `.checkov.yaml` (justified skips) |
+| 11 | No load / DR / chaos testing; cold-start latency unmeasured under load | Performance / resilience | **Low** | Open (follow-on: load + chaos testing, right-size memory/concurrency) | §5.5, §6.5 |
+
+Full raw scan output (checkov / ruff / pip-audit / tflint pass counts): **Appendix A**;
+every checkov skip is individually justified in `.checkov.yaml`.
 
 ---
 
@@ -259,7 +298,7 @@ human-approved workflow, not free-form generation. AI assistance produced handle
 code (A to E, console API), the Terraform modules, the tests, the React console, and
 this SME hardening pass. Review and control came from human approval gates at every
 version, decisions recorded with their alternatives and objections in
-`foundation/DECISIONS.md` (22 locked), and static analysis (ruff, checkov, tflint,
+`foundation/DECISIONS.md` (27 locked), and static analysis (ruff, checkov, tflint,
 pip-audit) plus the test suite on every change. Judgment was applied, not deferred to
 the assistant: examples include rejecting the Powertools idempotency decorator for
 visible hand-rolled logic (DEC-13), rejecting an ML risk model for transparent rules
@@ -279,7 +318,7 @@ ruff     : All checks passed!            (src + tests; config ruff.toml)
 pip-audit: No known vulnerabilities found
 tflint   : 0 issues
 terraform fmt -check / validate: clean
-pytest   : 109 passed        vitest: 31 passed
+pytest   : 135 passed        vitest: 34 passed
 GitHub Actions ci.yml: green
 ```
 
@@ -293,7 +332,7 @@ baseline; re-run current at each gate.)*
 - `docs/evidence/console_live_e2e.txt`, signed-in console flow
 - `docs/evidence/live_real_source_ingest.txt`, real SAM name screened end to end
 - `docs/sme/`, ORIENTATION, SEMANTIC_EVAL, BEDROCK_COST, REAL_SOURCE_INGEST, DEMO_SCRIPT
-- Decisions: `foundation/DECISIONS.md` (22 LOCKED) · Roadmap: `foundation/VERSION_ROADMAP.md`
+- Decisions: `foundation/DECISIONS.md` (27 LOCKED) · Roadmap: `foundation/VERSION_ROADMAP.md`
 
 > Note: `HANDOFF.docx` is the rendered twin of the v1.0.0 body and is now behind this
 > refresh; regenerate it from this Markdown before final submission.
