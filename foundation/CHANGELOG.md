@@ -1,5 +1,13 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.7.1: Feed builder layout fix (2026-07-07)
+
+**The admin Feed page was misaligned and sprawling: the global `input{width:100%}` rule stretched every checkbox and radio to full width so its glyph floated far from its label, and the global uppercase-mono `label{}` rule hit the toggle labels too. Reworked into a clean, compact, aligned layout.**
+
+- Scoped `.feed` styles (`console/src/styles.css`): segmented either/or toggles (Prime/Sub, Awarding/Funding, Recipient/Place-of-performance) with a clear selected state; a two-column award-type checklist with `width:auto` checkboxes sitting flush beside their labels; stacked caption-over-control fields with side-by-side country/state and from/to.
+- Equal 2x2 panel grid (`minmax(0,1fr)`), tighter spacing; page height on desktop dropped from a tall single-column list to a compact grid (~740px). No functional change: all field values, aria-labels, and the Save / Run now behavior are identical.
+- Verified: vitest 34/34, production build clean, and computed-layout checks in a live preview (checkbox 13px flush beside label, equal 464px columns, no horizontal overflow).
+
 ## v3.7.0: Console Restructure (2026-07-07)
 
 **The console collapses from six flat tabs into three surfaces (DEC-27): Dashboard, Review Queue, and an Audit log tab, with admin-only config folded under an Admin dropdown and Submit Payment turned into a header button + modal. The exec sees the system at a glance; the occasional actions get out of the way.**
