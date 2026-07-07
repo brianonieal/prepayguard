@@ -113,13 +113,14 @@ test("csv parser: valid rows, optional tin, bad rows reported", () => {
 test("login gates the app", async () => {
   render(<App />);
   await signIn();
-  expect(screen.getByText("Submit payments for screening")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
 });
 
 test("submit fakes a queued result", async () => {
   render(<App />);
   await signIn();
-  fireEvent.change(screen.getByLabelText("Payment ID"), { target: { value: "PAY-1" } });
+  fireEvent.click(await screen.findByRole("button", { name: "+ Submit payment" }));
+  fireEvent.change(await screen.findByLabelText("Payment ID"), { target: { value: "PAY-1" } });
   fireEvent.change(screen.getByLabelText("Amount (USD)"), { target: { value: "10" } });
   fireEvent.change(screen.getByLabelText("Payee name"), { target: { value: "V" } });
   fireEvent.click(screen.getByRole("button", { name: "Submit for screening" }));
@@ -241,8 +242,9 @@ test("footer grounds the page", async () => {
 test("batch upload parses rows then ingests server-side and shows a summary", async () => {
   render(<App />);
   await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "+ Submit payment" }));
   const file = new File(["payment_id,payee,amount\nB-1,Batch Vendor,25\nB-2,Other,50"], "batch.csv", { type: "text/csv" });
-  fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
+  fireEvent.change(await screen.findByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText("B-1")).toBeInTheDocument();
   // Server-side ingestion (v1.6.0): one upload → poll the batch summary.
   fireEvent.click(await screen.findByRole("button", { name: "Submit 2 payments" }));
@@ -253,9 +255,10 @@ test("batch upload parses rows then ingests server-side and shows a summary", as
 test("batch upload accepts a JSON file and previews rows client-side", async () => {
   render(<App />);
   await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "+ Submit payment" }));
   const file = new File([JSON.stringify([{ payment_id: "J-1", payee: "Beta Vendor", amount: 25 }])],
     "vendors.json", { type: "application/json" });
-  fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
+  fireEvent.change(await screen.findByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText("J-1")).toBeInTheDocument();
   expect(screen.getByText("Beta Vendor")).toBeInTheDocument();
 });
@@ -263,40 +266,41 @@ test("batch upload accepts a JSON file and previews rows client-side", async () 
 test("batch upload accepts an Excel file (server-parsed, no client preview)", async () => {
   render(<App />);
   await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "+ Submit payment" }));
   const file = new File([new Uint8Array([1, 2, 3])], "payroll.xlsx",
     { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  fireEvent.change(screen.getByTestId("csv-input"), { target: { files: [file] } });
+  fireEvent.change(await screen.findByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText(/parsed server-side on upload/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Upload payroll\.xlsx/ })).toBeInTheDocument();
 });
 
-test("admin sees the Analytics tab and dashboard", async () => {
+test("admin sees the Audit log tab (compliance detail)", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Analytics" }));
-  expect(await screen.findByText("Total screened")).toBeInTheDocument();
-  expect(screen.getByText("Hit rate")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Audit log" }));
+  expect(await screen.findByText("Audit log & compliance")).toBeInTheDocument();
   expect(screen.getByText("Disposition mix")).toBeInTheDocument();
+  expect(screen.getByText("Reviewer productivity")).toBeInTheDocument();
 });
 
-test("auditor role: analytics visible, review queue is read-only (no decide)", async () => {
+test("auditor role: audit log visible, review queue is read-only (no decide)", async () => {
   currentGroups.mockResolvedValue(["auditor"]);
   render(<App />);
   await signIn();
-  expect(await screen.findByRole("button", { name: "Analytics" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Submit Payment" })).toBeNull();   // auditor can't submit
+  expect(await screen.findByRole("button", { name: "Audit log" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "+ Submit payment" })).toBeNull();   // auditor can't submit
   fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
   fireEvent.click((await screen.findAllByRole("button", { name: "View →" }))[0]); // "View", not "Review"
   expect(await screen.findByText("Screening evidence")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Approve payment" })).toBeNull();   // no decide controls
 });
 
-test("reviewer role has no Analytics tab", async () => {
+test("reviewer role has no Audit log tab", async () => {
   currentGroups.mockResolvedValue(["reviewer"]);
   render(<App />);
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Analytics" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Audit log" })).toBeNull();
 });
 
 test("submitter role sees Submit but not the Review Queue", async () => {
@@ -304,7 +308,7 @@ test("submitter role sees Submit but not the Review Queue", async () => {
   render(<App />);
   await signIn();
   expect(await screen.findByTestId("role-chip")).toHaveTextContent("submitter");
-  expect(screen.getByRole("button", { name: "Submit Payment" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "+ Submit payment" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Review Queue" })).toBeNull();
 });
 
@@ -318,7 +322,8 @@ test("admin role sees both tabs and the role chip", async () => {
 test("admin edits the reference list and publishes a new version", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Reference Data" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Reference Data" }));
   expect(await screen.findByText("Reference data")).toBeInTheDocument();
   expect((await screen.findAllByText("v1")).length).toBeGreaterThan(0); // stat card + history pill
   // Edit an entry name -> the working copy is dirty -> publish becomes available.
@@ -341,7 +346,8 @@ test("reviewer role has no Reference Data tab", async () => {
 test("admin configures the full feed (agency + award types) and runs it", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Feed" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Feed" }));
   expect(await screen.findByText("Award types")).toBeInTheDocument();
   expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config (prime mode)
   // the agency dropdown is populated from the (mocked) USAspending fetch
@@ -358,7 +364,8 @@ test("admin configures the full feed (agency + award types) and runs it", async 
 test("admin can switch the feed to Sub-Awards", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Feed" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Admin ▾" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Feed" }));
   fireEvent.click(await screen.findByLabelText("Sub-Awards"));
   expect(screen.getByLabelText("Sub-Contracts")).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "Run now" }));
@@ -382,10 +389,10 @@ test("audit detail cites the reference list version", async () => {
   expect(await screen.findByText(/v3 \(list version screened against\)/)).toBeInTheDocument();
 });
 
-test("Overview showcase renders the live story, charts and worked examples", async () => {
+test("Dashboard renders the live story, charts and worked examples", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Overview" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Dashboard" }));
   expect(await screen.findByText(/payments checked/)).toBeInTheDocument();       // hero live stat
   expect(screen.getByText("How a payment moves through the system")).toBeInTheDocument();
   expect(screen.getByText("Three real decisions")).toBeInTheDocument();
@@ -393,12 +400,12 @@ test("Overview showcase renders the live story, charts and worked examples", asy
   expect(screen.getByText("Zeta Shell Holdings LLC")).toBeInTheDocument();        // reject example
 });
 
-test("submitter role does not see the Overview tab", async () => {
+test("submitter role does not see the Dashboard tab", async () => {
   currentGroups.mockResolvedValue(["submitter"]);
   render(<App />);
   await signIn();
-  expect(await screen.findByRole("button", { name: "Submit Payment" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Overview" })).toBeNull();
+  expect(await screen.findByRole("button", { name: "+ Submit payment" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Dashboard" })).toBeNull();
 });
 
 test("admin sees Demo controls; typing RESET enables Clear data and runs the reset", async () => {

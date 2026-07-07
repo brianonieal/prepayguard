@@ -33,15 +33,10 @@ export default function Analytics() {
 
   return (
     <div className="body">
-      <h2>Analytics &amp; compliance</h2>
+      <h2>Audit log &amp; compliance</h2>
       <div className="sub">
-        Screening throughput and outcomes across the whole pipeline, plus the immutable audit log for auditor export.
-      </div>
-
-      <div className="stats">
-        <div className="stat"><div className="k">Total screened</div><div className="v">{total}</div><div className="d">all dispositions</div></div>
-        <div className="stat warn"><div className="k">Hit rate</div><div className="v">{a.hit_rate}%</div><div className="d">flagged (review + reject)</div></div>
-        <div className="stat"><div className="k">Pending review</div><div className="v">{a.queue?.pending ?? 0}</div><div className="d">avg score {a.queue?.avg_pending_score ?? 0}</div></div>
+        The immutable audit log for auditor export, plus screening throughput and reviewer
+        productivity. Headline counters live on the Dashboard.
       </div>
 
       <div className="detail-grid">
