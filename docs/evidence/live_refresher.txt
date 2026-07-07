@@ -1,0 +1,19 @@
+LIVE REFRESHER PROOF (Component G, v3.4.0, DEC-24) - 2026-07-06
+
+Deployed to us-east-2 (account <ACCOUNT_ID>): terraform apply "8 added" (refresher
+Lambda + version/alias + EventBridge Scheduler + scheduler role + exec IAM role/policy
++ log group), plus the treasury-dev-refresher ECR repo and image tag v3.2.1.
+
+Live invoke of treasury-dev-refresher:live {} -> 200
+  {"refreshed": false, "reason": "unchanged", "version": 4}
+  (Correctly re-pulled the real SAM exclusions, compared to the live v4 list on the
+   normalized name+UEI keys, found no change, and skipped the republish: no version
+   churn, no wasted embedding. The changed->republish path is covered by
+   tests/test_refresher.py::test_handler_publishes_when_changed.)
+
+Schedule treasury-dev-refresher-schedule: ENABLED, cron(0 6 * * ? *),
+  timezone America/New_York (daily 6am ET, DST-aware).
+
+VERDICT: the Do Not Pay watchlist now refreshes automatically from the real SAM feed,
+republishing a new versioned reference document only when the list changes -> PASS
+Stop switch: refresher_enabled=false in terraform.tfvars + re-apply.

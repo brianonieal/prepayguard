@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.4.0: Automated Reference Refresh (2026-07-06)
+
+**Component G (scheduled refresher, DEC-24): a daily EventBridge Scheduler run re-pulls the real SAM.gov exclusions (keyless OpenSanctions mirror), re-embeds them, and republishes the versioned reference document (DEC-18) only when the list changed, so the Do Not Pay watchlist stays current on its own. With Component F keeping payments current, both sides of the data are now automatic.**
+
+- New Lambda `component_g_refresher` (container image): fetch SAM, normalize, change-detect on (name, UEI) keys, embed via Titan, publish next version; keeps the three synthetic restricted sources verbatim with their embeddings. Degrades gracefully (keeps the current version on any fetch error).
+- New `modules/scheduled_refresher`: Lambda + version/alias (DEC-10) + EventBridge Scheduler (`cron(0 6 * * ? *)` America/New_York, DST-aware) + least-privilege IAM (reference bucket read/write + `bedrock:InvokeModel` on the embed model + logs/xray; no secret). `refresher_enabled` stop switch.
+- Honesty note preserved (DEC-24): a current list does not manufacture flags; real payees rarely match, which is debarment working. The refresh is about currency.
+- Verified locally: pytest 120/120, ruff clean, checkov 662/0/3, tflint + terraform validate clean.
+
 ## v3.3.0: Automated Real-Data Feed (2026-07-06)
 
 **Component F (scheduled feeder, DEC-23): an EventBridge Scheduler schedule (business hours Eastern, 9am-5pm ET, all 7 days, DST-aware) pulls real federal awards from the public keyless USAspending API and drops them into the batch-imports bucket, which Component E ingests (DEC-16), so real payees flow into the console with no manual upload.**
