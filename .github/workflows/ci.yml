@@ -64,6 +64,13 @@ jobs:
       - name: install
         working-directory: console
         run: npm ci --no-fund --no-audit
+      - name: npm audit (DEC-8, JS supply chain)
+        working-directory: console
+        # Block the build on a High/Critical advisory in the RUNTIME dependency tree
+        # (mirrors pip-audit --strict on the Python side). Scoped to --omit=dev because
+        # the shipped SPA ships no dev deps; dev-toolchain advisories (vite/vitest) are
+        # surfaced by Dependabot and upgraded on their own cadence, not blocking here.
+        run: npm audit --omit=dev --audit-level=high
       - name: vitest
         working-directory: console
         run: npm test

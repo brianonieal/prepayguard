@@ -27,13 +27,24 @@ caller (SigV4, payment-submitter role only — DEC-5)
                                                   └─> webhook notify (URL from Secrets Manager — DEC-7)
    [every SQS-triggered stage: DLQ + redrive (commitment 2),
     max-concurrency scaling + queue-depth alarm (commitment 3)]
+
+Automatic inputs (scheduled, EventBridge):
+  [E] Batch Ingest (S3-triggered CSV/Excel/JSON) reuses A's queue + idempotency table (DEC-16)
+  [F] Feeder  (business-hours ET) ─> pulls real USAspending awards ─> drops a file for [E]
+  [G] Refresher (daily) ─> re-pulls real SAM.gov exclusions ─> re-embeds ─> republishes the
+                           versioned reference list (only when it changed)
 ```
 
-All four components are Lambda **container images** (DEC-2), x86_64 uniformly,
-deployed with `publish = true` behind a `live` alias (DEC-10). Infrastructure
-is Terraform: one shared `queue_worker_stage` module instantiated 3× via
-`for_each` for B/C/D, plus `api_intake_stage`, `audit_store`, `ecr_repo` (4×),
-and `review_queue` (DEC-1).
+The system now has seven Lambda components: the five-stage screening path
+(A intake, B enrichment, C scoring, D disposition, E batch ingest) plus two
+scheduled data feeders (F feeder, G refresher). All are Lambda **container
+images** (DEC-2), x86_64 uniformly, deployed with `publish = true` behind a
+`live` alias (DEC-10). Infrastructure is Terraform: one shared
+`queue_worker_stage` module instantiated 3× via `for_each` for B/C/D, plus
+`api_intake_stage`, `batch_ingest_stage`, `scheduled_feeder`,
+`scheduled_refresher`, `audit_store`, `review_queue`, `console_foundation`,
+`console_api`, `reference_store`, and `ecr_repo` (8×, one per component). The
+console API and the React console (§8) sit on top for human adjudication.
 
 ## 2. Component failure modes
 
@@ -73,9 +84,38 @@ with observed behavior, not speculation.
 - **Retention misconfiguration** (DEC-4 acknowledged risk): see §4 — the one
   irreversible surface in the system.
 
+### E. Batch Ingest (DEC-16)
+- **Malformed file / bad rows**: per-row validation collects errors without
+  failing the whole file; a required-field-missing or non-numeric-amount row is
+  reported in the batch summary, not silently dropped. Unsupported formats are
+  reported, never dropped.
+- **Duplicate rows across batches**: the SAME idempotency table and PENDING→SENT
+  state machine as A, so an overlapping row dedupes rather than double-screens.
+- **S3 event delivery**: at-least-once; a re-delivered object re-enters the
+  idempotency guard, so re-ingest is safe.
+
+### F. Feeder (DEC-23)
+- **USAspending unavailable / API drift**: the scheduled run wraps the fetch in
+  try/except, logs, and SKIPS the run; it never crashes the schedule or writes a
+  partial file. Mapping tolerates missing award fields (drops awards missing a
+  name/id or with a non-positive amount).
+- **Volume / immutable-audit growth**: bounded by a per-run size cap plus the
+  `enabled` stop switch; each pulled payment is a permanent audit record, so the
+  cap and the dev 1-day retention bound the growth (see §4).
+- **Deterministic ids**: `USASPEND-{award id}` so overlapping pulls dedupe via the
+  shared idempotency table.
+
+### G. Refresher (DEC-24)
+- **SAM source unavailable / empty / unchanged**: degrades to a no-op that keeps
+  the current reference version (`{"refreshed": false, ...}`); it republishes only
+  when the SAM list actually changed (compared on name+UEI keys), so it never
+  churns versions or manufactures flags.
+- **Concurrent publish**: versioned reference writes use an `IfNoneMatch="*"`
+  conditional put, so a racing publish fails closed rather than clobbering.
+
 ## 3. Rollback mechanism (DEC-10)
 
-One mechanism, identical across all four components:
+One mechanism, identical across every Lambda component:
 
 1. Every deploy publishes a numbered Lambda **version** (`publish = true`).
 2. The **`live` alias** points at exactly one version. API Gateway (A) and all
@@ -126,32 +166,48 @@ exact reversion diff before any apply.
   `environments/dev/backend.tf`); CI is plan-only (DEC-6).
 - x86_64 for all images (declared on every function to prevent platform
   mismatch at invoke; arm64 cost optimization noted for follow-on work).
-- Human reviewers drain the review queue via console/CLI for course scope — no
-  reviewer UI exists or is planned (backend-only project).
+- Human reviewers drain the review queue through the reviewer console (§8), the
+  React/Vite SPA shipped in Phase 2 and extended through Phase 5. (This assumption
+  originally read "no reviewer UI" when the project was backend-only at Phase 1; the
+  console has since been built, deployed, and is live.)
 
 ## 7. Message schema (grows across the pipeline)
 
 Each stage adds a block; nothing is removed, so the audit record is the full trail.
 
 ```
-A intake  → { payment_id, payee, amount, payee_tin? }
-B enrich  → + enrichment { matches[{source,matched_on,confidence,severity}], match_count, highest_confidence }
+A intake  → { payment_id, payee, amount, payee_tin?, submitted_by }
+              (submitted_by = caller identity, carried through for the maker/checker
+               segregation-of-duties check at review time, DEC-17)
+B enrich  → + enrichment { matches[{source, matched_on, confidence, severity,
+                                     similarity?, reference_version}],
+                           match_count, highest_confidence }
+              (matched_on is one of tin_exact, name_exact, name_fuzzy, name_semantic;
+               similarity is the raw cosine for a name_semantic hit, DEC-19)
 C score   → + risk { score, disposition: approve|review|reject, reasons[] }
 D audit   → audit record { schema_version, audit_id, payment_id, audited_at,
                            decision, evidence, payment, provenance, routing,
                            integrity{ sha256 } }  (written to S3 Object Lock)
 ```
 
-- **B (DEC-14):** TIN match → conf 95, exact name → 80, fuzzy (difflib ≥0.9) → 60.
+- **B (DEC-14):** TIN match → conf 95, exact name → 80, fuzzy (difflib ≥0.9) → 60;
+  a Bedrock-embedding `name_semantic` net (DEC-19) runs only when the string rules
+  miss and is capped to REVIEW by C.
 - **C (DEC-14):** TIN match → `reject`; name match → `review` (potential match →
   human, feeds commitment 2); no match → `approve`. Thresholds: ≥80 reject,
   ≥30 review, else approve; name matches capped at 60 to keep them in review.
 - **D:** audit-first (authoritative) then route; `integrity.sha256` is computed
   over all record fields except `integrity` (sorted-key compact JSON).
 
-## 8. Treasury Console (Phase 2 — v1.1.0–v1.4.0)
+## 8. Treasury Console (introduced Phase 2, v1.1.0 to v1.4.0; extended through Phase 5)
 
 A React/Vite SPA on **S3 + CloudFront** — the human surface over the pipeline.
+Introduced in Phase 2 and extended since: roles + segregation of duties and the
+read-only auditor (Phase 3), versioned reference-data editing, semantic-match
+evidence and LLM briefs (Phase 3), the analytics/compliance and audit-log surfaces
+(Phase 3-4), the admin **Feed** builder that configures Component F (Phase 5,
+v3.5.0-v3.6.0), and the v3.7.0 restructure into three surfaces (Dashboard / Review
+Queue / Audit log) with admin config under an Admin menu and submission as a modal.
 
 ```
 Browser SPA (CloudFront)
