@@ -8,14 +8,21 @@ v2.1.x incident). This probes the real OPTIONS preflight on every route and fail
 if the Access-Control-Allow-Origin header is missing.
 
 Usage: python scripts/check_cors.py
+
+Endpoints resolve from environment variables so this runs against ANY deployment;
+they fall back to the original reference account when unset. On a fresh account:
+  export CONSOLE_ORIGIN=$(terraform -chdir=environments/dev output -raw console_url)
+  export INTAKE_API=$(terraform -chdir=environments/dev output -raw api_endpoint)
+  export CONSOLE_API=$(terraform -chdir=environments/dev output -raw console_api_endpoint)
 """
+import os
 import sys
 from urllib import error as E
 from urllib import request as R
 
-ORIGIN = "https://d2rbxaf6pqgvb1.cloudfront.net"
-CONSOLE = "https://mdism5yymd.execute-api.us-east-2.amazonaws.com/dev"
-INTAKE = "https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev"
+ORIGIN = os.environ.get("CONSOLE_ORIGIN", "https://d2rbxaf6pqgvb1.cloudfront.net")
+CONSOLE = os.environ.get("CONSOLE_API", "https://mdism5yymd.execute-api.us-east-2.amazonaws.com/dev")
+INTAKE = os.environ.get("INTAKE_API", "https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev")
 
 CASES = [
     ("intake  POST /payments", "POST", f"{INTAKE}/payments"),

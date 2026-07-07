@@ -3,12 +3,15 @@
 This is the missing-until-now setup runbook: how another engineer takes an empty AWS
 account and this repository to a running, live system. It complements `README.md`
 (what the system is), `ARCHITECTURE.md` (how it is shaped), and `docs/ROLLBACK.md`
-(how to undo a deploy). Every command is account-agnostic: the scripts resolve the
-account, region, bucket, distribution, and repositories from `terraform output`, so
-you do not edit any hardcoded ids.
+(how to undo a deploy). The deploy scripts (`deploy-console.sh`, `build-push-images.sh`)
+resolve the account, region, bucket, distribution, and repositories from `terraform
+output`, so you never edit ids in them. The seed / ingest / verify scripts take the
+bucket or endpoints as an argument or an environment variable; each command below
+shows how to fill those from `terraform output` on your own account.
 
 The reference deployment runs in `us-east-2`. Nothing here is account-specific except
-your own credentials and the model-access enablement in step 1.
+your own credentials, a test user you create, and the model-access enablement in
+step 1.
 
 ## 0. Prerequisites
 
@@ -90,11 +93,13 @@ age-of-oldest-message alarm backstop that does not depend on it.
 ## 6. Seed the screening reference list
 
 Publish version 1 of the Do Not Pay list (synthetic bundled data), then optionally pull
-the real SAM.gov exclusions:
+the real SAM.gov exclusions. Both take the reference bucket, resolved from `terraform
+output`:
 
 ```sh
-python scripts/seed_reference_data.py
-python scripts/ingest_sam_exclusions.py --source opensanctions   # optional: real SAM (keyless mirror)
+REF=$(terraform -chdir=environments/dev output -raw reference_bucket_name)
+python3 scripts/seed_reference_data.py "$REF"
+python3 scripts/ingest_sam_exclusions.py --bucket "$REF" --source opensanctions   # optional: real SAM (keyless mirror)
 ```
 
 Component G will keep the list current on its daily schedule after this.
@@ -106,7 +111,7 @@ put them in a role group (`submitter`, `reviewer`, `admin`, or `auditor`, mapped
 roles by Cognito):
 
 ```sh
-POOL=$(terraform -chdir=environments/dev output -json console_cognito | python -c 'import sys,json;print(json.load(sys.stdin)["user_pool_id"])')
+POOL=$(terraform -chdir=environments/dev output -json console_cognito | python3 -c 'import sys,json;print(json.load(sys.stdin)["user_pool_id"])')
 aws cognito-idp admin-create-user --user-pool-id "$POOL" --username you@example.gov
 aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username you@example.gov --group-name admin
 ```
@@ -123,11 +128,29 @@ it to the site bucket, and invalidates CloudFront, all resolved from `terraform 
 
 ## 9. Verify end to end
 
+Resolve endpoints and identifiers from `terraform output`, then run the checks. The
+verify scripts read these from environment variables (falling back to the reference
+account only when unset), so export them first for your own deployment:
+
 ```sh
-python scripts/check_cors.py            # OPTIONS preflight on every route (browser CORS)
-python scripts/console_e2e.py           # full Cognito -> SigV4 -> API path
-python scripts/live_object_lock_proof.py  # proves a written audit object cannot be deleted or shortened
-python scripts/send_payment.py          # submit one payment through the intake API
+TF="terraform -chdir=environments/dev"
+export CONSOLE_ORIGIN=$($TF output -raw console_url)
+export INTAKE_API=$($TF output -raw api_endpoint)
+export CONSOLE_API=$($TF output -raw console_api_endpoint)
+cog=$($TF output -json console_cognito)
+export CONSOLE_POOL=$(echo "$cog"   | python3 -c 'import sys,json;print(json.load(sys.stdin)["user_pool_id"])')
+export CONSOLE_CLIENT=$(echo "$cog" | python3 -c 'import sys,json;print(json.load(sys.stdin)["client_id"])')
+export CONSOLE_IDPOOL=$(echo "$cog" | python3 -c 'import sys,json;print(json.load(sys.stdin)["identity_pool_id"])')
+export CONSOLE_USER=you@example.gov CONSOLE_PW='the-password-you-set-in-step-7'
+
+python3 scripts/check_cors.py            # OPTIONS preflight on every route (browser CORS)
+python3 scripts/console_e2e.py           # full Cognito -> SigV4 -> API path
+
+# Object Lock proof takes the audit bucket; the payment client takes the intake
+# endpoint, the submitter role, and a JSON payload.
+python3 scripts/live_object_lock_proof.py "$($TF output -raw audit_bucket_name)"
+python3 scripts/send_payment.py "$INTAKE_API" "$($TF output -raw payment_submitter_role_arn)" \
+  '{"payment_id":"bootstrap-smoke-1","payee":"Acme Test Vendor","amount":100.00}'
 ```
 
 Captured runs of these against the reference account are in `docs/evidence/`.

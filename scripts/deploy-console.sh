@@ -9,9 +9,25 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TF="terraform -chdir=environments/dev"
-SITE=$($TF output -raw console_site_bucket)
-DIST=$($TF output -raw console_distribution_id)
-URL=$($TF output -raw console_url)
+
+# Preflight: console_site_bucket / console_distribution_id are read from state. They
+# were added as outputs in v3.7.2, so a deployment last applied before then will not
+# have them in state yet. Fail with a clear, actionable message instead of a bare
+# "Output not found" from terraform.
+tf_out() {
+  local name="$1" val
+  if ! val=$($TF output -raw "$name" 2>/dev/null) || [ -z "$val" ]; then
+    echo "ERROR: terraform output '$name' is not in state." >&2
+    echo "Run 'terraform -chdir=environments/dev apply' once to publish the v3.7.2" >&2
+    echo "console outputs (a state-only change, no new resources), then retry." >&2
+    exit 1
+  fi
+  printf '%s' "$val"
+}
+
+SITE=$(tf_out console_site_bucket)
+DIST=$(tf_out console_distribution_id)
+URL=$(tf_out console_url)
 
 echo "→ config from terraform outputs"
 bash scripts/gen-console-config.sh

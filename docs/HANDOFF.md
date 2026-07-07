@@ -166,10 +166,12 @@ vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
 - **Deploy:** staged (create ECR repos → `scripts/build-push-images.sh` → `terraform
   apply` → `scripts/deploy-console.sh`). `terraform apply` is always manual (DEC-6, CI
   is plan-only). Bedrock: `amazon.titan-embed-text-v2:0` + `amazon.nova-lite-v1:0`. The
-  audit bucket is not destroyable while Object Lock holds (DEC-4, by design). The
-  scripts resolve account/region/bucket/distribution/repos from `terraform output`, so
-  no ids are hardcoded. **Fresh-account setup runbook (Bedrock enablement, images,
-  apply, secret, seed, users, console, verify): `docs/BOOTSTRAP.md`.**
+  audit bucket is not destroyable while Object Lock holds (DEC-4, by design). The deploy
+  scripts (`build-push-images.sh`, `deploy-console.sh`) resolve account/region/bucket/
+  distribution/repos from `terraform output`; the seed/ingest/verify scripts take the
+  bucket or endpoints as an argument or env var, filled from `terraform output` in the
+  runbook. **Fresh-account setup runbook (Bedrock enablement, images, apply, secret,
+  seed, users, console, verify): `docs/BOOTSTRAP.md`.**
 - **CI/CD (DEC-6):** GitHub Actions, `ci.yml` (fmt/validate/tflint/pytest/ruff/pip-audit/
   checkov, no creds) and `plan.yml` (terraform plan on PRs, no auto-apply).
 

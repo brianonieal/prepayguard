@@ -3,8 +3,20 @@ Cognito User Pool login -> Identity Pool temp IAM creds -> SigV4 to the intake
 and console APIs. Proves the wired console works against the deployed backend.
 
 Usage: python scripts/console_e2e.py
+
+Config resolves from environment variables so this runs against ANY deployment;
+values fall back to the original reference account when unset. On a fresh account
+(see docs/BOOTSTRAP.md), export these from terraform output plus a real test user:
+  cog=$(terraform -chdir=environments/dev output -json console_cognito)
+  export CONSOLE_POOL=$(echo "$cog"|python -c 'import sys,json;print(json.load(sys.stdin)["user_pool_id"])')
+  export CONSOLE_CLIENT=$(echo "$cog"|python -c 'import sys,json;print(json.load(sys.stdin)["client_id"])')
+  export CONSOLE_IDPOOL=$(echo "$cog"|python -c 'import sys,json;print(json.load(sys.stdin)["identity_pool_id"])')
+  export INTAKE_API=$(terraform -chdir=environments/dev output -raw api_endpoint)
+  export CONSOLE_API=$(terraform -chdir=environments/dev output -raw console_api_endpoint)
+  export CONSOLE_USER=you@example.gov CONSOLE_PW='your-test-password'
 """
 import json
+import os
 import time
 import urllib.error
 from urllib import request as urlreq
@@ -13,14 +25,14 @@ import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
-REGION = "us-east-2"
-POOL = "us-east-2_0jEWxXtcn"
-CLIENT = "7he6tfbthdhrqc2kdolkm29okn"
-IDPOOL = "us-east-2:1ac5c956-6c51-4f4d-91b4-6ada417fd9cc"
-USER = "brian.onieal@gmail.com"
-PW = "Treasury#Demo2026"
-INTAKE = "https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev"
-CONSOLE = "https://mdism5yymd.execute-api.us-east-2.amazonaws.com/dev"
+REGION = os.environ.get("AWS_REGION", "us-east-2")
+POOL = os.environ.get("CONSOLE_POOL", "us-east-2_0jEWxXtcn")
+CLIENT = os.environ.get("CONSOLE_CLIENT", "7he6tfbthdhrqc2kdolkm29okn")
+IDPOOL = os.environ.get("CONSOLE_IDPOOL", "us-east-2:1ac5c956-6c51-4f4d-91b4-6ada417fd9cc")
+USER = os.environ.get("CONSOLE_USER", "brian.onieal@gmail.com")
+PW = os.environ.get("CONSOLE_PW", "Treasury#Demo2026")
+INTAKE = os.environ.get("INTAKE_API", "https://0uhsehplg4.execute-api.us-east-2.amazonaws.com/dev")
+CONSOLE = os.environ.get("CONSOLE_API", "https://mdism5yymd.execute-api.us-east-2.amazonaws.com/dev")
 
 # 1. Cognito User Pool login (USER_PASSWORD flow).
 idp = boto3.client("cognito-idp", region_name=REGION)
