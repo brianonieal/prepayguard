@@ -297,3 +297,7 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .tour-dot{width:9px;height:9px;border-radius:50%;border:0;padding:0;background:#d3cec2;cursor:pointer}
 .tour-dot.on{background:var(--copper);transform:scale(1.15)}
 .tour-nav{display:flex;justify-content:space-between;gap:12px}
+/* v3.8.1: Feed raw-download panel */
+.feed .dl-panel{margin-top:16px}
+.feed .dl-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.feed .dl-row .toggle{min-width:280px}

@@ -81,9 +81,13 @@ vi.mock("./lib/usaspending.js", () => ({
   fetchAgencies: vi.fn(async () => [{ name: "Department of Veterans Affairs", code: "036" }]),
   fetchSubAgencies: vi.fn(async () => ["Veterans Benefits Administration"]),
   STATES: ["VA", "CA", "NY"],
+  DOWNLOAD_FORMATS: [{ value: "csv", label: "CSV" }, { value: "tsv", label: "TSV" }, { value: "pstxt", label: "TXT (pipe-delimited)" }],
+  requestAwardDownload: vi.fn(async () => ({ file_name: "F.zip", file_url: "https://files.usaspending.gov/F.zip", status_url: "s" })),
+  pollAwardDownload: vi.fn(async (_n, opts) => { opts?.onTick?.({ status: "finished", total_rows: 42 }); return { status: "finished", file_url: "https://files.usaspending.gov/F.zip", total_rows: 42, total_size: 100 }; }),
 }));
 
 import { bulkDecide, putReference, resetData, runFeed } from "./lib/api.js";
+import { requestAwardDownload } from "./lib/usaspending.js";
 import { currentGroups, changePassword, startTotpSetup, confirmTotpSetup } from "./lib/auth.js";
 
 beforeEach(() => { window.location.hash = ""; localStorage.clear(); currentGroups.mockResolvedValue(["admin"]); });
@@ -379,6 +383,20 @@ test("tour walks through the feature steps", async () => {
   expect(await screen.findByText("What PrePayGuard actually does")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Next →" }));
   expect(await screen.findByText("Your dashboard, at a glance")).toBeInTheDocument();
+});
+
+test("admin downloads the raw award file directly from USAspending", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
+  fireEvent.click(await screen.findByLabelText("TXT (pipe-delimited)"));   // pick pipe-delimited
+  fireEvent.click(screen.getByRole("button", { name: "Download" }));
+  expect(await screen.findByRole("link", { name: /Download the ZIP/ })).toBeInTheDocument();
+  expect(requestAwardDownload).toHaveBeenCalledWith(
+    expect.objectContaining({ prime_award_types: ["A", "B", "C", "D"], date_type: "action_date" }),
+    "pstxt",
+  );
 });
 
 test("audit detail cites the reference list version", async () => {

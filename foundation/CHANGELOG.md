@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.8.1: Feed page raw-data download from USAspending (2026-07-08)
+
+**The admin Feed page can now download the raw Custom Award Data file directly from USAspending (the same export the usaspending.gov download center produces), using the builder's existing filters. This is separate from the feed: it exports a file to the browser and does not run through screening.**
+
+- New `lib/usaspending.js` helpers `requestAwardDownload` (POST `/bulk_download/awards/`) and `pollAwardDownload` (poll `/download/status`), plus a `DOWNLOAD_FORMATS` constant (CSV / TSV / TXT pipe-delimited). Keyless and CORS-open (verified 2026-07-08), so the browser calls it directly, like the agency-list fetches; no backend change.
+- Feed page: a "Download the raw award file" panel with a file-format selector and a Download button that builds the bulk-download filter from the current builder state (award types, agency + sub-agency, location, date type, date range), kicks off the async download, polls until the ZIP is generated, and surfaces a direct download link with the row count and size.
+- The bulk download uses `prime_award_types` / `sub_award_types` (not the feeder's `award_type_codes` + `subawards` flag), and sub-awards take category names `procurement` / `grant`, not the prime letter codes (a live 400 caught this; the mapping is corrected and verified). Both prime and sub-award requests verified accepted end to end.
+- Verified: vitest 35/35, production build clean, download-panel layout confirmed in a live preview, live API accepts both the full prime and the sub-award filter shapes, no em dashes.
+
 ## v3.8.0: Console UI/UX refinement, brand refresh, and guided Tour (DEC-28) (2026-07-07)
 
 **A visual and information-architecture pass applying an external design handoff, plus a new plain-English guided tour. The primary nav is a clean left-to-right set of up to five tabs, the dashboard becomes an executive operations view, and a first-time user can learn the whole tool in about two minutes.**

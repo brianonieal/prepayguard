@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getFeedConfig, putFeedConfig, runFeed } from "../lib/api.js";
-import { fetchAgencies, fetchSubAgencies, STATES } from "../lib/usaspending.js";
+import { fetchAgencies, fetchSubAgencies, STATES, DOWNLOAD_FORMATS, requestAwardDownload, pollAwardDownload } from "../lib/usaspending.js";
 
 // USAspending award_type_codes grouped into the builder's friendly categories.
 // A single query is EITHER prime OR sub-awards (the API's subawards flag is global),
@@ -44,6 +44,8 @@ export default function Feed() {
   const [startDate, setStartDate] = useState(isoDaysAgo(365));
   const [endDate, setEndDate] = useState(isoDaysAgo(0));
   const [limit, setLimit] = useState(10);
+  const [fileFormat, setFileFormat] = useState("csv");
+  const [dl, setDl] = useState(null);                   // {phase, rows?, url?, size?}
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -112,6 +114,43 @@ export default function Feed() {
       setLastRun(r.result || {});
       setMsg(`Pulled now: ${r.result?.written ?? 0} payment(s) screened. They appear in the console shortly.`);
     } catch (ex) { setErr(String(ex?.message || "run failed")); } finally { setBusy(""); }
+  };
+
+  // USAspending Custom Award Data bulk download uses prime_award_types / sub_award_types
+  // (not the feeder's award_type_codes + subawards flag) and no size cap; it exports the
+  // full matching file. Built from the same builder state as the feed.
+  const downloadFilters = () => {
+    const f = { date_type: dateType, date_range: { start_date: startDate, end_date: endDate } };
+    if (mode === "sub") {
+      // The bulk download takes sub_award_types as category names, not the prime letter
+      // codes (verified 2026-07-08: valid values are 'procurement' and 'grant').
+      const SUB_DL = { subcontracts: "procurement", subgrants: "grant" };
+      f.sub_award_types = SUB.filter((c) => sel[c.key]).map((c) => SUB_DL[c.key]);
+    } else {
+      f.prime_award_types = codes;
+    }
+    if (agencyName) {
+      f.agencies = [{ type: agencyType, tier: "toptier", name: agencyName }];
+      if (subAgency) f.agencies.push({ type: agencyType, tier: "subtier", name: subAgency });
+    }
+    if (country) {
+      const loc = [{ country, ...(state ? { state } : {}) }];
+      f[locType === "pop" ? "place_of_performance_locations" : "recipient_locations"] = loc;
+    }
+    return f;
+  };
+
+  const doDownload = async () => {
+    setBusy("download"); setErr(""); setMsg(""); setDl({ phase: "requesting" });
+    try {
+      const req = await requestAwardDownload(downloadFilters(), fileFormat);
+      setDl({ phase: "preparing" });
+      const done = await pollAwardDownload(req.file_name, {
+        onTick: (d) => setDl({ phase: d.status === "finished" ? "preparing" : "preparing", rows: d.total_rows }),
+      });
+      setDl({ phase: "ready", url: done.file_url, rows: done.total_rows, size: done.total_size });
+    } catch (ex) { setErr(String(ex?.message || "download failed")); setDl(null); }
+    finally { setBusy(""); }
   };
 
   if (err && !loaded) return <div className="body"><div className="verdict bad">Failed to load feed config: {err}</div></div>;
@@ -221,6 +260,42 @@ export default function Feed() {
           </div>
           {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
+      </div>
+
+      <div className="panel dl-panel">
+        <h3>Download the raw award file (USAspending)</h3>
+        <div className="setdesc" style={{ marginBottom: 12 }}>
+          Download the full matching Custom Award Data file straight from USAspending, using the
+          filters above. This is a raw data export to your browser (the same file the USAspending
+          download center produces); it does not run through screening.
+        </div>
+        <div className="dl-row">
+          <div className="field" style={{ margin: 0, flex: 1 }}>
+            <span>File format</span>
+            <div className="toggle" style={{ marginBottom: 0 }}>
+              {DOWNLOAD_FORMATS.map((f) => (
+                <label key={f.value}>
+                  <input type="radio" name="fmt" aria-label={f.label} checked={fileFormat === f.value} onChange={() => setFileFormat(f.value)} /> {f.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-end" }} disabled={!!busy || noTypes} onClick={doDownload}>
+            {busy === "download" ? "Preparing…" : "Download"}
+          </button>
+        </div>
+        {dl && dl.phase !== "ready" && (
+          <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>
+            {dl.phase === "requesting" ? "Requesting the file from USAspending…" : "USAspending is generating your file"}
+            {dl.rows != null ? ` (${dl.rows.toLocaleString()} rows so far)` : ""}. A wide date range can take a minute.
+          </div>
+        )}
+        {dl && dl.phase === "ready" && (
+          <div className="result-ok" style={{ maxWidth: "none", marginTop: 12 }}>
+            Your file is ready: {Number(dl.rows || 0).toLocaleString()} rows{dl.size ? `, about ${Math.round(dl.size).toLocaleString()} KB` : ""}.{" "}
+            <a href={dl.url} className="rowlink" target="_blank" rel="noopener noreferrer">Download the ZIP →</a>
+          </div>
+        )}
       </div>
     </div>
   );
