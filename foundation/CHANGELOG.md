@@ -1,5 +1,14 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.8.3: Fix feeder "Run now" pulling 0 on a narrow filter (2026-07-08)
+
+**"Run now" with a specific filter (e.g., a single agency + sub-agency + award type) reported "0 payment(s) screened" even when USAspending had matching awards. The feeder was requesting an hourly rotating page number that overshoots a narrow result set.**
+
+- Root cause: the feeder fetches `page = _page_for_now()` (a deterministic per-hour page, 1 to 500, for scheduled-run variety over the broad default query). A narrow admin filter has only a few pages, so a high rotating page (e.g., 424) returns an empty page and looks like nothing matched. Verified against the live API: the exact filter returned 10 results on page 1 and 0 on page 424.
+- Fix (`src/component_f_feeder/app.py`): on-demand Run-now now fetches **page 1** (the top results of the admin's exact filter, biggest awards first), not the rotating page. Any query also **falls back to page 1** if the requested page comes back empty, so a valid narrow filter never reports 0. Scheduled runs over the broad default still rotate for variety.
+- Tests (`tests/test_feeder.py`): Run-now uses page 1; a rotating page that overshoots retries page 1. pytest 137/137, ruff clean.
+- Backend change (feeder Lambda image); requires an image rebuild + terraform apply to deploy.
+
 ## v3.8.2: Feed builder full parity with the USAspending Custom Award Data form (2026-07-08)
 
 **The admin Feed builder now mirrors every control on usaspending.gov's Custom Award Data download page, so the same choices available there are available here.**

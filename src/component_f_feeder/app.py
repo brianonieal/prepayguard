@@ -74,6 +74,10 @@ def _load_config(event: dict) -> dict:
     inline = event.get("feeder_config")
     if isinstance(inline, dict):
         cfg.update({k: inline[k] for k in _CONFIG_FIELDS if inline.get(k) is not None})
+        # On-demand Run-now: fetch the top page of the admin's exact filter (biggest
+        # awards first), not the hourly rotating page. A narrow filter has few pages,
+        # so the rotating page would overshoot and pull nothing.
+        cfg["page"] = int(inline.get("page") or 1)
         return cfg
     bucket = os.environ.get("FEEDER_CONFIG_BUCKET")
     if bucket:
@@ -99,8 +103,7 @@ def _time_period(config: dict) -> dict:
     return tp
 
 
-def _fetch_awards(config: dict) -> list[dict]:
-    subawards = bool(config.get("subawards"))
+def _fetch_page(config: dict, subawards: bool, page: int) -> list[dict]:
     filters = {"award_type_codes": list(config["award_type_codes"]), "time_period": [_time_period(config)]}
     # Optional narrowing filters (USAspending accepts these on spending_by_award).
     for key in ("agencies", "recipient_locations", "place_of_performance_locations"):
@@ -110,7 +113,7 @@ def _fetch_awards(config: dict) -> list[dict]:
               else ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency"])
     body = json.dumps({
         "subawards": subawards, "filters": filters, "fields": fields,
-        "limit": int(config["limit"]), "page": config.get("page") or _page_for_now(),
+        "limit": int(config["limit"]), "page": int(page),
         "sort": "Sub-Award Amount" if subawards else "Award Amount", "order": "desc",
     }).encode()
     req = urllib.request.Request(  # noqa: S310 (fixed https host)
@@ -118,6 +121,20 @@ def _fetch_awards(config: dict) -> list[dict]:
         headers={"Content-Type": "application/json", "User-Agent": "PrePayGuard-feeder/1.0"})
     with urllib.request.urlopen(req, timeout=25) as resp:
         return json.loads(resp.read()).get("results", [])
+
+
+def _fetch_awards(config: dict) -> list[dict]:
+    subawards = bool(config.get("subawards"))
+    page = int(config.get("page") or _page_for_now())
+    results = _fetch_page(config, subawards, page)
+    # The hourly page rotation gives scheduled runs variety over the broad default
+    # query, but a NARROW filter (specific agency/sub-agency/award type) has only a few
+    # pages, so a high rotating page overshoots the result set and returns nothing. If
+    # the requested page came back empty, fall back to page 1 so a valid filter that has
+    # matching awards never reports "0 pulled".
+    if not results and page != 1:
+        results = _fetch_page(config, subawards, 1)
+    return results
 
 
 def _to_payment(award: dict, subawards: bool = False) -> dict | None:
