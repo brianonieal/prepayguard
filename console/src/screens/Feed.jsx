@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getFeedConfig, putFeedConfig, runFeed } from "../lib/api.js";
-import { fetchAgencies, fetchSubAgencies, STATES, DOWNLOAD_FORMATS, requestAwardDownload, pollAwardDownload } from "../lib/usaspending.js";
+import { fetchAgencies, fetchSubAgencies, STATES, COUNTRIES, DOWNLOAD_FORMATS, requestAwardDownload, pollAwardDownload } from "../lib/usaspending.js";
 
 // USAspending award_type_codes grouped into the builder's friendly categories.
 // A single query is EITHER prime OR sub-awards (the API's subawards flag is global),
@@ -28,6 +28,24 @@ const selFromCodes = (codes, mode) => {
 };
 const codesFromSel = (sel, mode) => cats(mode).filter((c) => sel[c.key]).flatMap((c) => c.codes);
 const isoDaysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+const iso = (d) => d.toISOString().slice(0, 10);
+
+// USAspending Time Period presets (an alternative to the manual Date Picker), each
+// computing a {start,end} range. Fiscal years run Oct 1 (FY-1) to Sep 30 (FY); the
+// current/future FY end is capped at today (data is only available up to present, and
+// the download range cannot exceed one year). Computed at render from the real date.
+function timePeriods() {
+  const now = new Date();
+  const today = iso(now);
+  const curFY = now.getMonth() + 1 >= 10 ? now.getFullYear() + 1 : now.getFullYear();
+  const fyRange = (fy) => ({ start: `${fy - 1}-10-01`, end: `${fy}-09-30` < today ? `${fy}-09-30` : today });
+  const out = [
+    { key: "latest12", label: "Latest 12 months", range: { start: isoDaysAgo(364), end: today } },
+    { key: "fytd", label: `Current fiscal year to date (FY ${curFY})`, range: { start: `${curFY - 1}-10-01`, end: today } },
+  ];
+  for (let fy = curFY; fy >= curFY - 6; fy--) out.push({ key: `fy${fy}`, label: `Fiscal year ${fy}`, range: fyRange(fy) });
+  return out;
+}
 
 export default function Feed() {
   const [mode, setMode] = useState("prime");            // prime | sub
@@ -41,6 +59,8 @@ export default function Feed() {
   const [country, setCountry] = useState("USA");
   const [state, setState] = useState("");
   const [dateType, setDateType] = useState("action_date");
+  const [dateRangeMode, setDateRangeMode] = useState("picker"); // period | picker
+  const [period, setPeriod] = useState("");                     // selected Time Period key
   const [startDate, setStartDate] = useState(isoDaysAgo(365));
   const [endDate, setEndDate] = useState(isoDaysAgo(0));
   const [limit, setLimit] = useState(10);
@@ -84,6 +104,20 @@ export default function Feed() {
   const toggle = (k) => setSel((p) => ({ ...p, [k]: !p[k] }));
   const codes = codesFromSel(sel, mode);
   const agencyName = agencies.find((a) => a.code === agencyCode)?.name || "";
+  const PERIODS = timePeriods();
+  const selectPeriod = (key) => {
+    setPeriod(key);
+    const p = PERIODS.find((x) => x.key === key);
+    if (p) { setStartDate(p.range.start); setEndDate(p.range.end); }
+  };
+  const doReset = () => {
+    setMode("prime"); setSel({ contracts: true });
+    setAgencyType("awarding"); setAgencyCode(""); setSubAgency("");
+    setLocType("recipient"); setCountry("USA"); setState("");
+    setDateType("action_date"); setDateRangeMode("picker"); setPeriod("");
+    setStartDate(isoDaysAgo(365)); setEndDate(isoDaysAgo(0)); setLimit(10);
+    setFileFormat("csv"); setDl(null); setMsg(""); setErr("");
+  };
 
   const cfg = () => {
     const c = {
@@ -191,6 +225,11 @@ export default function Feed() {
             <label><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
             <label><input type="radio" name="agtype" aria-label="Funding Agency" checked={agencyType === "funding"} onChange={() => setAgencyType("funding")} /> Funding</label>
           </div>
+          <div className="toghelp">
+            {agencyType === "awarding"
+              ? "Issues and administers the award, usually paying for it out of its own budget."
+              : "Pays for the majority of an award's funds out of its budget."}
+          </div>
           <div className="field">
             <span>Agency (optional)</span>
             <select aria-label="agency" value={agencyCode} onChange={(e) => { setAgencyCode(e.target.value); setSubAgency(""); }}>
@@ -213,19 +252,24 @@ export default function Feed() {
             <label><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
             <label><input type="radio" name="loc" aria-label="Place of Performance" checked={locType === "pop"} onChange={() => setLocType("pop")} /> Place of performance</label>
           </div>
+          <div className="toghelp">
+            {locType === "recipient"
+              ? "The legal business address of the recipient."
+              : "The principal place of business, where the majority of the work is performed."}
+          </div>
           <div className="field-row">
             <div className="field">
               <span>Country</span>
-              <select aria-label="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="USA">United States</option>
-                <option value="">Any country</option>
+              <select aria-label="country" value={country} onChange={(e) => { setCountry(e.target.value); if (e.target.value !== "USA") setState(""); }}>
+                <option value="">All countries</option>
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
             <div className="field">
               <span>State (optional)</span>
-              <select aria-label="state" value={state} onChange={(e) => setState(e.target.value)}>
-                <option value="">Any state</option>
-                {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              <select aria-label="state" value={state} onChange={(e) => setState(e.target.value)} disabled={country !== "USA"}>
+                <option value="">{country === "USA" ? "Any state" : "United States only"}</option>
+                {country === "USA" && STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -240,15 +284,43 @@ export default function Feed() {
               <option value="last_modified_date">Last modified date</option>
             </select>
           </div>
-          <div className="field-row">
-            <div className="field">
-              <span>From</span>
-              <input type="date" aria-label="from" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <div className="toghelp">
+            {dateType === "action_date"
+              ? "When an award action is issued or signed by an agency in its award system."
+              : "When the details of a reported award action were last updated."}
+          </div>
+          <div className="field">
+            <span>Date range</span>
+            <div className="toggle">
+              <label><input type="radio" name="drmode" aria-label="Time Period" checked={dateRangeMode === "period"} onChange={() => setDateRangeMode("period")} /> Time period</label>
+              <label><input type="radio" name="drmode" aria-label="Date Picker" checked={dateRangeMode === "picker"} onChange={() => setDateRangeMode("picker")} /> Date picker</label>
             </div>
+          </div>
+          {dateRangeMode === "period" ? (
             <div className="field">
-              <span>To</span>
-              <input type="date" aria-label="to" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <span>Time period <span className="req">(required)</span></span>
+              <select aria-label="time period" value={period} onChange={(e) => selectPeriod(e.target.value)}>
+                <option value="">Select time period</option>
+                {PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
             </div>
+          ) : (
+            <div className="field-row">
+              <div className="field">
+                <span>From</span>
+                <input type="date" aria-label="from" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="field">
+                <span>To</span>
+                <input type="date" aria-label="to" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="toghelp" style={{ marginTop: 6 }}>
+            {dateRangeMode === "period"
+              ? "Pre-selected periods, including government fiscal year (FY)."
+              : "A custom range, which may span up to one year."}
+            {" "}Using {startDate} to {endDate}.
           </div>
           <div className="field">
             <span>Payments per pull (max 100)</span>
@@ -268,6 +340,21 @@ export default function Feed() {
           Download the full matching Custom Award Data file straight from USAspending, using the
           filters above. This is a raw data export to your browser (the same file the USAspending
           download center produces); it does not run through screening.
+        </div>
+        <div className="dl-summary">
+          <div className="dl-sum-h">Your selections</div>
+          <dl>
+            <dt>Award types</dt>
+            <dd>{mode === "sub" ? "Sub-awards" : "Prime awards"}: {cats(mode).filter((c) => sel[c.key]).map((c) => c.label).join(", ") || "none selected"}</dd>
+            <dt>Agency</dt>
+            <dd>{agencyName ? `${agencyType === "awarding" ? "Awarding" : "Funding"}: ${agencyName}${subAgency ? ` / ${subAgency}` : ""}` : "Any agency"}</dd>
+            <dt>Location</dt>
+            <dd>{(locType === "pop" ? "Place of performance" : "Recipient") + ": " + (country ? (COUNTRIES.find((c) => c.code === country)?.name || country) : "All countries") + (state ? `, ${state}` : "")}</dd>
+            <dt>Date</dt>
+            <dd>{dateType === "action_date" ? "Action date" : "Last modified date"}, {startDate} to {endDate}</dd>
+            <dt>File format</dt>
+            <dd>{DOWNLOAD_FORMATS.find((f) => f.value === fileFormat)?.label}</dd>
+          </dl>
         </div>
         <div className="dl-row">
           <div className="field" style={{ margin: 0, flex: 1 }}>
@@ -296,6 +383,9 @@ export default function Feed() {
             <a href={dl.url} className="rowlink" target="_blank" rel="noopener noreferrer">Download the ZIP →</a>
           </div>
         )}
+        <div style={{ marginTop: 14 }}>
+          <button className="linkbtn" onClick={doReset}>Reset form and start over</button>
+        </div>
       </div>
     </div>
   );

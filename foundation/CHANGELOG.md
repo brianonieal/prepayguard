@@ -1,5 +1,16 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.8.2: Feed builder full parity with the USAspending Custom Award Data form (2026-07-08)
+
+**The admin Feed builder now mirrors every control on usaspending.gov's Custom Award Data download page, so the same choices available there are available here.**
+
+- Date range: added the **Time Period** option (an alternative to the Date Picker) with a preset dropdown (Latest 12 months, current fiscal year to date, and the recent fiscal years); selecting a preset fills the from/to range. Fiscal years run Oct 1 to Sep 30, with the current/future FY end capped at today.
+- Location: the Country control is now the **full country list** (ISO alpha-3, "All countries" default) instead of just United States / Any; State is US-only and disables for other countries.
+- Added the descriptive **helper text** under Awarding vs Funding, Recipient vs Place of performance, Action date vs Last modified date, and Time period vs Date picker, matching the source page.
+- Added a **"Your selections"** read-back summary (award types, agency, location, date, file format) mirroring the page's Download Summary, plus a **"Reset form and start over"** link.
+- The file-format selector (CSV / TSV / TXT pipe-delimited) and the direct download shipped in v3.8.1.
+- Verified: vitest 36/36, production build clean, live API accepts the time-period-derived and foreign-country filter shapes, layout confirmed in a live preview, no em dashes.
+
 ## v3.8.1: Feed page raw-data download from USAspending (2026-07-08)
 
 **The admin Feed page can now download the raw Custom Award Data file directly from USAspending (the same export the usaspending.gov download center produces), using the builder's existing filters. This is separate from the feed: it exports a file to the browser and does not run through screening.**
