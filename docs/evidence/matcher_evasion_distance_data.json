@@ -1,0 +1,349 @@
+{
+  "target": "Globex Offshore Inc",
+  "sem_threshold": 0.72,
+  "fuzzy_threshold": 0.9,
+  "a_length5_by_class": {
+    "adversarial": {
+      "payee_cosine": 0.6135,
+      "append_alone_cosine_to_name": 0.0025,
+      "crosses_below_0.72": true
+    },
+    "near_domain": {
+      "payee_cosine": 0.8302,
+      "append_alone_cosine_to_name": 0.1687,
+      "crosses_below_0.72": false
+    },
+    "far_benign": {
+      "payee_cosine": 0.5997,
+      "append_alone_cosine_to_name": 0.0698,
+      "crosses_below_0.72": true
+    },
+    "legit_distant": {
+      "payee_cosine": 0.6385,
+      "append_alone_cosine_to_name": 0.0885,
+      "crosses_below_0.72": true
+    },
+    "numeric_admin": {
+      "payee_cosine": 0.5564,
+      "append_alone_cosine_to_name": 0.0976,
+      "crosses_below_0.72": true
+    }
+  },
+  "b_length_by_class": {
+    "adversarial": [
+      {
+        "tokens": 5,
+        "payee_cosine": 0.6135,
+        "append_alone_cosine_to_name": 0.0025,
+        "fuzzy": 0.481,
+        "matches": false
+      },
+      {
+        "tokens": 20,
+        "payee_cosine": 0.7184,
+        "append_alone_cosine_to_name": 0.0262,
+        "fuzzy": 0.2054,
+        "matches": false
+      },
+      {
+        "tokens": 80,
+        "payee_cosine": 0.7049,
+        "append_alone_cosine_to_name": 0.0427,
+        "fuzzy": 0.0641,
+        "matches": false
+      }
+    ],
+    "near_domain": [
+      {
+        "tokens": 5,
+        "payee_cosine": 0.8302,
+        "append_alone_cosine_to_name": 0.1687,
+        "fuzzy": 0.4935,
+        "matches": true
+      },
+      {
+        "tokens": 20,
+        "payee_cosine": 0.8731,
+        "append_alone_cosine_to_name": 0.2124,
+        "fuzzy": 0.1881,
+        "matches": true
+      },
+      {
+        "tokens": 80,
+        "payee_cosine": 0.8578,
+        "append_alone_cosine_to_name": 0.1605,
+        "fuzzy": 0.0548,
+        "matches": true
+      }
+    ],
+    "far_benign": [
+      {
+        "tokens": 5,
+        "payee_cosine": 0.5997,
+        "append_alone_cosine_to_name": 0.0698,
+        "fuzzy": 0.4691,
+        "matches": false
+      },
+      {
+        "tokens": 20,
+        "payee_cosine": 0.7976,
+        "append_alone_cosine_to_name": 0.0743,
+        "fuzzy": 0.1792,
+        "matches": true
+      },
+      {
+        "tokens": 80,
+        "payee_cosine": 0.7352,
+        "append_alone_cosine_to_name": 0.0673,
+        "fuzzy": 0.0529,
+        "matches": true
+      }
+    ],
+    "legit_distant": [
+      {
+        "tokens": 5,
+        "payee_cosine": 0.6385,
+        "append_alone_cosine_to_name": 0.0885,
+        "fuzzy": 0.6032,
+        "matches": false
+      },
+      {
+        "tokens": 20,
+        "payee_cosine": 0.5385,
+        "append_alone_cosine_to_name": 0.0685,
+        "fuzzy": 0.2262,
+        "matches": false
+      },
+      {
+        "tokens": 80,
+        "payee_cosine": 0.5015,
+        "append_alone_cosine_to_name": 0.0296,
+        "fuzzy": 0.0685,
+        "matches": false
+      }
+    ],
+    "numeric_admin": [
+      {
+        "tokens": 5,
+        "payee_cosine": 0.5564,
+        "append_alone_cosine_to_name": 0.0976,
+        "fuzzy": 0.5205,
+        "matches": false
+      },
+      {
+        "tokens": 20,
+        "payee_cosine": 0.5995,
+        "append_alone_cosine_to_name": 0.0813,
+        "fuzzy": 0.1919,
+        "matches": false
+      },
+      {
+        "tokens": 80,
+        "payee_cosine": 0.6245,
+        "append_alone_cosine_to_name": 0.091,
+        "fuzzy": 0.0596,
+        "matches": false
+      }
+    ]
+  },
+  "c_distance_proxy": {
+    "adversarial": [
+      {
+        "tokens": 5,
+        "append_alone_cos": 0.0025,
+        "payee_cos": 0.6135
+      },
+      {
+        "tokens": 20,
+        "append_alone_cos": 0.0262,
+        "payee_cos": 0.7184
+      },
+      {
+        "tokens": 80,
+        "append_alone_cos": 0.0427,
+        "payee_cos": 0.7049
+      }
+    ],
+    "near_domain": [
+      {
+        "tokens": 5,
+        "append_alone_cos": 0.1687,
+        "payee_cos": 0.8302
+      },
+      {
+        "tokens": 20,
+        "append_alone_cos": 0.2124,
+        "payee_cos": 0.8731
+      },
+      {
+        "tokens": 80,
+        "append_alone_cos": 0.1605,
+        "payee_cos": 0.8578
+      }
+    ],
+    "far_benign": [
+      {
+        "tokens": 5,
+        "append_alone_cos": 0.0698,
+        "payee_cos": 0.5997
+      },
+      {
+        "tokens": 20,
+        "append_alone_cos": 0.0743,
+        "payee_cos": 0.7976
+      },
+      {
+        "tokens": 80,
+        "append_alone_cos": 0.0673,
+        "payee_cos": 0.7352
+      }
+    ],
+    "legit_distant": [
+      {
+        "tokens": 5,
+        "append_alone_cos": 0.0885,
+        "payee_cos": 0.6385
+      },
+      {
+        "tokens": 20,
+        "append_alone_cos": 0.0685,
+        "payee_cos": 0.5385
+      },
+      {
+        "tokens": 80,
+        "append_alone_cos": 0.0296,
+        "payee_cos": 0.5015
+      }
+    ],
+    "numeric_admin": [
+      {
+        "tokens": 5,
+        "append_alone_cos": 0.0976,
+        "payee_cos": 0.5564
+      },
+      {
+        "tokens": 20,
+        "append_alone_cos": 0.0813,
+        "payee_cos": 0.5995
+      },
+      {
+        "tokens": 80,
+        "append_alone_cos": 0.091,
+        "payee_cos": 0.6245
+      }
+    ]
+  },
+  "d_real_entities_length5": {
+    "YATAI SMART INDUSTRIAL NEW CITY": {
+      "adversarial": {
+        "payee_cosine": 0.6307,
+        "crosses_below_0.72": true
+      },
+      "near_domain": {
+        "payee_cosine": 0.773,
+        "crosses_below_0.72": false
+      },
+      "far_benign": {
+        "payee_cosine": 0.554,
+        "crosses_below_0.72": true
+      },
+      "legit_distant": {
+        "payee_cosine": 0.5709,
+        "crosses_below_0.72": true
+      },
+      "numeric_admin": {
+        "payee_cosine": 0.4248,
+        "crosses_below_0.72": true
+      }
+    },
+    "Hawwk LLC": {
+      "adversarial": {
+        "payee_cosine": 0.5324,
+        "crosses_below_0.72": true
+      },
+      "near_domain": {
+        "payee_cosine": 0.7881,
+        "crosses_below_0.72": false
+      },
+      "far_benign": {
+        "payee_cosine": 0.5138,
+        "crosses_below_0.72": true
+      },
+      "legit_distant": {
+        "payee_cosine": 0.6491,
+        "crosses_below_0.72": true
+      },
+      "numeric_admin": {
+        "payee_cosine": 0.4995,
+        "crosses_below_0.72": true
+      }
+    },
+    "DIGITAL MARKETING AWARDS FZ LLC": {
+      "adversarial": {
+        "payee_cosine": 0.6721,
+        "crosses_below_0.72": true
+      },
+      "near_domain": {
+        "payee_cosine": 0.8689,
+        "crosses_below_0.72": false
+      },
+      "far_benign": {
+        "payee_cosine": 0.7601,
+        "crosses_below_0.72": false
+      },
+      "legit_distant": {
+        "payee_cosine": 0.7642,
+        "crosses_below_0.72": false
+      },
+      "numeric_admin": {
+        "payee_cosine": 0.5682,
+        "crosses_below_0.72": true
+      }
+    },
+    "James O. Wilson Jr.": {
+      "adversarial": {
+        "payee_cosine": 0.4645,
+        "crosses_below_0.72": true
+      },
+      "near_domain": {
+        "payee_cosine": 0.8106,
+        "crosses_below_0.72": false
+      },
+      "far_benign": {
+        "payee_cosine": 0.3817,
+        "crosses_below_0.72": true
+      },
+      "legit_distant": {
+        "payee_cosine": 0.6266,
+        "crosses_below_0.72": true
+      },
+      "numeric_admin": {
+        "payee_cosine": 0.4267,
+        "crosses_below_0.72": true
+      }
+    },
+    "Kathleen J King": {
+      "adversarial": {
+        "payee_cosine": 0.4741,
+        "crosses_below_0.72": true
+      },
+      "near_domain": {
+        "payee_cosine": 0.7856,
+        "crosses_below_0.72": false
+      },
+      "far_benign": {
+        "payee_cosine": 0.3996,
+        "crosses_below_0.72": true
+      },
+      "legit_distant": {
+        "payee_cosine": 0.6716,
+        "crosses_below_0.72": true
+      },
+      "numeric_admin": {
+        "payee_cosine": 0.5233,
+        "crosses_below_0.72": true
+      }
+    }
+  },
+  "e_exact_match": "any append changes the normalized payee so it != normalized entry name; exact match (payee==entry_name) is defeated. component_b_enrichment/app.py:169 with _normalize_name at :89-91."
+}
