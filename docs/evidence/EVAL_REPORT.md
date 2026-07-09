@@ -2,9 +2,12 @@
 
 **Date:** 2026-07-09. **Method:** live `amazon.titan-embed-text-v2:0` (us-east-2), the
 deployed matcher's own `best_match` logic (`scripts/eval_semantic_matching.py`, which imports
-Component B's cosine). 27-case set (`scripts/semantic_eval_set.json`): 10 positives (legit name
-variants that SHOULD match a listed entity), 10 clean, 7 hard negatives. Raw results:
-`docs/evidence/semantic_eval_results.json`. Reproduce:
+Component B's cosine). This report covers two runs: the original **27-case** set (§2.3 —
+10 positives / 10 clean / 7 hard negatives; results `semantic_eval_results.json`) and the
+**append-inclusive 62-case** expansion (§2.4 — 31 / 15 / 16; results
+`semantic_eval_results_v2.json`). `scripts/semantic_eval_set.json` **now holds the 62-case
+version**; the 27-case state is in git history (pre-2.4). Where a section says "27-case", it
+means the §2.3 run, not the current file. Reproduce:
 `python scripts/eval_semantic_matching.py --stability --json docs/evidence/semantic_eval_results.json`.
 
 ## The strongest finding: the append-positive and hard-negative distributions overlap — no threshold separates them

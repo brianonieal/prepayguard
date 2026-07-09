@@ -80,8 +80,10 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_fee
   (`src/component_b_enrichment/reference_data.json`, self-labeled). DMF and TOP are **not
   publicly obtainable** (DMF access is restricted to certified users under the DPPA/NTIS
   program; TOP is an internal Treasury offset system), which is precisely why they are
-  modeled rather than integrated. OIG LEIE is public but is kept synthetic here for
-  consistency with the other restricted feeds. See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
+  modeled rather than integrated. OIG LEIE **is** publicly downloadable; keeping it synthetic
+  here is a **deliberate scoping choice** (one real end-to-end integration — SAM — is enough to
+  demonstrate the ingest/refresh path; a second adds cost and PII surface without new evidence),
+  **not an oversight or a missed source.** See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
 - **LLM adjudication briefs (DEC-20):** on-demand Bedrock Nova Lite summary for reviewers,
   grounded only in the audit record, advisory, never written to the immutable record.
 
@@ -245,6 +247,7 @@ observability, and scope.
 | 10 | WAF absent on the APIs and CloudFront; no cross-region replication of the audit bucket | Edge protection / DR | **Low** | Accepted at course scope (IAM-authed, resource-policy-scoped, single-region); recorded as residual risk | `.checkov.yaml` (justified skips) |
 | 11 | No load / DR / chaos testing; cold-start latency unmeasured under load | Performance / resilience | **Low** | Open (follow-on: load + chaos testing, right-size memory/concurrency) | §5.5, §6.5 |
 | 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
+| 13 | Matcher **false positives** on legitimate look-alike names (F5): 7/16 hard negatives score ≥0.72 on the eval; two (`Initech Solutions LLC`, `Globex Onshore Inc`) at 0.966 are FPs at every threshold below 0.966. Same whole-string defect as F1 (row 5), opposite direction | Model robustness / component B | **Medium** | Contained: `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW (reviewer load, not a wrong auto-reject); robust-matcher follow-on fixes F1 and F5 together | `docs/sme/INJECTION_THREAT_MODEL.md` F5, `docs/evidence/EVAL_REPORT.md` |
 
 Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
 findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in

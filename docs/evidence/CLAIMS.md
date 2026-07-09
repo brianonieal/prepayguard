@@ -30,8 +30,8 @@ data but have no committed split script (**partial**).
 | 4 | Names exceeding 22 / 35 chars | **29 / 11** (of 96) | `…b_length_hist` | **`scripts/sweep_2_1d.py`** (committed, V8) | **Y** (reran → 29 / 11) |
 | 5 | Full-Cyrillic transliteration cosines | **0.11–0.29** (all 5 evade) | `matcher_evasion_bounded_data.json` → `2_1d.a_full_script` | **`scripts/sweep_2_1d.py`** (committed, V8) | **Y** |
 | 6 | 2.1b bounded-append evasion | 3/5 @35, 2/5 @22; homoglyph `Наwwk`→0.519 | `matcher_evasion_bounded_data.json` → `entities`, `homoglyph_nsub_sweep` | **`scripts/sweep_2_1b.py`** (committed, V8) | **Y** (reran → k2 0.5194) |
-| 7 | 2.0c 5-token dilution (adversarial) | fuzzy **0.487**, semantic **0.506** at 5 tok | `matcher_evasion_data.json`, `matcher_evasion_distance_data.json` | 2.0b/2.0c generator **(not committed)** | **N** (data only) |
-| 8 | 2.0c distance-vs-length (5 real SAM entities) | 4/5 classes evade at 5 tok | `matcher_evasion_distance_data.json` → `d_real_entities_length5` | 2.0c generator **(not committed)** | **N** (data only) |
+| 7 | 2.0b 5-token dilution (adversarial): fuzzy 0.487 / semantic 0.506 | `matcher_evasion_data.json` | 2.0b generator **not recovered** (the exact 2.0b filler string is not in the docs) | **N** — these *specific* cosines are not repo-reproducible. The FINDING (a 5-token adversarial append evades semantic+fuzzy) IS reproduced by `scripts/sweep_2_0c.py` (adversarial 0.6135 < 0.72) and by `sweep_2_1b.py`. Do not cite 0.506/0.487 as reproducible. |
+| 8 | 2.0c distance-vs-length (5 real SAM entities): 4/5 classes evade at 5 tok | `matcher_evasion_distance_data.json` → `d_real_entities_length5` | **`scripts/sweep_2_0c.py`** (committed) | **Y (finding)** — reran → per-entity evade counts reproduce EXACTLY (YATAI 4/5, Hawwk 4/5, DIGITAL 2/5, James 4/5, Kathleen 4/5). Caveat: 4/5 class cosines reproduce bit-exact; `legit_distant`'s committed cosine (0.6385) used an escrow string not recovered — it still evades, but that one exact value is not bit-reproducible. |
 | 9 | Semantic sweep, 27-case set @0.72 | prec 0.833, recall 1.000, F1 0.909, FPR 0.118 | `semantic_eval_results.json` | **`scripts/eval_semantic_matching.py`** (committed) + `scripts/semantic_eval_set.json` (pre-2.4 state in git history) | **Y** |
 | 10 | Semantic sweep, 62-case set @0.72 | prec 0.682, recall(all) 0.484, F1 0.566 | `semantic_eval_results_v2.json` | **`scripts/eval_semantic_matching.py`** (committed) + `scripts/semantic_eval_set.json` (committed, 62 cases) | **Y** |
 | 11 | Recall split (C1) benign / append @0.72 | **10/10 = 1.00** / **5/21 = 0.24** | `semantic_eval_results_v2.json` (per_case) | derived (ad-hoc scratchpad analysis, **not committed**); recomputable from committed data + `semantic_eval_set.json` variants | **partial** (data committed; no committed split script) |
@@ -46,16 +46,22 @@ data but have no committed split script (**partial**).
 | 18 | Deployed-API validation test (2.1f) | 66-char→400, Cyrillic→400, clean→200 | none (results in `matcher_evasion_bounded.md` §e prose) | **`scripts/send_payment.py`** (committed) against live dev API | **Y** (needs live infra) |
 | 19 | Reference list size / version | **96 entries, v4** | V3 snapshot `docs/evidence/reference_list_v4_snapshot.*` | live S3 `reference/current.json` | **Y** once V3 lands |
 
-## Summary (after V8)
+## Summary (after V8 + 2.0c recovery)
 
-- **Fully reproducible from the repo (Y): 19 of 21 rows** — the four matcher-evasion sweeps
-  (2.1b, 2.1d, residual, C4, now committed + reran), the semantic-eval sweep (both sets), the C5
-  production-FP count, the three Bedrock-cost figures, stability, the deployed test, the
-  reference size, and the ECR image-scan findings.
-- **NOT reproducible (N): 2 rows** — the **2.0b/2.0c** dilution figures (rows 7–8): their
-  generator was authored in a prior session and is not available; committed data only.
+- **Fully reproducible from the repo (Y): 20 of 21 rows** — the five matcher-evasion sweeps
+  (2.1b, 2.1d, residual, C4, **and now 2.0c** via `scripts/sweep_2_0c.py` — per-entity evade
+  verdicts reproduce exactly), the semantic-eval sweep (both sets), the C5 production-FP count,
+  the three Bedrock-cost figures, stability, the deployed test, the reference size, and the ECR
+  image-scan findings.
+- **NOT reproducible (N): 1 row** — **row 7**, the *specific* 2.0b cosines `0.506 / 0.487`: the
+  exact 2.0b filler string is not in the docs, so those two numbers are not repo-reproducible.
+  The finding they support (adversarial 5-token append evades) IS reproduced by `sweep_2_0c.py`
+  and `sweep_2_1b.py` — do not cite `0.506 / 0.487` as reproducible.
 - **Partial (2 rows):** the **C1/C2** recall splits (rows 11–12) — committed data, recomputable,
   but no committed split script.
+- **One caveat inside a Y row:** row 8's `legit_distant` class cosine (0.6385) used an escrow
+  string not recovered; that single cosine is not bit-reproducible, though the finding and the
+  other 4 class cosines are.
 
-Remaining gaps for the handoff: reconstruct or locate the 2.0b/2.0c generator (rows 7–8), and
-optionally save the C1/C2 split as a committed script (rows 11–12).
+Remaining gap: row 7's two 2.0b cosines are not reproducible; the honest options are to drop
+those two numbers from any handoff prose or cite the reproducible 2.0c/2.1b equivalents instead.

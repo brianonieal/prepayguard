@@ -235,6 +235,26 @@ exposed if the single edge control is ever misconfigured). This is a defense-in-
 finding, not a live breach: the edge policy currently restricts invoke to the console
 roles. See "Authorization finding" below. Not fixed; requires a decision.
 
+### F5. Matcher FALSE POSITIVES on legitimate look-alike names - MEDIUM
+
+The same whole-string embedding primitive that fails as a false NEGATIVE under dilution (F1)
+fails as a false POSITIVE on genuinely different but surface-similar names. Measured on the
+62-case eval (`EVAL_REPORT.md`, `semantic_eval_results_v2.json`): **7 of 16 hard negatives score
+≥ 0.72 at the deployed threshold and are flagged as matches to a *different* listed entity** —
+`Initech Solutions LLC` → Initech Systems LLC (**0.966**), `Globex Onshore Inc` → Globex Offshore
+Inc (**0.966**), `Initech Systemics LLC` (0.952), `Globex Ashore Inc` (0.876), `Acme Shelling Co`
+(0.815), `Robert Rowe` (0.798), `Umbrella Insurance Group` (0.743). **The two at 0.966 are false
+positives at *every* threshold below 0.966** — no usable threshold sheds them, because (per the
+EVAL_REPORT geometry finding) the append-positive and hard-negative distributions overlap and
+there is no separating `t`. So F1 (false negative, dilution) and F5 (false positive, look-alike)
+are two faces of one defect: whole-string cosine matching cannot both admit diluted true matches
+and reject similar non-matches. CI4A: **Integrity** of the screening output (a clean payee wrongly
+flagged). Likelihood depends on how often near-duplicate corporate/person names occur in real
+traffic (this synthetic set cannot estimate the real rate); impact is bounded — a semantic hit is
+capped to **REVIEW** by `NAME_MATCH_CAP=60` (`component_c_risk_scoring/app.py:27,50`; DEC-14), so
+these become reviewer load, not wrong auto-rejections. **Contained, not eliminated.** The
+robust-matcher follow-on (windowed / entity-resolution) is the fix for both F1 and F5.
+
 ## CI4A summary map
 
 | Finding | Confidentiality | Integrity | Authentication | Authorization | Availability | Accountability |
@@ -243,6 +263,7 @@ roles. See "Authorization finding" below. Not fixed; requires a decision.
 | F2 reject-band brief | - | advisory | - | - | - | - |
 | F3 review-band brief | - | advisory | - | - | - | decision |
 | F4 no in-handler authz | if edge fails | - | - | PRIMARY | - | - |
+| F5 look-alike false positive | - | PRIMARY (clean payee flagged) | - | - | - | - |
 
 ## Risk-rating table
 
@@ -252,6 +273,7 @@ roles. See "Authorization finding" below. Not fixed; requires a decision.
 | F2 | Brief poisoning, reject band | High | Low | **LOW** | C already rejects; brief is advisory and non-audit. | Negligible: no human acts on a rejected payment's brief. |
 | F3 | Brief poisoning, review band | Unknown (not shown) | Medium | **MEDIUM (open)** | UI adjacency of evidence and brief (`AuditDetail.jsx:71,81,99`); brief on-demand and labeled. | A stronger model/phrasing could flip it; reviewer-trust dependent. Open. |
 | F4 | No in-handler authz on brief/audit | Low (edge holds) | Medium | **MEDIUM** | API Gateway resource policy restricts invoke to console roles. | Single control; a misconfig exposes audit/brief data. Open. |
+| F5 | Look-alike false positives (whole-string cosine) | Unknown rate (synthetic set) | Medium | **MEDIUM** | `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW, so a false positive is reviewer load, not a wrong auto-reject. | **7/16 hard negatives ≥0.72 on the eval; two at 0.966 unsheddable at any threshold** (`EVAL_REPORT.md`). Same whole-string defect as F1; robust-matcher follow-on fixes both. Open. |
 
 ## Root cause (state it plainly)
 
