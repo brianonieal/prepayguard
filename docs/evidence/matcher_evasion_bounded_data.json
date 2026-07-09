@@ -1059,5 +1059,386 @@
       }
     ]
   },
-  "method": "offline; live amazon.titan-embed-text-v2:0 (normalize:true, us-east-2); payee embedding cosined vs the ACTUAL stored v4 per-entry vector from s3://treasury-dev-reference-.../reference/current.json; fuzzy=difflib on _normalize_name; mirrors src/component_b_enrichment/app.py:105-171"
+  "method": "offline; live amazon.titan-embed-text-v2:0 (normalize:true, us-east-2); payee embedding cosined vs the ACTUAL stored v4 per-entry vector from s3://treasury-dev-reference-.../reference/current.json; fuzzy=difflib on _normalize_name; mirrors src/component_b_enrichment/app.py:105-171",
+  "2_1d": {
+    "semantic_threshold": 0.72,
+    "operator": ">= (component_b_enrichment/app.py:147)",
+    "a_full_script": [
+      {
+        "entity": "YATAI SMART INDUSTRIAL NEW CITY",
+        "full_cyrillic": {
+          "payee": "уатаи смарт индустриал неш циту",
+          "scripts": [
+            "CYRILLIC"
+          ],
+          "single_script": true,
+          "ascii": false,
+          "cosine": 0.2904,
+          "fuzzy": 0.0,
+          "semantic_match": false,
+          "evades": true
+        },
+        "confusable_max": {
+          "payee": "YАТАІ SМАRТ ІNDUSТRІАL NЕW СІТY",
+          "scripts": [
+            "CYRILLIC",
+            "LATIN"
+          ],
+          "single_script": false,
+          "ascii": false,
+          "cosine": 0.3768,
+          "fuzzy": 0.588,
+          "semantic_match": false,
+          "evades": true
+        }
+      },
+      {
+        "entity": "Hawwk LLC",
+        "full_cyrillic": {
+          "payee": "һашшк ллц",
+          "scripts": [
+            "CYRILLIC"
+          ],
+          "single_script": true,
+          "ascii": false,
+          "cosine": 0.1058,
+          "fuzzy": 0.0,
+          "semantic_match": false,
+          "evades": true
+        },
+        "confusable_max": {
+          "payee": "Наwwk LLС",
+          "scripts": [
+            "CYRILLIC",
+            "LATIN"
+          ],
+          "single_script": false,
+          "ascii": false,
+          "cosine": 0.3283,
+          "fuzzy": 0.8,
+          "semantic_match": false,
+          "evades": true
+        }
+      },
+      {
+        "entity": "DIGITAL MARKETING AWARDS FZ LLC",
+        "full_cyrillic": {
+          "payee": "дигитал маркетинг ашардс фз ллц",
+          "scripts": [
+            "CYRILLIC"
+          ],
+          "single_script": true,
+          "ascii": false,
+          "cosine": 0.2428,
+          "fuzzy": 0.0,
+          "semantic_match": false,
+          "evades": true
+        },
+        "confusable_max": {
+          "payee": "DІGІТАL МАRКЕТІNG АWАRDS FZ LLС",
+          "scripts": [
+            "CYRILLIC",
+            "LATIN"
+          ],
+          "single_script": false,
+          "ascii": false,
+          "cosine": 0.3456,
+          "fuzzy": 0.679,
+          "semantic_match": false,
+          "evades": true
+        }
+      },
+      {
+        "entity": "James O. Wilson Jr.",
+        "full_cyrillic": {
+          "payee": "жамес о. шилсон жр.",
+          "scripts": [
+            "CYRILLIC"
+          ],
+          "single_script": true,
+          "ascii": false,
+          "cosine": 0.2395,
+          "fuzzy": 0.0,
+          "semantic_match": false,
+          "evades": true
+        },
+        "confusable_max": {
+          "payee": "Jаmеѕ О. Wіlѕоn Jr.",
+          "scripts": [
+            "CYRILLIC",
+            "LATIN"
+          ],
+          "single_script": false,
+          "ascii": false,
+          "cosine": 0.4932,
+          "fuzzy": 0.621,
+          "semantic_match": false,
+          "evades": true
+        }
+      },
+      {
+        "entity": "Kathleen J King",
+        "full_cyrillic": {
+          "payee": "катһлеен ж кинг",
+          "scripts": [
+            "CYRILLIC"
+          ],
+          "single_script": true,
+          "ascii": false,
+          "cosine": 0.2218,
+          "fuzzy": 0.0,
+          "semantic_match": false,
+          "evades": true
+        },
+        "confusable_max": {
+          "payee": "Каthlееn J Кіng",
+          "scripts": [
+            "CYRILLIC",
+            "LATIN"
+          ],
+          "single_script": false,
+          "ascii": false,
+          "cosine": 0.4199,
+          "fuzzy": 0.72,
+          "semantic_match": false,
+          "evades": true
+        }
+      }
+    ],
+    "ascii_only_rejects": [
+      {
+        "name": "José Muñoz",
+        "ascii": false
+      },
+      {
+        "name": "François Lefèvre",
+        "ascii": false
+      },
+      {
+        "name": "Søren Kierkegaard",
+        "ascii": false
+      },
+      {
+        "name": "Zoë O'Hara",
+        "ascii": false
+      },
+      {
+        "name": "Renée Zellweger",
+        "ascii": false
+      }
+    ],
+    "b_length_hist": {
+      "n": 96,
+      "min": 6,
+      "max": 66,
+      "mean": 21.5,
+      "exceed_22": 29,
+      "exceed_35": 11,
+      "buckets_5char": {
+        "5-9": 3,
+        "10-14": 21,
+        "15-19": 25,
+        "20-24": 25,
+        "25-29": 3,
+        "30-34": 8,
+        "35-39": 6,
+        "40-44": 2,
+        "50-54": 1,
+        "60-64": 1,
+        "65-69": 1
+      }
+    },
+    "b_truncation_miss_22": {
+      "cap": 22,
+      "entries_over_cap": 29,
+      "exact_miss": 29,
+      "fuzzy_miss": 20,
+      "semantic_miss": 8,
+      "FULL_screening_miss": 8,
+      "samples": [
+        {
+          "name": "Umbrella Holdings Group",
+          "trunc": "Umbrella Holdings Grou",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.9307
+        },
+        {
+          "name": "YATAI SMART INDUSTRIAL NEW CITY",
+          "trunc": "YATAI SMART INDUSTRIAL",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.795
+        },
+        {
+          "name": "LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK",
+          "trunc": "LIMITED LIABILITY COMP",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": false,
+          "screened_out(miss)": true,
+          "sem_cos": 0.2252
+        },
+        {
+          "name": "DIGITAL MARKETING AWARDS FZ LLC",
+          "trunc": "DIGITAL MARKETING AWAR",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.7708
+        },
+        {
+          "name": "EDINA SECURITY CONSULTANTS",
+          "trunc": "EDINA SECURITY CONSULT",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.9653
+        },
+        {
+          "name": "EKVIK LIMITED LIABILITY COMPANY",
+          "trunc": "EKVIK LIMITED LIABILIT",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.7905
+        }
+      ]
+    },
+    "b_truncation_miss_35": {
+      "cap": 35,
+      "entries_over_cap": 11,
+      "exact_miss": 10,
+      "fuzzy_miss": 3,
+      "semantic_miss": 2,
+      "FULL_screening_miss": 2,
+      "samples": [
+        {
+          "name": "LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK",
+          "trunc": "LIMITED LIABILITY COMPANY SPECIALIZ",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": false,
+          "screened_out(miss)": true,
+          "sem_cos": 0.3642
+        },
+        {
+          "name": "Citadel Community Development Corporation",
+          "trunc": "Citadel Community Development Corpo",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.8882
+        },
+        {
+          "name": "SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY",
+          "trunc": "SCIENTIFIC AND PRODUCTION ASSOCIATI",
+          "exact": false,
+          "fuzzy": false,
+          "semantic": false,
+          "screened_out(miss)": true,
+          "sem_cos": 0.4774
+        },
+        {
+          "name": "GOLDEN LUXURY JEWELLERY TRADING L.L.C",
+          "trunc": "GOLDEN LUXURY JEWELLERY TRADING L.L",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.9967
+        },
+        {
+          "name": "Usamah 'Abd-al-Wahid al-Jaza'iri BELKACEM",
+          "trunc": "Usamah 'Abd-al-Wahid al-Jaza'iri BE",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.7512
+        },
+        {
+          "name": "SUN SCIENCE INTERNATIONAL CO., LIMITED",
+          "trunc": "SUN SCIENCE INTERNATIONAL CO., LIMI",
+          "exact": false,
+          "fuzzy": true,
+          "semantic": true,
+          "screened_out(miss)": false,
+          "sem_cos": 0.8562
+        }
+      ]
+    },
+    "d_residual_35": {
+      "cap": 35,
+      "min_append_chars": 6,
+      "evadable_count": 76,
+      "total": 96,
+      "pct": 79.2
+    },
+    "d_residual_22": {
+      "cap": 22,
+      "min_append_chars": 6,
+      "evadable_count": 29,
+      "total": 96,
+      "pct": 30.2
+    },
+    "c_boundary_check": {
+      "James O. Wilson Jr. + APPROVE": {
+        "cosine_4dp": 0.7161,
+        "matches_under_ge_0.72": false
+      }
+    }
+  },
+  "2_1d_residual_N_of_96": {
+    "threshold": 0.72,
+    "tokens_tried": [
+      "OK PAY",
+      "FY26Q3",
+      "ZX QQ",
+      "PO 7781",
+      "JAZZ OWL"
+    ],
+    "cap_35": {
+      "cap": 35,
+      "total": 96,
+      "have_room": 77,
+      "confirmed_evade": 75,
+      "pct_evade": 78.1,
+      "sample_evaders": [
+        "John Q Public",
+        "Jane A Doe",
+        "Globex Offshore Inc",
+        "Umbrella Holdings Group",
+        "Mary M Sample",
+        "Initech Systems LLC",
+        "James O. Wilson Jr.",
+        "ARNITA LEFF"
+      ]
+    },
+    "cap_22": {
+      "cap": 22,
+      "total": 96,
+      "have_room": 32,
+      "confirmed_evade": 31,
+      "pct_evade": 32.3,
+      "sample_evaders": [
+        "John Q Public",
+        "Jane A Doe",
+        "Mary M Sample",
+        "ARNITA LEFF",
+        "Michael KUAJIEN",
+        "Hawwk LLC",
+        "Kathleen J King",
+        "Arob Kolnyang"
+      ]
+    }
+  }
 }

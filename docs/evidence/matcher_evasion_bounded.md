@@ -6,10 +6,14 @@ embedded and cosined against the **actual stored v4 per-entry vector** pulled fr
 `s3://treasury-dev-reference-<ACCOUNT_ID>/reference/current.json` — i.e. the exact vector
 Component B cosines at runtime (`component_b_enrichment/app.py:146`), not a re-embedded
 name. Fuzzy = `difflib.SequenceMatcher` on `_normalize_name` (`app.py:171,89-91`), threshold
-0.90; semantic threshold 0.72 (`app.py:123-127`). "Evades" = not exact AND cosine < 0.72 AND
-fuzzy < 0.90 (all three layers miss → empty `matches[]` → C scores 0 → `approve`). Raw data:
-`docs/evidence/matcher_evasion_bounded_data.json`. Reproduce with the sweep in that JSON's
-`method` field.
+0.90; semantic threshold 0.72 (`app.py:123-127`). The semantic operator is **`>=`**
+(`app.py:147`: `if sim >= threshold`), so a cosine of **exactly 0.72 MATCHES** (does not
+evade); "evades" therefore requires cosine **strictly < 0.72** AND fuzzy < 0.90 AND not exact
+(all three layers miss → empty `matches[]` → C scores 0 → `approve`). Cosines are shown to 3
+decimals to avoid a rounded `0.72` being misread as a boundary evasion (e.g. James + `APPROVE`
+= **0.7161 < 0.72**, a true evade; had it been 0.7200 it would have matched). Raw data:
+`docs/evidence/matcher_evasion_bounded_data.json` and `..._2_1d_out.json` /
+`..._2_1d2_out.json`. Reproduce with the sweep in that JSON's `method` field.
 
 The question this answers: verdict (ii) says a real rail delivers a **bounded** name, so the
 candidate remediation is input validation at Component A sized to the rail, not windowed
@@ -144,3 +148,116 @@ So: **input validation at Component A (maxLength + character class, sized to the
 correct primary remediation and it substantially narrows F1, but it does not eliminate it for
 short listed names.** Windowed matching addresses that residual; it is not the front-line fix.
 This is the ordering the revised 2.1 adopts.
+
+> **The three qualitative claims above ("3 of 5", "the only thing that closes the homoglyph
+> class is a character-class rule", "short listed names") are refined and partly corrected by
+> 2.1d below with concrete N-of-96 counts and a full-script homoglyph test. Read 2.1d as the
+> authoritative residual sizing.**
+
+---
+
+# 2.1d: closing the three holes (real Titan; correction trail preserved)
+
+Same method (live Titan, cosine vs the actual stored v4 vector, `>=` 0.72 at `app.py:147`).
+Raw data: `docs/evidence/matcher_evasion_bounded_data.json` sibling files
+`sweep_2_1d_out.json` / `sweep_2_1d2_out.json`.
+
+## (a) Full-script homoglyph — a single-script rule does NOT close the class
+
+2.1b's homoglyph payloads were all **mixed-script**, which made a "character-class rule" look
+like a clean closer. It is not. Transliterating every letter to Cyrillic yields a **single-
+script** (pure Cyrillic) payload that a mixed-script / single-script-consistency detector
+passes — and it still evades, because the embedding sees entirely different tokens and the
+fuzzy layer sees an empty normalized string (`_normalize_name` strips all non-`[a-z0-9]`):
+
+| entity | full-Cyrillic payee | single-script? | ASCII? | cosine | fuzzy | evades? |
+|---|---|---|---|---|---|---|
+| YATAI SMART INDUSTRIAL NEW CITY | `уатаи смарт индустриал неш циту` | **yes (Cyrillic)** | no | 0.290 | 0.00 | **YES** |
+| Hawwk LLC | `һашшк ллц` | **yes** | no | 0.106 | 0.00 | **YES** |
+| DIGITAL MARKETING AWARDS FZ LLC | `дигитал маркетинг ашардс фз ллц` | **yes** | no | 0.243 | 0.00 | **YES** |
+| James O. Wilson Jr. | `жамес о. шилсон жр.` | **yes** | no | 0.240 | 0.00 | **YES** |
+| Kathleen J King | `катһлеен ж кинг` | **yes** | no | 0.222 | 0.00 | **YES** |
+
+**All 5 single-script payloads evade** (cosine 0.11–0.29, far below 0.72). Therefore:
+
+- A **single-script consistency rule does NOT close the homoglyph/transliteration class** — a
+  uniformly-Cyrillic payee passes it and evades. This corrects 2.1b's implication that "a
+  character-class rule" closes the class.
+- **Only an ASCII-only (or Latin-script-only) restriction** rejects these non-ASCII payees.
+  And that carries a **real false-reject cost**: legitimate diacritic names are non-ASCII and
+  would be rejected — confirmed non-ASCII: `José Muñoz`, `François Lefèvre`,
+  `Søren Kierkegaard`, `Zoë O'Hara`, `Renée Zellweger`.
+
+So the character-class control is a **tradeoff, not a clean win.** Two variants, both go in the
+remediation table:
+
+| character-class rule | closes full-Cyrillic transliteration? | closes fullwidth-Latin? | rejects legit diacritics (`José Muñoz`)? |
+|---|---|---|---|
+| single-script consistency only | **NO** (Cyrillic is single-script) | no | no |
+| Latin-script-only (allow diacritics) | yes | no (fullwidth is script=Latin) unless NFKC-folded first | **no** (allows them) — lower false-reject, higher complexity |
+| **ASCII-printable only** | yes | yes | **YES** — closes the class, but rejects every diacritic name |
+
+## (b) The cap's OWN false-negative cost (96 live v4 entries)
+
+Length distribution of all 96 names in the live v4 list (min 6, max 66, mean 21.5):
+
+| bucket (chars) | count |
+|---|---|
+| 5–9 | 3 |
+| 10–14 | 21 |
+| 15–19 | 25 |
+| 20–24 | 25 |
+| 25–29 | 3 |
+| 30–34 | 8 |
+| 35–39 | 6 |
+| 40–44 | 2 |
+| 50–54 | 1 |
+| 60–64 | 1 |
+| 65–69 | 1 |
+
+**29 of 96 names exceed 22 chars; 11 of 96 exceed 35.** A rail-sized cap therefore has a cost
+in **both** directions depending on whether the cap truncates or rejects:
+
+- **If Component A TRUNCATES `payee` to the cap** (mirroring a real rail field), the truncated
+  legit payee is screened against the full stored name and can MISS its own listed entity:
+  **8 of 96 entries become a full screening miss at a 22-char cap** (truncated name matches on
+  none of exact/fuzzy/semantic vs its own stored vector); **2 of 96 at a 35-char cap.** This is
+  a **false-NEGATIVE introduced by the cap** — a listed Do Not Pay entity paid. It is why
+  truncation is demoted, not adopted.
+- **If Component A REJECTS `payee` over the cap** (400, fail-closed — the design 2.1e adopts),
+  there is **no screening miss** (an unscreenable payment is never approved), but legitimate
+  long-named payments are rejected: **up to 29 of 96 (30%) name-lengths exceed a 22-char cap,
+  11 of 96 (11%) exceed 35** — an availability / false-REJECT cost that an operator must handle
+  out-of-band.
+
+**This is why 35 (Fedwire) is chosen over 22 (NACHA):** 22 either misses 8/96 listed entities
+(truncating) or bounces 29/96 legit long names (rejecting); 35 cuts that to 2/96 or 11/96
+respectively, while still bounding the field. See the DECISIONS entry.
+
+## (c) Threshold-boundary correction
+
+The semantic operator is **`>=`** (`component_b_enrichment/app.py:147`), so cosine **= 0.72
+matches** and does not evade. `James O. Wilson Jr. + APPROVE` measures **0.7161** at full
+precision (`>= 0.72` → `False`), so it is a genuine evade — but it must be shown as **0.716**,
+not a rounded `0.72`, which would falsely read as a boundary match. All 2.1b/2.1d "evades" are
+strictly `< 0.72`; no evade in this evidence sits at or above the threshold. Tables corrected to
+3-decimal cosines and the operator cited in the method note.
+
+## (d) Residual sizing as N-of-96 (concrete, real embeddings)
+
+Not "short names" — measured. For each of the 96 live entries with budget under the cap, the
+attacker tries a few in-budget distant tokens (`OK PAY`, `FY26Q3`, `ZX QQ`, `PO 7781`,
+`JAZZ OWL`) and evades if any one drops cosine `< 0.72` with fuzzy `< 0.90`:
+
+| cap | entries with append room | **confirmed evadable (real Titan)** | % of 96 |
+|---|---|---|---|
+| Fedwire 35 | 77 | **75** | **78.1%** |
+| NACHA 22 | 32 | **31** | **32.3%** |
+
+**F1 residual, stated concretely: 75 of 96 listed entities (78%) remain evadable via a fitting
+short append under a 35-char cap; 31 of 96 (32%) under a 22-char cap** — and, orthogonally, the
+full-script transliteration/homoglyph class of (a) evades **regardless of length**, closed only
+by an ASCII/Latin-script rule at its own false-reject cost. A rail-sized length cap alone leaves
+the majority of the list evadable; it is a necessary narrowing of the input contract, not a
+closure of F1. The residual is the target for the windowed matcher (recommended follow-on, not
+implemented).
