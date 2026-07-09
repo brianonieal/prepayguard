@@ -73,6 +73,84 @@ into `payee`, or accepts unbounded free text (which A does). F1 is rated on the
 adversarial path, with the correctness path scoped as a Component A finding, not an
 inherent property of legitimate data.
 
+## 2.1b Does evasion survive a bounded name field? (blocking; full evidence in `matcher_evasion_bounded.md`)
+
+Verdict (ii) makes input validation at Component A the candidate remediation only if the
+attack dies under a realistic cap. Measured against the same 5 real SAM entities from 2.0c,
+live Titan, payee cosined vs the actual stored v4 vector
+(`docs/evidence/matcher_evasion_bounded.md`, `matcher_evasion_bounded_data.json`):
+
+- **A length cap NARROWS F1; it does not close it.** At Fedwire 35, a fitting distant token
+  (`OK PAY`, `FY26Q3`, `ZX QQ`, all ≤7 chars) still evades all three layers for **3 of 5**
+  entities — every listed name short enough to leave budget. At NACHA 22 it survives for
+  **2 of 5** (the short names with ≥7 chars of slack). It dies only for names that already
+  ~fill the field (both 31-char names) or where the budget is too tight (James at 22, 3
+  chars).
+- **Homoglyph substitution inside the name (zero budget → immune to any cap)** evades
+  semantic+fuzzy for the two shortest names (`Наwwk LLC`, 2 Cyrillic chars → cosine 0.519,
+  fuzzy 0.88). **Every** homoglyph payload is mixed-script, so only a **character-class /
+  single-script rule** closes it — a length cap is powerless against it.
+- **Punctuation/whitespace padding does NOT evade** — `_normalize_name` strips it and the
+  exact layer re-matches.
+- **Trailing truncation to 35 is not a fix**: it restores the match only for suffix-placed
+  fillers on long names; prefix/infix placement (front-loading the filler) defeats it for
+  all 5 entities (cosine 0.02–0.07 for prefix).
+
+Consequence for remediation: input validation (maxLength **+ character class**, sized to the
+rail) is the correct **primary** fix and substantially narrows F1, but a **residual remains
+for short listed names**, which is where a robust (windowed) matcher is the backstop — not
+the front line.
+
+## 2.1c Attacker model (blocking)
+
+Who can write `payee`? The intake POST is `authorization = "AWS_IAM"` (SigV4, DEC-5;
+`api_intake_stage/main.tf:245`), so a write requires valid SigV4 credentials for an IAM
+principal permitted to invoke the API (the payment-submitter role). There is no anonymous
+write path. The request model accepts `payee` as `{type: string, minLength: 1}` with
+`additionalProperties: true` and **no `maxLength`, no `pattern`**
+(`api_intake_stage/main.tf:222-238`); the handler validates only `payment_id`
+(`component_a_intake/app.py:74-77`). So any authorized submitter can place arbitrary free
+text (any length, any script) in `payee`.
+
+| # | Attacker | Can write distant tokens into `payee`? | Likelihood of F1 via this actor |
+|---|---|---|---|
+| AM1 | External actor with **stolen IAM credentials** for a submitter role | Yes, once credentials are held | **Low–Medium.** Gated by SigV4; requires a credential compromise first. Not the cheap path. |
+| AM2 | **Compromised or malicious upstream** disbursing system (legitimate submitter role, turned hostile) | Yes, directly | **Medium.** Requires that one integrated system be subverted or insider-operated. Plausible but not trivial. |
+| AM3 | **Fraudulent payee via an HONEST upstream** — the payee's own name/record flows through an unmodified disbursing system into `payee` | **This is the constrained, realistic case — see below** | **This is the one that decides F1's likelihood.** |
+
+**AM3 is the realistic actor and the one the HIGH rating must rest on.** The question is
+what constrains the name a fraudulent-but-registered payee can get into `payee` through an
+honest pipeline:
+
+- If the honest upstream mirrors a **real federal rail** (NACHA 22 / Fedwire 35, name field
+  separated from address/remittance — verdict (ii)), the payee can only supply a **short,
+  bounded, structured legal name**. Per 2.1b, that closes the append vector for long names
+  but **leaves a residual for short registered names**, and a payee could plausibly register
+  a short name or DBA containing a distant token. **Open question:** whether a real vendor
+  registration (SAM, or a payer's vendor master) permits a legal name / DBA carrying escrow,
+  "c/o", or admin tokens — **PrePayGuard has no DBA or "doing business as" field anywhere**
+  (grepped: none in `src/`, `modules/`, schema), so any such content would have to ride
+  inside `payee` free text, which only an upstream that maps it there would produce. I can
+  verify PrePayGuard's schema and the absence of a DBA surface; I **cannot** verify what an
+  arbitrary agency's real vendor-registration or ERP name field permits — mark that as open.
+- If the honest upstream is **PrePayGuard's own unconstrained schema** (`payee` free text, no
+  cap, `additionalProperties: true`), AM3 has the **full** surface: any length, any script,
+  including the homoglyph class. This is the Component A defect, not a property of legitimate
+  federal data.
+
+**Re-rated F1 likelihood (impact stays HIGH — an improper payment is released):**
+
+- Against the **as-built** system (unconstrained `payee`): **HIGH.** AM2 and AM3 both have a
+  cheap path; 5 distant tokens or 2 homoglyph chars suffice, no credential theft required
+  beyond the normal submitter role.
+- Against a system that **mirrors a real rail** (bounded, character-class-clean name):
+  **MEDIUM, residual.** The append vector is closed for long names; a residual persists for
+  short registered names (2.1b) and depends on the open registration question above.
+
+The HIGH rating is therefore a property of the **as-built unconstrained schema**, and input
+validation is what moves it toward MEDIUM-residual — which is exactly why it leads the
+remediation ordering below.
+
 ## Findings, rated separately
 
 ### F1. Matcher evasion (integrity failure of the screening control) - HIGH
@@ -151,61 +229,90 @@ roles. See "Authorization finding" below. Not fixed; requires a decision.
 
 | # | Finding | Likelihood | Impact | Rating | Mitigation in place | Residual |
 |---|---|---|---|---|---|---|
-| F1 | Matcher evasion (embedding+fuzzy+exact, TIN-absent) | High | High | **HIGH** | None on the matcher. C's cap only affects matched payments, not evaded ones. | Full: an evaded listed entity is auto-approved. Open. |
+| F1 | Matcher evasion (embedding+fuzzy+exact, TIN-absent) | High (as-built, AM2/AM3); Medium-residual if rail-bounded (2.1b/2.1c) | High | **HIGH** | None on the matcher. C's cap only affects matched payments, not evaded ones. Input validation at A would narrow, not close (2.1b). | Full as-built; residual for short listed names even under a rail cap. Open. |
 | F2 | Brief poisoning, reject band | High | Low | **LOW** | C already rejects; brief is advisory and non-audit. | Negligible: no human acts on a rejected payment's brief. |
 | F3 | Brief poisoning, review band | Unknown (not shown) | Medium | **MEDIUM (open)** | UI adjacency of evidence and brief (`AuditDetail.jsx:71,81,99`); brief on-demand and labeled. | A stronger model/phrasing could flip it; reviewer-trust dependent. Open. |
 | F4 | No in-handler authz on brief/audit | Low (edge holds) | Medium | **MEDIUM** | API Gateway resource policy restricts invoke to console roles. | Single control; a misconfig exposes audit/brief data. Open. |
 
-## Remediation options (options only; not chosen, not implemented)
+## Root cause (state it plainly)
+
+**PrePayGuard's intake schema accepted unbounded free text where every real federal
+disbursement rail (NACHA ACH 22-char, Fedwire 35-char, Treasury PAM fielded) delivers a
+bounded, structured name with address and remittance in separate fields.** `payee` is
+`{type: string, minLength: 1}`, no `maxLength`, no `pattern`, `additionalProperties: true`
+(`api_intake_stage/main.tf:222-238`), and the handler checks only `payment_id`
+(`component_a_intake/app.py:74-77`). **That is the root cause.** The matcher behaved
+**correctly given its input**: comparing a whole diluted string to a whole reference name is
+a defensible design for a field that is supposed to contain a clean bounded name; the defect
+is that Component A never enforced that the field contains one. The remediation ordering
+below follows from this: fix the input contract first, harden the matcher for the residual.
+
+## Remediation options (options only; not chosen, not implemented; reordered per 2.1b/2.1c)
 
 Each notes cost, what it breaks, residual, and its effect on the false-ACCEPT vs
 false-REJECT tradeoff framed in `scripts/eval_semantic_matching.py` (precision/recall
 sweep). "false accept" = a listed entity passes (misses); "false reject" = a clean payee
-is flagged.
+is flagged. **Ordering rationale:** 2.1b shows the attack dies under a rail-sized cap for
+long names and that homoglyph needs a character-class rule, so input validation at Component
+A is the primary fix; 2.1b also shows a residual survives for short listed names, so windowed
+matching drops to the residual backstop; truncation is demoted because 2.1b shows placement
+defeats it.
 
-1. **Payee normalization / truncation before embedding.** Truncate the payee to the first
-   K tokens (or the first N chars, mirroring the ACH 22-char / Fedwire 35-char name field)
-   before matching. Cost: a few lines in B. Breaks: legitimate long-but-real names beyond
-   K tokens lose their tail. Residual: an attacker front-loads the true name then appends
-   after the cut; a naive char cap can be defeated by padding before the name. Tradeoff:
-   reduces false-accept from dilution; small false-reject increase for genuinely long
-   names. Addresses a symptom (length), not the whole-string primitive.
-2. **Entity-name extraction before matching.** Strip suffixes, addresses, and prose to
-   isolate the legal entity name, then match that. Cost: a real NLP/parsing component (new
-   dependency or model). Breaks: parser errors mis-extract and either miss or over-flag.
-   Residual: extraction is itself attackable and imperfect. Tradeoff: can reduce both false
-   directions if accurate, but adds a new failure mode. Highest build cost.
-3. **Windowed / n-gram semantic matching.** Slide a window over the payee, embed each
-   window, take the max cosine per reference entry. Appended text cannot dilute a window it
-   does not overlap. Cost: O(windows) embedding calls per payment (see build estimate).
-   Breaks: nothing functionally; raises Bedrock cost and latency. Residual: character-level
-   perturbation of the name itself (homoglyph, transliteration) is unaffected; that is a
-   separate class. Tradeoff: reduces false-accept from dilution with little false-reject
-   change, because a clean window still matches. **This is the only option that addresses
-   the shared whole-string PRIMITIVE rather than a symptom.**
-4. **Length cap and character-class validation at Component A intake.** Bound `payee`
-   length and restrict character classes at the schema (`api_intake_stage/main.tf` model)
-   and/or handler. Cost: small. Breaks: rejects legitimately long or non-Latin names if the
-   bound is wrong. Residual: does not fix matching for content within the bound; an attacker
-   fits the append inside the cap. Tradeoff: neutral to matching precision/recall; it
-   shrinks the attack surface, it does not repair the matcher. This is the direct fix for
-   the 2.1a Component A defect (unconstrained free text).
-5. **Require TIN, or route TIN-absent payments to review by policy.** If TIN is required,
+1. **[PRIMARY] Length cap AND character-class validation at Component A intake.** Bound
+   `payee` to the rail size (≈35 chars, Fedwire; tighter for ACH) and restrict to a
+   single-script printable class at the schema (`api_intake_stage/main.tf` model) and the
+   handler (`_extract_payment`). Cost: small (schema + a few handler lines + tests). Breaks:
+   rejects legitimately long or genuinely non-Latin names if the bound/class is wrong — must
+   allow legitimate diacritics while rejecting mixed-script homoglyphs (single-script check,
+   not ASCII-only). Residual (measured, 2.1b): a clean in-budget single-script distant token
+   (`OK PAY`, `FY26Q3`) still evades for **short** listed names; the cap does close the
+   append vector for long names and the character-class rule closes the entire homoglyph
+   class. Tradeoff: neutral to matcher precision/recall; it repairs the **input contract**
+   (the root cause), shrinking the attack surface substantially without touching the matcher.
+   **This is the direct fix for the 2.1a/2.1c Component A defect and the front-line
+   remediation.**
+2. **[RESIDUAL BACKSTOP] Windowed / n-gram semantic matching.** Slide a window over the
+   (now bounded) payee, embed each window, take the max cosine per reference entry. A short
+   distant token cannot dilute a window it does not overlap, so this catches the residual
+   that the cap leaves for short listed names. Cost: O(windows) embedding calls per payment
+   (see build estimate). Breaks: nothing functionally; raises Bedrock cost and latency, and
+   the eval re-sweep (2.3/2.4) must quantify a possible false-positive cost (a short clean
+   window spuriously matching a short reference name). Residual: character-level perturbation
+   of the name itself is a separate class — but note it is **already closed by option 1's
+   character-class rule**, so with 1 in place windowing's residual is small. Tradeoff:
+   reduces false-accept on the short-name residual with little false-reject change.
+   **Addresses the shared whole-string PRIMITIVE, but only needed for the residual once
+   option 1 bounds the input.** Not to be implemented now (per instruction).
+3. **Require TIN, or route TIN-absent payments to review by policy.** If TIN is required,
    the reject band can fire; if TIN-absent payments are policy-routed to review, an evaded
    name at least reaches a human. Cost: small (schema + a C/D rule). Breaks: legitimate
    TIN-absent payments (foreign payees without a US TIN) are all forced to review, raising
    reviewer load. Residual: does not fix the matcher; it changes the failure from
    auto-approve to human review. Tradeoff: strongly reduces false-accept for the omit-TIN
-   attack at the cost of a large false-reject (review) increase.
+   attack at the cost of a large false-reject (review) increase. Complementary to option 1
+   (defense in depth on the TIN-absent precondition).
+4. **Entity-name extraction before matching.** Strip suffixes, addresses, and prose to
+   isolate the legal entity name, then match that. Cost: a real NLP/parsing component (new
+   dependency or model). Breaks: parser errors mis-extract and either miss or over-flag.
+   Residual: extraction is itself attackable and imperfect. Tradeoff: can reduce both false
+   directions if accurate, but adds a new failure mode. Highest build cost. Largely
+   subsumed by option 1 once the input is bounded and structured.
+5. **Payee truncation before embedding (DEMOTED).** Truncate `payee` to the first N chars
+   before matching. 2.1b shows this is **defeated by placement**: trailing truncation
+   restores the match only for suffix-placed fillers on long names; prefix/infix placement
+   (front-loading the filler) evades all 5 entities after truncation. Keep only as a
+   normalization nicety, not a control. Addresses a symptom (length) and not even that
+   reliably.
 6. **Lower the semantic threshold below 0.72.** Accept more matches. Cost: config. Breaks:
    more clean payees flagged. Residual: dilution still drives the payee below any fixed
    threshold once the appended text is distant enough, so a lower threshold buys margin but
    not immunity. Tradeoff: directly trades more false-reject for less false-accept, the
-   axis `eval_semantic_matching.py` already sweeps; the 2.0c data shows evaded payloads sit
-   at cosine 0.44 to 0.64, so the threshold would have to drop very low (with a large
+   axis `eval_semantic_matching.py` already sweeps; the 2.0c/2.1b data show evaded payloads
+   sit at cosine ~0.44 to 0.69, so the threshold would have to drop very low (with a large
    false-reject cost) to catch them.
 
-The build estimate for option 3 is in the separate estimate section requested.
+The build estimate for the windowed backstop (option 2) is in the separate estimate section
+below.
 
 ## Prior art (this is a known class, not novel)
 
@@ -240,7 +347,7 @@ NOT implemented this; per instruction, a fix needs your go-ahead.
 
 ---
 
-# Build estimate: windowed / n-gram semantic matching (option 3), NOT implemented
+# Build estimate: windowed / n-gram semantic matching (option 2, the residual backstop), NOT implemented
 
 Estimate only, per request. Behind an env flag `SEMANTIC_WINDOWED`, default OFF. Slide a
 window over the payee, embed each window, take the max cosine per reference entry.
