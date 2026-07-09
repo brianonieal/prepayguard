@@ -274,8 +274,11 @@ residual is the target for the windowed matcher (recommended follow-on, not impl
 
 ## (e) 2.1f — does a real listed name fail our own validator? Deployed-API test
 
-**0 of 96** live v4 names are non-ASCII (the character-class rule rejects no real listed name),
-but **11 of 96 exceed 35 chars** and so fail the length cap. The longest real entity is the
+**11 of 96** live v4 names exceed 35 chars and so fail the length cap. (All 96 reference names
+happen to be ASCII — but that is **irrelevant** to the character-class rule's cost: the rule
+screens the incoming **payee stream**, not the reference list. Its false-reject lands on the
+payment side — a legitimate payee `José Muñoz` gets a 400 (C3). The reference list's ASCII-ness
+is not evidence the rule is cheap.) The longest real entity is the
 66-char `LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK` (`sam_exclusions`,
 high). Submitted against the **deployed dev API** (`POST .../dev/payments`, SigV4 as the
 payment-submitter role, validation ON):
@@ -300,3 +303,43 @@ differently-shaped schema *objects* unifies them to `map(string)` and **stringif
 constraints** (`"maxLength":"35"`), which API Gateway rejects. Fix: select between two
 independently-`jsonencode`d *strings* so `maxLength` stays an integer `35`. After the fix,
 `terraform apply` is clean and `terraform plan` shows no drift.
+
+## (f) C4 — does the cap OPEN a false-accept path against long listed entities?
+
+The cap forbids `payee` >35 chars, so a payment to any of the **11 reference entries whose name
+exceeds 35 chars** cannot carry the full listed name. A payer must submit a ≤35-char form — and
+whatever they submit is what the matcher screens against the *full* stored name. If no plausible
+short form matches, the listed entity is screened as clean → **auto-approved: a false accept the
+cap itself introduced.** Offline, live Titan, cosine vs each entity's own stored v4 vector; three
+realistic ≤35 forms per entity (truncation, distinctive tail, common abbreviation). Full grid:
+`matcher_evasion_bounded_data.json` → `C4_long_entity_cap_matchability`.
+
+**Result (exact counts):**
+- **Exactly 1 of 11 is unmatchable by any of the three forms** —
+  `SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY` (61 ch): truncate-35 semantic
+  0.477 / fuzzy 0.73, distinctive-tail (`MEASURING TECHNOLOGY ASSN`) 0.626, abbreviation
+  (`SCI & PROD ASSN OF MEASURING TECH`) 0.670 — all three miss → **auto-approved**.
+- **For the realistic short forms (abbreviation, distinctive tail), 8 of 11 match ONLY via
+  semantic** — exact never fires and fuzzy stays <0.90, so the string layers are dead under the
+  cap and semantic is the sole control. The remaining 2 (`LOLA LOLITA 1110, S. DE R.L. DE C.V.` —
+  punctuation/numeral-heavy, exact on truncation; `Usamah 'Abd-al-Wahid al-Jaza'iri BELKACEM` —
+  long hyphenated, fuzzy on the tail) match on a realistic string form.
+- **The mechanical first-35 truncation inflates fuzzy hits** (8/11 match on fuzzy that way) but is
+  not a realistic submission: truncating a 36–41-char name to 35 chars leaves a near-identical
+  prefix (`AURORATOOLS LIMITED LIABILITY COMPA`), which is why fuzzy fires. A payer submits
+  `AURORATOOLS LLC`, not the mid-word cut. Discount the mechanical-truncation column.
+
+Two consequences that must travel together (see threat model option 1, C6):
+- **Semantic-sole matching is append-defeatable.** The 8 semantic-only entities are caught only
+  by the layer 2.4 showed falls to a further in-budget append — so a payer/attacker submits a
+  matching ≤35 core and dilutes it within budget.
+- **Even a semantic hit is REVIEW, never REJECT.** `NAME_MATCH_CAP=60`
+  (`component_c_risk_scoring/app.py:27,45-50`, DEC-14) caps every name match below the reject line,
+  so under the cap a long listed entity reaches at most human review, and only a volunteered TIN
+  can auto-reject it. Without the cap it would reliably reach review via an exact match on the full
+  name; the cap degrades that to "review-if-semantic-catches, else auto-approve."
+
+**This is a consequence of remediation option 1, not a footnote:** bounding `payee` degrades
+long-entity screening to semantic-only (append-defeatable, review-capped) with 1/11 unscreenable,
+on top of the false-REJECT cost (a legit payment with the full long name is 400'd). See the threat
+model's option-1 entry.

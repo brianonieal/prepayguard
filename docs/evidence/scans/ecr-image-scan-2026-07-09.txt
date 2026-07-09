@@ -1,0 +1,163 @@
+# ECR scan-on-push findings — deployed tag v3.8.3 — retrieved 2026-07-09
+# Mechanism: scan_on_push=true (modules/ecr_repo/main.tf:17), DEC-8 amendment (v3.7.2).
+# Grype (the tool) was superseded by ECR scan-on-push; this is the actual image-scan evidence.
+
+== treasury-dev-risk-scoring:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:12-04:00"
+}
+
+== treasury-dev-batch-ingest:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:23-04:00"
+}
+
+== treasury-dev-enrichment:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:32-04:00"
+}
+
+== treasury-dev-refresher:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:05:09-04:00"
+}
+
+== treasury-dev-intake:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:03:57-04:00"
+}
+
+== treasury-dev-disposition:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:36-04:00"
+}
+
+== treasury-dev-console-api:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:30-04:00"
+}
+
+== treasury-dev-feeder:v3.8.3 ==
+{
+    "status": "COMPLETE",
+    "severity": {
+        "HIGH": 2,
+        "MEDIUM": 1,
+        "LOW": 1,
+        "UNDEFINED": 4
+    },
+    "updated": "2026-07-08T15:04:04-04:00"
+}
+
+DONE
+
+== CVE detail (treasury-dev-intake:v3.8.3, representative of all 8 — shared base image) ==
+[
+    {
+        "severity": "LOW",
+        "name": "CVE-2026-57062",
+        "uri": "https://nvd.nist.gov/vuln/detail/CVE-2026-57062",
+        "package": "gnupg2-minimal",
+        "version": "2.3.7-1.amzn2023.0.8"
+    },
+    {
+        "severity": "UNDEFINED",
+        "name": "ALAS2023-2026-1916",
+        "uri": "https://alas.aws.amazon.com/AL2023/ALAS2023-2026-1916.html",
+        "package": "libblkid",
+        "version": "2.37.4-1.amzn2023.0.4"
+    },
+    {
+        "severity": "UNDEFINED",
+        "name": "ALAS2023-2026-1916",
+        "uri": "https://alas.aws.amazon.com/AL2023/ALAS2023-2026-1916.html",
+        "package": "libmount",
+        "version": "2.37.4-1.amzn2023.0.4"
+    },
+    {
+        "severity": "UNDEFINED",
+        "name": "ALAS2023-2026-1916",
+        "uri": "https://alas.aws.amazon.com/AL2023/ALAS2023-2026-1916.html",
+        "package": "libuuid",
+        "version": "2.37.4-1.amzn2023.0.4"
+    },
+    {
+        "severity": "UNDEFINED",
+        "name": "ALAS2023-2026-1916",
+        "uri": "https://alas.aws.amazon.com/AL2023/ALAS2023-2026-1916.html",
+        "package": "libsmartcols",
+        "version": "2.37.4-1.amzn2023.0.4"
+    },
+    {
+        "severity": "MEDIUM",
+        "name": "CVE-2026-6653",
+        "uri": "https://nvd.nist.gov/vuln/detail/CVE-2026-6653",
+        "package": "libxml2",
+        "version": "2.10.4-1.amzn2023.0.18"
+    },
+    {
+        "severity": "HIGH",
+        "name": "CVE-2026-11822",
+        "uri": "https://nvd.nist.gov/vuln/detail/CVE-2026-11822",
+        "package": "sqlite-libs",
+        "version": "3.40.0-1.amzn2023.0.7"
+    },
+    {
+        "severity": "HIGH",
+        "name": "CVE-2026-11824",
+        "uri": "https://nvd.nist.gov/vuln/detail/CVE-2026-11824",
+        "package": "sqlite-libs",
+        "version": "3.40.0-1.amzn2023.0.7"
+    }
+]
+
+DONE-detail

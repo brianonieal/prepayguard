@@ -291,8 +291,10 @@ defeats it.
    - A **single-script-consistency** rule is **insufficient** — a full Cyrillic transliteration
      is single-script and evades all 5 (cosine 0.11–0.29).
    - **ASCII-printable-only** closes the transliteration/homoglyph/fullwidth class but **rejects
-     every legitimate diacritic name** (`José Muñoz`, `François`, confirmed non-ASCII) — a real
-     false-reject.
+     every legitimate diacritic name** (`José Muñoz`, `François`) — a real false-reject on the
+     **payee stream** (the rule screens incoming payees, not the reference list; the reference
+     list being all-ASCII is irrelevant to this cost, C3). Cost unquantified — no real payee-name
+     distribution.
    - **Latin-script-only (allow diacritics)** is the lower-false-reject middle ground but needs
      NFKC folding to also stop fullwidth and is more complex.
    2.1e implements **ASCII-printable-only** (the version 2.1d shows is necessary to close the
@@ -301,6 +303,31 @@ defeats it.
    remain evadable via an in-budget short append.** So this repairs the input contract and
    closes the transliteration class, but does **not** close F1 — it is the front line, not the
    whole fix.
+   **⚠ The cap also degrades screening of long listed entities (C4/C6).** 11/96 reference names
+   exceed 35 chars; a payment to those entities cannot carry the full name, so the matcher screens
+   whatever ≤35 form the payer submits against the full stored name. Measured (real Titan,
+   `matcher_evasion_bounded.md` §f), three consequences that belong together:
+   1. **Exact and fuzzy both fail under the cap → semantic is the sole matching control.** For the
+      realistic short forms a payer types (abbreviation, distinctive tail), **8 of the 11** long
+      entities match *only* via semantic (exact never fires except one punctuation-heavy name;
+      fuzzy ≥0.90 fires mainly on an *unrealistic* mechanical first-35 truncation of names barely
+      over the cap). **Exactly 1 of the 11** (`SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING
+      TECHNOLOGY`) is unmatchable by *any* of the three forms → auto-approved. The other 2 match
+      on a realistic fuzzy form.
+   2. **That semantic control is itself defeated by a further in-budget append** (2.4): a payer/
+      attacker who submits a matching ≤35 core and then dilutes it within the 35-char budget
+      evades the one layer holding up long-entity screening.
+   3. **Even when semantic catches a short form, the result is REVIEW, never REJECT.** Every name
+      match — exact, fuzzy, and semantic — is capped below the reject threshold by
+      `NAME_MATCH_CAP=60` (`component_c_risk_scoring/app.py:27,45-50`; DEC-14), so under the cap a
+      long listed entity reaches at most human review, and **only a volunteered matching TIN can
+      auto-reject it.** Without the cap it would reliably reach review via an *exact* match on its
+      full name; the cap degrades that to "review only if a short form semantically matches, else
+      auto-approve."
+   So option 1 trades an evasion narrowing for **both** a false-REJECT cost (long legit names
+   400'd — incl. the benign variant `Acme Shell Limited Liability Company`) **and** a degraded
+   long-entity path (semantic-only, append-defeatable, review-capped, 1/11 unscreenable). This is
+   a consequence of the remediation, not a footnote.
 2. **[RESIDUAL BACKSTOP] Windowed / n-gram semantic matching.** Slide a window over the
    (now bounded) payee, embed each window, take the max cosine per reference entry. A short
    distant token cannot dilute a window it does not overlap, so this catches the residual

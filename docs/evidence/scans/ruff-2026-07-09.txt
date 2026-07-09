@@ -1,0 +1,6 @@
+# ruff check src tests  (CI: ci.yml:46) — run 2026-07-09
+# ruff ruff 0.15.20
+
+All checks passed!
+
+exit=0

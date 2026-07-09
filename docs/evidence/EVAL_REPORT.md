@@ -7,7 +7,61 @@ variants that SHOULD match a listed entity), 10 clean, 7 hard negatives. Raw res
 `docs/evidence/semantic_eval_results.json`. Reproduce:
 `python scripts/eval_semantic_matching.py --stability --json docs/evidence/semantic_eval_results.json`.
 
-## The finding that matters most
+## The strongest finding: the append-positive and hard-negative distributions overlap — no threshold separates them
+
+> **There is no cosine threshold `t` at which every append-class positive scores ≥ `t` and every
+> hard negative scores < `t`. The two distributions overlap, so a threshold that admits diluted
+> listed names also admits genuinely different similar names. Re-tuning the threshold cannot fix
+> this; it is a property of the embedding space, not of my case-mix.**
+
+*(This corrects an earlier draft that claimed benign positives sit "cleanly above the hard
+negatives" using min/max intervals. That was wrong — see below. The min/max framing distinguishes
+nothing because the intervals nest; the correct statement is about distribution overlap.)*
+
+Measured on the expanded set (§2.4, `semantic_eval_results_v2.json`):
+
+- **The 21 append-class positives span 0.499–0.882.** The 16 hard negatives span 0.351–**0.966**.
+- **Separation test (explicit): is there a `t` with all-append ≥ `t` AND all-hard-neg < `t`? NO.**
+  It needs `min(append) > max(hard-neg)`, i.e. `0.499 > 0.966` — false. Concretely, **12 of the
+  16 hard negatives sit at or above the lowest append positive (0.499)**, and **4 hard negatives
+  (0.966, 0.966, 0.952, 0.876) sit at or above the entire benign-variation band (0.831–0.963)**.
+  So no threshold cleanly separates append positives from hard negatives, and hard negatives are
+  not even cleanly separated from *benign* positives.
+- Full sorted hard-negative distribution: `0.966 Initech Solutions LLC`, `0.966 Globex Onshore
+  Inc`, `0.952 Initech Systemics LLC`, `0.876 Globex Ashore Inc`, `0.815 Acme Shelling Co`,
+  `0.798 Robert Rowe`, `0.743 Umbrella Insurance Group`, then 0.701, 0.650, 0.637, 0.570, 0.565,
+  0.489, 0.437, 0.426, 0.351.
+
+A threshold low enough to admit the diluted names (≈0.50) admits nearly every hard negative;
+0.72 misses the diluted names *and still* misclassifies the top hard negatives (next finding).
+The overlap is a fixed property of the geometry — Titan places a listed name diluted by distant
+tokens in the same region as a *different* company sharing a token — so **input validation (bound
+the string before it is embedded), not re-tuning, is the lever.**
+
+## Separate finding (previously unreported): 7 production false positives at the deployed 0.72
+
+Because the distributions overlap at the top, **7 of the 16 hard negatives score ≥ 0.72 and are
+therefore false positives in production** at the deployed threshold — each flags a *different*
+entity as a match, sending a clean payment to human review:
+
+| hard-negative payee | cosine | matched (wrongly) to |
+|---|---|---|
+| `Initech Solutions LLC` | 0.966 | Initech Systems LLC |
+| `Globex Onshore Inc` | 0.966 | Globex Offshore Inc |
+| `Initech Systemics LLC` | 0.952 | Initech Systems LLC |
+| `Globex Ashore Inc` | 0.876 | Globex Offshore Inc |
+| `Acme Shelling Co` | 0.815 | Acme Shell LLC |
+| `Robert Rowe` | 0.798 | Robert Roe |
+| `Umbrella Insurance Group` | 0.743 | Umbrella Holdings Group |
+
+Two (0.966) are false positives at *every* threshold below 0.966 — no usable threshold sheds
+them. This is the precision cost of the deployed matcher, contained (not eliminated) by the
+REVIEW cap: a semantic hit is capped to human review (`NAME_MATCH_CAP=60`), so these become
+reviewer load, not auto-rejections. On this synthetic set that is 7/16 hard negatives; the real
+false-positive *rate* depends on how often such near-duplicate names occur in real traffic, which
+this set cannot estimate.
+
+## The blind-spot finding
 
 > **The 27-case evaluation set contained no append cases of any semantic distance. The sweep
 > endorsed 0.72. Adversarial testing then defeated 0.72 with a five-character append. The
@@ -22,7 +76,7 @@ excellent here (recall 1.00) is defeated in production by `"<listed name> " + 5 
 (2.0c: cosine drops to 0.51–0.61, below 0.72). **An evaluation set that omits the adversary's
 move cannot score a defense against it — the number it produces is precise and irrelevant.**
 
-## The second finding, unflattering
+## Also unflattering: no adversarial robustness over difflib
 
 > **The semantic layer provides tolerance to legitimate name variation. It provides no
 > adversarial robustness over difflib: both fall to the same append.**
@@ -104,15 +158,43 @@ adversarial testing hit it from outside. These numbers bound the matcher's behav
 set*; they do not generalize to production traffic, and 2.4 expands the set specifically to
 close the append blind spot this report names.
 
-## 2.4 outcome — the expanded set answers the blind spot
+## 2.4 outcome — recall reported per class, never blended
 
 The set was expanded 27 → 62 (append positives — adversarial/benign/numeric; legit-suffix
 positives; high-overlap hard negatives) and the identical sweep re-run
 (`docs/evidence/semantic_eval_results_v2.json`; construction in `docs/sme/SEMANTIC_EVAL.md` §9).
-**0.72 does not survive: recall falls 1.000 → 0.484, F1 0.909 → 0.566.** No threshold recovers
-it — recall peaks at 0.839 (threshold 0.60) at a 32% false-flag rate and still misses 5
-positives, because the diluted-name cosines (0.50–0.69) sit inside the hard-negative band. Of
-the 16 missed positives, 10 are >35 chars (rejected by 2.1e at intake) and **6 are the ≤35 live
-residual** that pass validation and still evade — the exact target for the windowed backstop.
-This confirms, with the adversary's move now in the set, what 2.0c found from outside: the
-threshold was never the lever.
+
+**A single blended recall figure ("1.000 → 0.484") is not a before/after — the matcher did not
+change; the case-mix did.** That number is a function of how many append cases I chose to add,
+not a property of Component B. Report the two classes separately (recall at 0.72):
+
+| positive class | what it tests | recall @ 0.72 |
+|---|---|---|
+| **benign-variation** (word sub, suffix expansion, nickname — what the layer is for) | honest name drift | **10/10 = 1.00** |
+| **append-class** (name + distant/legit-suffix tokens) | dilution | **5/21 = 0.24** |
+
+The benign-variation recall is unchanged from the 27-case run — the semantic layer does exactly
+its job on honest variation. The append-class recall is low because, per the geometry finding
+above, diluted names land in the hard-negative band. **These are two different questions and must
+not be averaged into one recall.** (The blended 0.484 across all 31 positives is reported only as
+an aside; its value moves with the positive/append ratio, which is an authoring choice.)
+
+### Conditioned on what the deployed system actually screens (C2)
+
+10 of the 15 rejected positives exceed 35 chars, so 2.1e refuses them at intake (400) — they
+**never reach the matcher**, and counting them as matcher false negatives conflates the intake
+layer with the matching layer. **Matcher recall on positives that PASS validation (≤35 ASCII —
+the deployed system): 10/16 = 0.625** (benign 9/9 = 1.00; append **1/7 = 0.14**). The
+pre-validation figure — all 31 positives, **15/31 = 0.484** — is **historical** (it describes the
+matcher before 2.1e, screening inputs the deployed system now rejects). Cite 0.625/benign-append
+split for the deployed system; cite 0.484 only as the pre-validation baseline.
+
+**No threshold recovers the append recall** (recall peaks 0.839 at 0.60, FPR 0.323, still 5 FN)
+— because, again, the diluted cosines sit inside the hard-negative band, not because of the
+threshold. The ≤35 append residual (6 of the 16 reaching positives) is the windowed backstop's
+target; input validation removes the >35 subset but cannot help the in-budget residual.
+
+> **One benign casualty of the cap:** `Acme Shell Limited Liability Company` (36 chars) is a
+> *legitimate* suffix-expansion variant — a benign positive — yet it exceeds 35 and is rejected
+> at intake. So the cap's false-reject cost lands on honest variation too, not only on attackers
+> (see C3/C4).

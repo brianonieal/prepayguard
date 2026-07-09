@@ -1,0 +1,5 @@
+# tflint --init && tflint --recursive  (CI: ci.yml:31-34) — run 2026-07-09
+# TFLint version 0.63.1
+
+
+exit=0
