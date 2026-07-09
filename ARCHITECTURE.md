@@ -62,6 +62,18 @@ with observed behavior, not speculation.
 - **Output queue unavailable / send fails**: synchronous path — caller receives
   an error and retries; no silent loss. No async DLQ exists on A by design
   (sync invocation), documented in `modules/api_intake_stage/main.tf`.
+- **Malformed / oversized / non-Latin `payee`** (Phase 2.1e, DEC-29): payee input
+  validation, flag-gated `payee_validation_enabled` (default ON). Two layers that
+  toggle together — the API Gateway request model (`maxLength` 35 sized to the
+  Fedwire beneficiary-name field + printable-ASCII `pattern`) and the handler's
+  `_validate_payee`, which returns **400 before any enqueue** (fail-closed: an
+  invalid payee is never screened, never approved). This is the primary remediation
+  for the F1 matcher-evasion root cause — Component A previously accepted unbounded
+  free text (`INJECTION_THREAT_MODEL.md`, 2.1a/2.1c). **KNOWN LIMITATION:** it does
+  NOT close F1 — 75/96 listed entities remain evadable via an in-budget ASCII append
+  (2.1d), and ASCII-only rejects legitimate diacritic names; the windowed matcher is
+  the recommended, un-built backstop. Flag off restores the pre-2.1e behavior for the
+  demo attack.
 
 ### B — Enrichment & Reference-Match
 - **Reference source unavailable or malformed payload**: processing failure →

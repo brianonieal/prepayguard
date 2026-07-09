@@ -64,6 +64,41 @@ def _caller_identity(event: dict[str, Any]) -> str:
     return ident.get("cognitoIdentityId") or ident.get("userArn") or "unknown"
 
 
+def _payee_rules() -> tuple[bool, int]:
+    """Phase 2.1e (DEC-29): payee input validation, sized to the Fedwire 35-char
+    beneficiary-name field. Flag-gated, default ON. Set PAYEE_VALIDATION_ENABLED=false
+    to restore the pre-2.1e unbounded behavior (used by the demo to reproduce the F1
+    matcher-evasion attack)."""
+    enabled = os.environ.get("PAYEE_VALIDATION_ENABLED", "true").strip().lower() != "false"
+    try:
+        max_len = int(os.environ.get("PAYEE_MAX_LENGTH", "35"))
+    except ValueError:
+        max_len = 35
+    return enabled, max_len
+
+
+def _validate_payee(payee: Any, max_len: int) -> None:
+    """Fail-closed name validation (Phase 2.1e). Bounds length to the rail spec and
+    restricts to printable ASCII (0x20-0x7E). The class is ASCII-printable, NOT
+    single-script: 2.1d(a) proved a single-script full-Cyrillic transliteration evades
+    the matcher (cosine 0.11-0.29), so only an ASCII/Latin-script rule closes that class.
+
+    KNOWN LIMITATION (documented, not hidden): this rejects legitimate diacritic names
+    (e.g. "Jose Munoz" with accents); the lower-false-reject Latin-script+NFKC variant is
+    in the threat model, not implemented here. And this does NOT close F1: an in-budget
+    ASCII append still evades the matcher for short listed names (measured residual:
+    75/96 entities at a 35-char cap, 2.1d). This repairs the input contract; it is not a
+    complete remediation."""
+    if not isinstance(payee, str) or not payee:
+        raise ValueError("payee is required and must be a non-empty string")
+    if len(payee) > max_len:
+        raise ValueError(f"payee exceeds max length {max_len} (rail-sized name field)")
+    if any(ord(c) < 0x20 or ord(c) > 0x7E for c in payee):
+        raise ValueError(
+            "payee must be printable ASCII (rejects non-Latin/diacritic/control characters)"
+        )
+
+
 def _extract_payment(event: dict[str, Any]) -> dict[str, Any]:
     body = event.get("body")
     if body is None:
@@ -74,6 +109,11 @@ def _extract_payment(event: dict[str, Any]) -> dict[str, Any]:
     payment_id = payment.get("payment_id")
     if not payment_id or not isinstance(payment_id, str):
         raise ValueError("payment_id is required and must be a non-empty string")
+    # Phase 2.1e: fail-closed payee validation BEFORE any enqueue, so an invalid payee is
+    # never screened and never approved. Raises ValueError -> handler returns 400.
+    enabled, max_len = _payee_rules()
+    if enabled:
+        _validate_payee(payment.get("payee"), max_len)
     return payment
 
 

@@ -86,20 +86,39 @@ live Titan, payee cosined vs the actual stored v4 vector
   **2 of 5** (the short names with ≥7 chars of slack). It dies only for names that already
   ~fill the field (both 31-char names) or where the budget is too tight (James at 22, 3
   chars).
-- **Homoglyph substitution inside the name (zero budget → immune to any cap)** evades
-  semantic+fuzzy for the two shortest names (`Наwwk LLC`, 2 Cyrillic chars → cosine 0.519,
-  fuzzy 0.88). **Every** homoglyph payload is mixed-script, so only a **character-class /
-  single-script rule** closes it — a length cap is powerless against it.
+- **Homoglyph / transliteration inside the name (zero budget → immune to any cap)** evades.
+  A 2-char mixed-script homoglyph (`Наwwk LLC` → cosine 0.519) evades for short names, and
+  **2.1d shows a full Cyrillic transliteration is single-script and evades all 5** (cosine
+  0.11–0.29, fuzzy 0). So a **single-script-consistency rule does NOT close this class** — only
+  an **ASCII / Latin-script restriction** does, at the cost of rejecting legitimate diacritic
+  names (`José Muñoz`). A length cap is powerless against it regardless.
 - **Punctuation/whitespace padding does NOT evade** — `_normalize_name` strips it and the
   exact layer re-matches.
 - **Trailing truncation to 35 is not a fix**: it restores the match only for suffix-placed
   fillers on long names; prefix/infix placement (front-loading the filler) defeats it for
   all 5 entities (cosine 0.02–0.07 for prefix).
+- **2.1d residual, concrete (all 96 live v4 entries, real Titan): 75 of 96 (78%) remain
+  evadable via a fitting short append under a 35-char cap; 31 of 96 (32%) under 22** — plus the
+  length-independent transliteration class. The cap is a necessary narrowing, not a closure.
+- **2.1d — the cap's own false-negative cost:** 29/96 names exceed 22 chars, 11/96 exceed 35.
+  A **truncating** cap makes 8/96 (at 22) or 2/96 (at 35) listed entities a **full screening
+  miss** (a false-NEGATIVE the cap itself introduces); a **rejecting** cap (the 2.1e design)
+  avoids that but bounces those legit long names (fail-closed availability cost). 35 is chosen
+  over 22 to minimize both (see DECISIONS entry).
 
 Consequence for remediation: input validation (maxLength **+ character class**, sized to the
-rail) is the correct **primary** fix and substantially narrows F1, but a **residual remains
-for short listed names**, which is where a robust (windowed) matcher is the backstop — not
-the front line.
+rail) is the correct **primary** fix, but the two halves do very different amounts of work.
+**The character-class rule is the load-bearing control, not the length cap:** the printable-
+ASCII pattern (`^[ -~]+$`) closes the **entire** transliteration/homoglyph class (Cyrillic and
+fullwidth are not printable ASCII — 2.1d(a)), while the 35-char cap closes only **~22% of the
+append class** (21/96 entities lack the budget; **75/96 stay evadable**). And because the
+control **rejects (400), it does not truncate**, the cap's cost is a legit-reject, not a
+screening miss: **35 chars → 11/96 legit names rejected, 78% evadable; 22 chars → 29/96
+rejected, 32% evadable** (verified vs the histogram). So input validation narrows F1 modestly
+and repairs the input contract, but a **large residual remains**, which is where a robust
+(windowed) matcher is the backstop. The character-class control is a **tradeoff (single-script
+insufficient; ASCII-only closes the class but rejects diacritics), not a clean win** — both
+variants are in the remediation table.
 
 ## 2.1c Attacker model (blocking)
 
@@ -229,7 +248,7 @@ roles. See "Authorization finding" below. Not fixed; requires a decision.
 
 | # | Finding | Likelihood | Impact | Rating | Mitigation in place | Residual |
 |---|---|---|---|---|---|---|
-| F1 | Matcher evasion (embedding+fuzzy+exact, TIN-absent) | High (as-built, AM2/AM3); Medium-residual if rail-bounded (2.1b/2.1c) | High | **HIGH** | None on the matcher. C's cap only affects matched payments, not evaded ones. Input validation at A would narrow, not close (2.1b). | Full as-built; residual for short listed names even under a rail cap. Open. |
+| F1 | Matcher evasion (embedding+fuzzy+exact, TIN-absent) | High (as-built, AM2/AM3); Medium-residual if rail-bounded (2.1b/2.1c) | High | **HIGH** | None on the matcher. C's cap only affects matched payments, not evaded ones. Input validation at A narrows, does not close (2.1b/2.1d). | Full as-built. Under a 35-char cap: **75/96 (78%) listed entities remain evadable** via a fitting short append, **plus the whole full-script transliteration class** (2.1d). Open. |
 | F2 | Brief poisoning, reject band | High | Low | **LOW** | C already rejects; brief is advisory and non-audit. | Negligible: no human acts on a rejected payment's brief. |
 | F3 | Brief poisoning, review band | Unknown (not shown) | Medium | **MEDIUM (open)** | UI adjacency of evidence and brief (`AuditDetail.jsx:71,81,99`); brief on-demand and labeled. | A stronger model/phrasing could flip it; reviewer-trust dependent. Open. |
 | F4 | No in-handler authz on brief/audit | Low (edge holds) | Medium | **MEDIUM** | API Gateway resource policy restricts invoke to console roles. | Single control; a misconfig exposes audit/brief data. Open. |
@@ -247,30 +266,41 @@ a defensible design for a field that is supposed to contain a clean bounded name
 is that Component A never enforced that the field contains one. The remediation ordering
 below follows from this: fix the input contract first, harden the matcher for the residual.
 
-## Remediation options (options only; not chosen, not implemented; reordered per 2.1b/2.1c)
+## Remediation options (reordered per 2.1b/2.1c/2.1d; option 1 IMPLEMENTED in 2.1e, rest are options)
 
 Each notes cost, what it breaks, residual, and its effect on the false-ACCEPT vs
 false-REJECT tradeoff framed in `scripts/eval_semantic_matching.py` (precision/recall
 sweep). "false accept" = a listed entity passes (misses); "false reject" = a clean payee
-is flagged. **Ordering rationale:** 2.1b shows the attack dies under a rail-sized cap for
-long names and that homoglyph needs a character-class rule, so input validation at Component
-A is the primary fix; 2.1b also shows a residual survives for short listed names, so windowed
-matching drops to the residual backstop; truncation is demoted because 2.1b shows placement
+is flagged. **Ordering rationale:** 2.1b/2.1d show the attack dies under a rail-sized cap only
+for names that ~fill the field, so input validation at Component A is the primary fix; a large
+residual survives (75/96 under a 35-char cap, plus the full transliteration class), so windowed
+matching stays the residual backstop; truncation is demoted because 2.1b shows placement
 defeats it.
 
-1. **[PRIMARY] Length cap AND character-class validation at Component A intake.** Bound
-   `payee` to the rail size (≈35 chars, Fedwire; tighter for ACH) and restrict to a
-   single-script printable class at the schema (`api_intake_stage/main.tf` model) and the
-   handler (`_extract_payment`). Cost: small (schema + a few handler lines + tests). Breaks:
-   rejects legitimately long or genuinely non-Latin names if the bound/class is wrong — must
-   allow legitimate diacritics while rejecting mixed-script homoglyphs (single-script check,
-   not ASCII-only). Residual (measured, 2.1b): a clean in-budget single-script distant token
-   (`OK PAY`, `FY26Q3`) still evades for **short** listed names; the cap does close the
-   append vector for long names and the character-class rule closes the entire homoglyph
-   class. Tradeoff: neutral to matcher precision/recall; it repairs the **input contract**
-   (the root cause), shrinking the attack surface substantially without touching the matcher.
-   **This is the direct fix for the 2.1a/2.1c Component A defect and the front-line
-   remediation.**
+1. **[PRIMARY — implemented in 2.1e, flag-gated default ON] Length cap AND character-class
+   validation at Component A intake.** Bound `payee` to the rail size and restrict its
+   character class at the schema (`api_intake_stage/main.tf` model) and the handler
+   (`_extract_payment`), returning **400 fail-closed** (an unvalidated payment is never
+   screened, never approved). Cost: small. **Cap choice (35 vs 22) — on rejection grounds
+   (the control rejects, it does not truncate, so there is no screening-miss cost):** verified
+   vs the 96-entry histogram, **35 chars rejects 11/96 legit names and leaves 75/96 (78%)
+   evadable; 22 chars rejects 29/96 and leaves 31/96 (32%) evadable.** **35 (Fedwire) chosen**
+   on usability grounds (11 legit 400s vs 29), explicitly accepting that **78% of the list
+   stays evadable** — the length cap is the minor control here. **The heavy lifting is the
+   character-class rule, which is a tradeoff, NOT a clean win (2.1d(a)):**
+   - A **single-script-consistency** rule is **insufficient** — a full Cyrillic transliteration
+     is single-script and evades all 5 (cosine 0.11–0.29).
+   - **ASCII-printable-only** closes the transliteration/homoglyph/fullwidth class but **rejects
+     every legitimate diacritic name** (`José Muñoz`, `François`, confirmed non-ASCII) — a real
+     false-reject.
+   - **Latin-script-only (allow diacritics)** is the lower-false-reject middle ground but needs
+     NFKC folding to also stop fullwidth and is more complex.
+   2.1e implements **ASCII-printable-only** (the version 2.1d shows is necessary to close the
+   class) and documents the diacritic false-reject as a KNOWN LIMITATION with the Latin-script
+   alternative noted. **Residual after this fix (measured, 2.1d): 75/96 (78%) listed entities
+   remain evadable via an in-budget short append.** So this repairs the input contract and
+   closes the transliteration class, but does **not** close F1 — it is the front line, not the
+   whole fix.
 2. **[RESIDUAL BACKSTOP] Windowed / n-gram semantic matching.** Slide a window over the
    (now bounded) payee, embed each window, take the max cosine per reference entry. A short
    distant token cannot dilute a window it does not overlap, so this catches the residual

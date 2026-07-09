@@ -25,6 +25,18 @@ variable "console_origin" {
   default     = "*"
 }
 
+variable "payee_validation_enabled" {
+  description = "Phase 2.1e (DEC-29): enforce payee length + printable-ASCII validation at intake, fail-closed. Default ON. Set false to restore the pre-2.1e unbounded payee schema for the demo/attack reproduction. Toggles both the API Gateway request model and the Component A handler together."
+  type        = bool
+  default     = true
+}
+
+variable "payee_max_length" {
+  description = "Phase 2.1e (DEC-29): max payee length. The control REJECTS (400) over-length payees, it does not truncate, so there is no screening-miss cost — only a legit-reject cost. Sized to the Fedwire 35-char name field; 35 over NACHA's 22 on usability grounds (2.1d, verified vs the 96-entry list: 35 rejects 11/96 legit names and leaves 75/96 evadable; 22 rejects 29/96 and leaves 31/96). The length cap is not the load-bearing control — the ASCII pattern is."
+  type        = number
+  default     = 35
+}
+
 variable "memory_size" {
   description = "Lambda memory (MB)."
   type        = number
