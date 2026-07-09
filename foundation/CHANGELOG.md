@@ -1,5 +1,34 @@
 # CHANGELOG.md — PrePayGuard ("Treasury")
 
+## v3.8.3: Fix feeder "Run now" pulling 0 on a narrow filter (2026-07-08)
+
+**"Run now" with a specific filter (e.g., a single agency + sub-agency + award type) reported "0 payment(s) screened" even when USAspending had matching awards. The feeder was requesting an hourly rotating page number that overshoots a narrow result set.**
+
+- Root cause: the feeder fetches `page = _page_for_now()` (a deterministic per-hour page, 1 to 500, for scheduled-run variety over the broad default query). A narrow admin filter has only a few pages, so a high rotating page (e.g., 424) returns an empty page and looks like nothing matched. Verified against the live API: the exact filter returned 10 results on page 1 and 0 on page 424.
+- Fix (`src/component_f_feeder/app.py`): on-demand Run-now now fetches **page 1** (the top results of the admin's exact filter, biggest awards first), not the rotating page. Any query also **falls back to page 1** if the requested page comes back empty, so a valid narrow filter never reports 0. Scheduled runs over the broad default still rotate for variety.
+- Tests (`tests/test_feeder.py`): Run-now uses page 1; a rotating page that overshoots retries page 1. pytest 137/137, ruff clean.
+- Backend change (feeder Lambda image); requires an image rebuild + terraform apply to deploy.
+
+## v3.8.2: Feed builder full parity with the USAspending Custom Award Data form (2026-07-08)
+
+**The admin Feed builder now mirrors every control on usaspending.gov's Custom Award Data download page, so the same choices available there are available here.**
+
+- Date range: added the **Time Period** option (an alternative to the Date Picker) with a preset dropdown (Latest 12 months, current fiscal year to date, and the recent fiscal years); selecting a preset fills the from/to range. Fiscal years run Oct 1 to Sep 30, with the current/future FY end capped at today.
+- Location: the Country control is now the **full country list** (ISO alpha-3, "All countries" default) instead of just United States / Any; State is US-only and disables for other countries.
+- Added the descriptive **helper text** under Awarding vs Funding, Recipient vs Place of performance, Action date vs Last modified date, and Time period vs Date picker, matching the source page.
+- Added a **"Your selections"** read-back summary (award types, agency, location, date, file format) mirroring the page's Download Summary, plus a **"Reset form and start over"** link.
+- The file-format selector (CSV / TSV / TXT pipe-delimited) and the direct download shipped in v3.8.1.
+- Verified: vitest 36/36, production build clean, live API accepts the time-period-derived and foreign-country filter shapes, layout confirmed in a live preview, no em dashes.
+
+## v3.8.1: Feed page raw-data download from USAspending (2026-07-08)
+
+**The admin Feed page can now download the raw Custom Award Data file directly from USAspending (the same export the usaspending.gov download center produces), using the builder's existing filters. This is separate from the feed: it exports a file to the browser and does not run through screening.**
+
+- New `lib/usaspending.js` helpers `requestAwardDownload` (POST `/bulk_download/awards/`) and `pollAwardDownload` (poll `/download/status`), plus a `DOWNLOAD_FORMATS` constant (CSV / TSV / TXT pipe-delimited). Keyless and CORS-open (verified 2026-07-08), so the browser calls it directly, like the agency-list fetches; no backend change.
+- Feed page: a "Download the raw award file" panel with a file-format selector and a Download button that builds the bulk-download filter from the current builder state (award types, agency + sub-agency, location, date type, date range), kicks off the async download, polls until the ZIP is generated, and surfaces a direct download link with the row count and size.
+- The bulk download uses `prime_award_types` / `sub_award_types` (not the feeder's `award_type_codes` + `subawards` flag), and sub-awards take category names `procurement` / `grant`, not the prime letter codes (a live 400 caught this; the mapping is corrected and verified). Both prime and sub-award requests verified accepted end to end.
+- Verified: vitest 35/35, production build clean, download-panel layout confirmed in a live preview, live API accepts both the full prime and the sub-award filter shapes, no em dashes.
+
 ## v3.8.0: Console UI/UX refinement, brand refresh, and guided Tour (DEC-28) (2026-07-07)
 
 **A visual and information-architecture pass applying an external design handoff, plus a new plain-English guided tour. The primary nav is a clean left-to-right set of up to five tabs, the dashboard becomes an executive operations view, and a first-time user can learn the whole tool in about two minutes.**

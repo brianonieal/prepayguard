@@ -150,7 +150,7 @@ def test_fetch_awards_uses_config(monkeypatch):
     class FakeResp:
         def __enter__(self): return self
         def __exit__(self, *a): return False
-        def read(self): return json.dumps({"results": []}).encode()
+        def read(self): return json.dumps({"results": [{"Award ID": "x", "Recipient Name": "y", "Award Amount": 1}]}).encode()
 
     def fake_urlopen(req, timeout=25):
         captured["body"] = json.loads(req.data.decode())
@@ -179,7 +179,7 @@ def _capture_body(f, monkeypatch):
     class FakeResp:
         def __enter__(self): return self
         def __exit__(self, *a): return False
-        def read(self): return json.dumps({"results": []}).encode()
+        def read(self): return json.dumps({"results": [{"Award ID": "x", "Recipient Name": "y", "Award Amount": 1}]}).encode()
     monkeypatch.setattr(f.urllib.request, "urlopen",
                         lambda req, timeout=25: captured.__setitem__("body", json.loads(req.data.decode())) or FakeResp())
     return captured
@@ -211,3 +211,41 @@ def test_fetch_awards_prime_defaults_no_extra_filters(monkeypatch):
     b = captured["body"]
     assert b["subawards"] is False and b["fields"][0] == "Award ID"
     assert "agencies" not in b["filters"] and "recipient_locations" not in b["filters"]
+
+
+# --- v3.8.3: Run-now uses page 1; a narrow filter falls back off an empty rotating page ---
+
+def test_on_demand_run_now_uses_page_1(monkeypatch):
+    """An inline Run-now config fetches page 1 (top results of the admin's exact filter),
+    not the hourly rotating page that would overshoot a narrow filter."""
+    f = _load()
+    cfg = f._load_config({"feeder_config": {"award_type_codes": ["A"], "limit": 100}})
+    assert cfg["page"] == 1
+    captured = _capture_body(f, monkeypatch)
+    f._fetch_awards(cfg)
+    assert captured["body"]["page"] == 1
+
+
+def test_fetch_awards_falls_back_to_page_1_when_rotating_page_is_empty(monkeypatch):
+    """A scheduled/narrow query whose rotating page overshoots the result set retries
+    page 1 instead of reporting nothing."""
+    f = _load()
+    monkeypatch.setattr(f, "_page_for_now", lambda: 424)  # force a high rotating page
+    pages = []
+
+    class FakeResp:
+        def __init__(self, body): self._body = body
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return self._body
+
+    def fake_urlopen(req, timeout=25):
+        page = json.loads(req.data.decode())["page"]
+        pages.append(page)
+        results = [] if page != 1 else [{"Award ID": "A1", "Recipient Name": "ACME", "Award Amount": 9}]
+        return FakeResp(json.dumps({"results": results}).encode())
+
+    monkeypatch.setattr(f.urllib.request, "urlopen", fake_urlopen)
+    out = f._fetch_awards({"award_type_codes": ["A"], "time_period_days": 365, "limit": 100})
+    assert pages == [424, 1]                    # tried the rotating page, then fell back to page 1
+    assert out and out[0]["Recipient Name"] == "ACME"
