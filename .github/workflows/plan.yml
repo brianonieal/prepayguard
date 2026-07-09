@@ -4,11 +4,11 @@ name: plan
 # apply stays a manual, deliberate action.
 #
 # REQUIRES a GitHub secret AWS_PLAN_ROLE_ARN: an IAM role (OIDC-trusted for this
-# repo) with read/plan permissions. Until it is set, this workflow's plan step
-# fails at the credentials stage — ci.yml is unaffected and remains the green
-# gate. Local backend means CI state is per-run, so the plan shows a full
-# create diff (documented tradeoff for course scope; a remote backend would
-# reflect real drift).
+# repo) with read/plan permissions. Until it is set, every credentialed step
+# (creds, init, plan, comment, fail-check) is skipped and the job finishes GREEN
+# with a single "plan skipped" note; ci.yml is the gate. Local backend means CI
+# state is per-run, so the plan (when enabled) shows a full create diff
+# (documented tradeoff for course scope; a remote backend would reflect real drift).
 on:
   pull_request:
     branches: [main]
@@ -43,6 +43,7 @@ jobs:
         run: terraform -chdir=environments/dev plan -no-color -input=false 2>&1 | tee plan.txt
         continue-on-error: true
       - uses: actions/github-script@v9
+        if: ${{ secrets.AWS_PLAN_ROLE_ARN != '' }}
         with:
           script: |
             const fs = require('fs');

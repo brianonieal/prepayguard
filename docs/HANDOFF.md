@@ -73,9 +73,15 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_fee
 - **Versioned reference data (DEC-18):** admins publish new lists through the console;
   each screening cites the exact list version. Store: `reference/current.json` +
   immutable `reference/versions/{N}.json`.
-- **One real source (DEC-22):** the live list now includes the real **SAM.gov exclusions**
-  (federal debarment list) alongside three synthetic modeled sources (SSA DMF, TOP, OIG
-  LEIE). See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
+- **One real source, three synthetic (DEC-22), stated plainly:** only the **SAM.gov
+  exclusions** (federal debarment list) are real, ingested by `scripts/ingest_sam_exclusions.py`
+  and refreshed by Component G. The other three, **SSA Death Master File (DMF)**, **Treasury
+  Offset Program (TOP)**, and **OIG LEIE**, are **synthetic fixtures with fabricated entries**
+  (`src/component_b_enrichment/reference_data.json`, self-labeled). DMF and TOP are **not
+  publicly obtainable** (DMF access is restricted to certified users under the DPPA/NTIS
+  program; TOP is an internal Treasury offset system), which is precisely why they are
+  modeled rather than integrated. OIG LEIE is public but is kept synthetic here for
+  consistency with the other restricted feeds. See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
 - **LLM adjudication briefs (DEC-20):** on-demand Bedrock Nova Lite summary for reviewers,
   grounded only in the audit record, advisory, never written to the immutable record.
 

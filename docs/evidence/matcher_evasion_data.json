@@ -1,0 +1,181 @@
+{
+  "target": "Globex Offshore Inc",
+  "sem_threshold": 0.72,
+  "fuzzy_threshold": 0.9,
+  "baseline_cosine_name_only": 1.0,
+  "dilution": {
+    "adversarial": [
+      {
+        "tokens": 0,
+        "cosine": 1.0,
+        "fuzzy": 1.0,
+        "matches": true
+      },
+      {
+        "tokens": 5,
+        "cosine": 0.5058,
+        "fuzzy": 0.4872,
+        "matches": false
+      },
+      {
+        "tokens": 10,
+        "cosine": 0.5628,
+        "fuzzy": 0.3585,
+        "matches": false
+      },
+      {
+        "tokens": 20,
+        "cosine": 0.5503,
+        "fuzzy": 0.2289,
+        "matches": false
+      },
+      {
+        "tokens": 40,
+        "cosine": 0.5566,
+        "fuzzy": 0.1271,
+        "matches": false
+      },
+      {
+        "tokens": 80,
+        "cosine": 0.6148,
+        "fuzzy": 0.0691,
+        "matches": false
+      },
+      {
+        "tokens": 160,
+        "cosine": 0.5924,
+        "fuzzy": 0.0357,
+        "matches": false
+      }
+    ],
+    "benign_prose": [
+      {
+        "tokens": 0,
+        "cosine": 1.0,
+        "fuzzy": 1.0,
+        "matches": true
+      },
+      {
+        "tokens": 5,
+        "cosine": 0.9116,
+        "fuzzy": 0.5352,
+        "matches": true
+      },
+      {
+        "tokens": 10,
+        "cosine": 0.9132,
+        "fuzzy": 0.3486,
+        "matches": true
+      },
+      {
+        "tokens": 20,
+        "cosine": 0.9024,
+        "fuzzy": 0.2021,
+        "matches": true
+      },
+      {
+        "tokens": 40,
+        "cosine": 0.8928,
+        "fuzzy": 0.1053,
+        "matches": true
+      },
+      {
+        "tokens": 80,
+        "cosine": 0.868,
+        "fuzzy": 0.0572,
+        "matches": true
+      },
+      {
+        "tokens": 160,
+        "cosine": 0.8545,
+        "fuzzy": 0.0295,
+        "matches": true
+      }
+    ],
+    "legitimate_suffix": [
+      {
+        "tokens": 0,
+        "cosine": 1.0,
+        "fuzzy": 1.0,
+        "matches": true
+      },
+      {
+        "tokens": 5,
+        "cosine": 0.7991,
+        "fuzzy": 0.5205,
+        "matches": true
+      },
+      {
+        "tokens": 10,
+        "cosine": 0.8536,
+        "fuzzy": 0.3918,
+        "matches": true
+      },
+      {
+        "tokens": 20,
+        "cosine": 0.8225,
+        "fuzzy": 0.2197,
+        "matches": true
+      },
+      {
+        "tokens": 40,
+        "cosine": 0.7946,
+        "fuzzy": 0.1206,
+        "matches": true
+      },
+      {
+        "tokens": 80,
+        "cosine": 0.7336,
+        "fuzzy": 0.0642,
+        "matches": true
+      },
+      {
+        "tokens": 160,
+        "cosine": 0.7179,
+        "fuzzy": 0.033,
+        "matches": false
+      }
+    ]
+  },
+  "placement": {
+    "suffix": {
+      "cosine": 0.5566,
+      "fuzzy": 0.1271,
+      "matches": false
+    },
+    "prefix": {
+      "cosine": 0.5134,
+      "fuzzy": 0.1271,
+      "matches": false
+    },
+    "infix": {
+      "cosine": 0.4359,
+      "fuzzy": 0.1271,
+      "matches": false
+    },
+    "name_repeated_x2_then_suffix": {
+      "cosine": 0.6057,
+      "fuzzy": 0.1191,
+      "matches": false
+    },
+    "name_repeated_x3_then_suffix": {
+      "cosine": 0.5901,
+      "fuzzy": 0.1121,
+      "matches": false
+    }
+  },
+  "crossings": {
+    "adversarial": {
+      "semantic_below_0.72_at_tokens": 5,
+      "fuzzy_below_0.90_at_tokens": 5
+    },
+    "benign_prose": {
+      "semantic_below_0.72_at_tokens": null,
+      "fuzzy_below_0.90_at_tokens": 5
+    },
+    "legitimate_suffix": {
+      "semantic_below_0.72_at_tokens": 160,
+      "fuzzy_below_0.90_at_tokens": 5
+    }
+  }
+}
