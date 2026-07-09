@@ -11,9 +11,9 @@ decision is recorded immutably, and every disposition cites the exact screening-
 version it was judged against.
 
 **Status at this refresh:** everything through Phase 5 (v3.7.1) is complete and **live
-on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **27
-architectural decisions locked.** Verified green: **pytest 135/135, console vitest
-34/34, checkov clean, ruff clean, terraform validate clean.** The one differentiating
+on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **29
+architectural decisions locked.** Verified green: **pytest `152 passed, 1 xfailed`, console
+vitest green, checkov 662/0/3, ruff clean, tflint clean, terraform validate clean.** The one differentiating
 component (the semantic matcher) is **measured**, the screening list includes **one
 real federal source** (SAM.gov exclusions) alongside three modeled ones and is kept
 current automatically by a daily refresher, and real federal payments now flow in
@@ -42,6 +42,29 @@ caller (SigV4) ─> API Gateway (AWS_IAM) ─> [A] Intake, payment-ID idempotenc
 [G] Refresher (EventBridge, daily) → re-pulls real SAM.gov exclusions → re-embeds → republishes the versioned list on change (DEC-24)
 Console API (AWS_IAM): reviews, audit, decisions, batches, reference publish, feed config, LLM briefs, analytics
 Reviewer Console: React/Vite SPA on S3 + CloudFront; Cognito → temp IAM creds → SigV4 (DEC-15)
+```
+
+The same pipeline as a diagram (GitHub renders the block below):
+
+```mermaid
+flowchart TD
+  caller["caller (SigV4, submitter role — DEC-5)"] --> apigw["API Gateway — AWS_IAM<br/>payee validation: maxLength 35 + printable-ASCII (DEC-29)"]
+  apigw --> A["A · Intake<br/>payment-ID idempotency (commitment 1)"]
+  A -->|SQS| B["B · Enrichment<br/>TIN/name exact · fuzzy · semantic (Titan)"]
+  B -->|SQS| C["C · Risk Scoring<br/>rule score + disposition; NAME_MATCH_CAP=60"]
+  C -->|SQS| D["D · Disposition"]
+  D --> audit[("S3 Object Lock audit<br/>COMPLIANCE — commitment 4")]
+  D --> review["SQS review queue<br/>ambiguous → human (commitment 2)"]
+  D --> hook["webhook (Secrets Manager — DEC-7)"]
+  refstore[("versioned reference list<br/>S3 + per-entry Titan vectors")] --> B
+  E["E · Batch Ingest (S3-triggered)"] -->|reuses A's queue + idempotency (DEC-16)| B
+  F["F · Feeder (EventBridge)"] --> E
+  G["G · Refresher (EventBridge, daily)"] --> refstore
+  console["Reviewer Console (React/CloudFront)<br/>Cognito → SigV4 (DEC-15)"] --> capi["Console API (AWS_IAM)<br/>reviews · audit · decisions · LLM brief (advisory)"]
+  capi -.reads.-> audit
+  capi -.reads.-> review
+  subgraph controls["cross-cutting: every SQS stage has DLQ+redrive (commitment 2), max-concurrency + queue-depth alarm (commitment 3)"]
+  end
 ```
 
 Seven Lambda container images (DEC-2) plus a console API, x86_64, `publish=true` behind
@@ -129,8 +152,10 @@ alias to the prior version (seconds, no rebuild). Reference-data rollback: repoi
 
 ## 2. Tests
 
-Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest 135/135,
-vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
+Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest `152 passed,
+1 xfailed`** (the xfail is the documented F1 residual, not a failure), vitest green, both in CI.
+**Rendered summary + four-commitment mapping + Object-Lock moto caveat: [`docs/TEST_REPORT.md`](TEST_REPORT.md).**
+Registry: `foundation/TESTS.md`.
 
 ### 2.1 Graded-commitment evidence
 
@@ -340,7 +365,7 @@ human-approved workflow, not free-form generation. AI assistance produced handle
 code (A to E, console API), the Terraform modules, the tests, the React console, and
 this SME hardening pass. Review and control came from human approval gates at every
 version, decisions recorded with their alternatives and objections in
-`foundation/DECISIONS.md` (27 locked), and static analysis (ruff, checkov, tflint,
+`foundation/DECISIONS.md` (29 locked), and static analysis (ruff, checkov, tflint,
 pip-audit) plus the test suite on every change. Judgment was applied, not deferred to
 the assistant: examples include rejecting the Powertools idempotency decorator for
 visible hand-rolled logic (DEC-13), rejecting an ML risk model for transparent rules
