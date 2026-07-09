@@ -103,3 +103,16 @@ set will look good — that circularity is exactly how the append blind spot sur
 adversarial testing hit it from outside. These numbers bound the matcher's behavior *on this
 set*; they do not generalize to production traffic, and 2.4 expands the set specifically to
 close the append blind spot this report names.
+
+## 2.4 outcome — the expanded set answers the blind spot
+
+The set was expanded 27 → 62 (append positives — adversarial/benign/numeric; legit-suffix
+positives; high-overlap hard negatives) and the identical sweep re-run
+(`docs/evidence/semantic_eval_results_v2.json`; construction in `docs/sme/SEMANTIC_EVAL.md` §9).
+**0.72 does not survive: recall falls 1.000 → 0.484, F1 0.909 → 0.566.** No threshold recovers
+it — recall peaks at 0.839 (threshold 0.60) at a 32% false-flag rate and still misses 5
+positives, because the diluted-name cosines (0.50–0.69) sit inside the hard-negative band. Of
+the 16 missed positives, 10 are >35 chars (rejected by 2.1e at intake) and **6 are the ≤35 live
+residual** that pass validation and still evade — the exact target for the windowed backstop.
+This confirms, with the adversary's move now in the set, what 2.0c found from outside: the
+threshold was never the lever.
