@@ -1,6 +1,6 @@
 # DECISIONS.md — PrePayGuard ("Treasury")
 # Seeded at foundation build (v0.1.0, 2026-07-03) verbatim from TREASURY_DECISIONS_LOG.md.
-# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 28 LOCKED, 0 OPEN.
+# DEC-1..12 seeded verbatim; DEC-13+ added during build. Running total: 29 LOCKED, 0 OPEN.
 # Do not re-open a LOCKED decision without a stated reason for the pivot.
 # New decisions append below DEC-12 in the same format (DEC-N, severity, decision,
 # alternatives considered, rationale, risk acknowledged, resolution, status).
@@ -401,4 +401,21 @@ Section-level detail:
 
 ---
 
-# 28 decisions logged. 28 LOCKED, 0 OPEN.
+## DEC-29 - Payee input validation at Component A intake, rail-sized, fail-closed (Phase 2.1e, v3.9.0)
+**Date:** 2026-07-09
+**Severity:** FULL
+**Decision:** Enforce payee validation at intake, flag-gated (`payee_validation_enabled`, default **ON**), at two layers that toggle together: (1) the API Gateway request model gains `maxLength = 35` and `pattern = "^[ -~]+$"` (printable ASCII 0x20-0x7E) on `payee`; (2) Component A's handler (`_validate_payee`, `src/component_a_intake/app.py`) re-validates length + printable-ASCII and returns **400** on violation, **before** the idempotency write and SQS enqueue, so an invalid payee is never screened and never approved (fail-closed). `PAYEE_MAX_LENGTH` env (default 35) is honored by the handler. Setting the flag off restores the exact pre-2.1e unbounded schema (`{string, minLength 1}`) and handler behavior so the demo can reproduce the F1 matcher-evasion attack live. This is the primary remediation for the F1 / 2.1a root cause (Component A accepted unbounded free text); it does NOT implement windowed matching (that stays recommended follow-on).
+**Alternatives considered:**
+- **Cap at NACHA 22 instead of Fedwire 35** (rejected as default): 2.1d measured the cap's own cost against the live 96-entry v4 list — a 22-char cap makes 8/96 listed entities a full screening MISS if it truncates, or bounces 29/96 legitimate long names if it rejects; 35 reduces that to 2/96 or 11/96 while still bounding the field. 22 remains reachable via `PAYEE_MAX_LENGTH` for a stricter policy.
+- **Truncate `payee` to the cap instead of rejecting** (rejected): 2.1b showed trailing truncation is defeated by prefix/infix placement, and 2.1d(b) showed a truncating cap introduces its own false-negative (a truncated legit long name misses its own listed entity). Rejecting (fail-closed) is safe; the availability cost of bounced long names is operator-handled.
+- **Single-script-consistency character rule** (rejected as insufficient): 2.1d(a) proved a full Cyrillic transliteration is single-script yet evades the matcher (cosine 0.11-0.29), so a single-script rule does not close the class.
+- **Latin-script-only + NFKC (allow diacritics)** (deferred, documented): lower false-reject (accepts `José Muñoz`) and folds fullwidth, but needs NFKC normalization + Unicode script checks — more complex and not expressible in the API Gateway `pattern`. Recorded in the threat model as the follow-on refinement.
+**Rationale:** repairs the input contract (the 2.1a/2.1c root cause) at the edge and in-handler, cheaply, without touching the matcher (no eval re-sweep needed). Sized to a real federal rail (Fedwire 35). Flag-gated default-ON preserves the demo's ability to show the attack.
+**Risk acknowledged:** (1) **KNOWN LIMITATION — this does NOT close F1.** 2.1d measured the residual: **75/96 (78%) listed entities remain evadable** via an in-budget ASCII append under a 35-char cap; the windowed matcher is the recommended backstop, not built here. (2) ASCII-printable **rejects legitimate diacritic names** (`José Muñoz`, `François`) — a real false-reject, asserted in `test_ascii_rule_rejects_legitimate_diacritics_known_limitation`; the Latin-script+NFKC variant is the documented mitigation. (3) Rejecting `payee` over 35 chars bounces the 11/96-equivalent legitimately long names (availability), to be routed out-of-band. (4) The edge `pattern` relies on API Gateway request-body validation; the in-handler check is the defense-in-depth / direct-invoke guarantee.
+**Confidence:** HIGH (matcher unchanged; measured tradeoffs). **Reversibility:** HIGH — single Terraform flag returns the prior schema and handler behavior; no data/IAM/infra migration.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 29 decisions logged. 29 LOCKED, 0 OPEN.

@@ -169,6 +169,9 @@ resource "aws_lambda_function" "intake" {
       OUTPUT_QUEUE_URL  = aws_sqs_queue.output.url
       IDEMPOTENCY_TABLE = aws_dynamodb_table.idempotency.name
       CONSOLE_ORIGIN    = var.console_origin
+      # Phase 2.1e (DEC-29): in-handler payee validation toggles with the edge model.
+      PAYEE_VALIDATION_ENABLED = var.payee_validation_enabled ? "true" : "false"
+      PAYEE_MAX_LENGTH         = tostring(var.payee_max_length)
     })
   }
 
@@ -219,6 +222,23 @@ resource "aws_api_gateway_request_validator" "body" {
   validate_request_parameters = false
 }
 
+locals {
+  # Phase 2.1e (DEC-29): flag-gated payee schema. ON = rail-sized maxLength + printable-ASCII
+  # pattern. The class is printable-ASCII, not single-script, because 2.1d(a) showed a
+  # single-script (full-Cyrillic) transliteration evades the matcher; only ASCII/Latin-script
+  # closes it. This is the EDGE gate (defense in depth); Component A re-validates in-handler
+  # for the direct-invoke/test path and fail-closed behavior.
+  payee_schema = var.payee_validation_enabled ? {
+    type      = "string"
+    minLength = 1
+    maxLength = var.payee_max_length
+    pattern   = "^[ -~]+$" # printable ASCII 0x20-0x7E; rejects Cyrillic/fullwidth/diacritics/control
+    } : {
+    type      = "string"
+    minLength = 1
+  }
+}
+
 resource "aws_api_gateway_model" "payment" {
   rest_api_id  = aws_api_gateway_rest_api.intake.id
   name         = "PaymentIntake"
@@ -233,7 +253,7 @@ resource "aws_api_gateway_model" "payment" {
     properties = {
       payment_id = { type = "string", minLength = 1 }
       amount     = { type = "number", minimum = 0 }
-      payee      = { type = "string", minLength = 1 }
+      payee      = local.payee_schema
     }
   })
 }

@@ -333,6 +333,9 @@ module "api_intake" {
 
   console_origin = module.console.console_url
 
+  # Phase 2.1e (DEC-29): payee input validation, default ON; demo flips it off via -var.
+  payee_validation_enabled = var.payee_validation_enabled
+
   # A→B queue visibility must cover its consumer (B, enrichment).
   output_queue_visibility_timeout = 6 * local.stage_timeouts.enrichment
 

@@ -42,3 +42,9 @@ variable "refresher_enabled" {
   type        = bool
   default     = true
 }
+
+variable "payee_validation_enabled" {
+  description = "Phase 2.1e (DEC-29): intake payee validation (maxLength 35 + printable-ASCII), fail-closed. Default ON. Set false (terraform -var) to restore the pre-2.1e unbounded schema so the demo can reproduce the F1 matcher-evasion attack."
+  type        = bool
+  default     = true
+}

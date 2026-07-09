@@ -25,6 +25,18 @@ variable "console_origin" {
   default     = "*"
 }
 
+variable "payee_validation_enabled" {
+  description = "Phase 2.1e (DEC-29): enforce payee length + printable-ASCII validation at intake, fail-closed. Default ON. Set false to restore the pre-2.1e unbounded payee schema for the demo/attack reproduction. Toggles both the API Gateway request model and the Component A handler together."
+  type        = bool
+  default     = true
+}
+
+variable "payee_max_length" {
+  description = "Phase 2.1e (DEC-29): max payee length. Sized to the Fedwire 35-char beneficiary-name field; 35 chosen over NACHA's 22 to minimize the cap's own cost (2.1d: a 22-char cap misses 8/96 listed entities if truncating, or bounces 29/96 legit long names if rejecting; 35 -> 2/96 or 11/96)."
+  type        = number
+  default     = 35
+}
+
 variable "memory_size" {
   description = "Lambda memory (MB)."
   type        = number
