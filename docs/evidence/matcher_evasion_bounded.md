@@ -230,9 +230,12 @@ in **both** directions depending on whether the cap truncates or rejects:
   11 of 96 (11%) exceed 35** — an availability / false-REJECT cost that an operator must handle
   out-of-band.
 
-**This is why 35 (Fedwire) is chosen over 22 (NACHA):** 22 either misses 8/96 listed entities
-(truncating) or bounces 29/96 legit long names (rejecting); 35 cuts that to 2/96 or 11/96
-respectively, while still bounding the field. See the DECISIONS entry.
+**The implemented control (2.1e) REJECTS with 400, it does not truncate**, so the truncating-
+cap miss numbers (8/96, 2/96) describe a design we did **not** ship. On the grounds that
+actually apply — a rejecting cap costs a legit-reject, not a screening miss — verified vs this
+histogram: **35 chars → 11/96 legit names rejected, 75/96 (78%) still evadable; 22 chars →
+29/96 rejected, 31/96 (32%) evadable.** 35 is chosen on usability grounds (11 legit 400s vs 29)
+while accepting that 78% of the list stays evadable. See the DECISIONS entry.
 
 ## (c) Threshold-boundary correction
 
@@ -257,7 +260,43 @@ attacker tries a few in-budget distant tokens (`OK PAY`, `FY26Q3`, `ZX QQ`, `PO 
 **F1 residual, stated concretely: 75 of 96 listed entities (78%) remain evadable via a fitting
 short append under a 35-char cap; 31 of 96 (32%) under a 22-char cap** — and, orthogonally, the
 full-script transliteration/homoglyph class of (a) evades **regardless of length**, closed only
-by an ASCII/Latin-script rule at its own false-reject cost. A rail-sized length cap alone leaves
-the majority of the list evadable; it is a necessary narrowing of the input contract, not a
-closure of F1. The residual is the target for the windowed matcher (recommended follow-on, not
-implemented).
+by an ASCII/Latin-script rule at its own false-reject cost.
+
+**Which control does the work.** The **ASCII-printable pattern is the load-bearing control, not
+the length cap.** The pattern `^[ -~]+$` closes the **entire** transliteration/homoglyph class —
+Cyrillic and fullwidth code points are not printable ASCII, so every payload in (a) is rejected
+outright. The **length cap closes only ~22% of the append class**: 21 of 96 entities (96 − 75)
+lack the budget for a fitting append under a 35-char cap; the other 75 keep it. So of the two
+halves of "input validation," the character class eliminates a whole attack class while the cap
+trims roughly a fifth of the other. A rail-sized length cap alone leaves the majority of the
+list evadable; it is a necessary narrowing of the input contract, not a closure of F1. The
+residual is the target for the windowed matcher (recommended follow-on, not implemented).
+
+## (e) 2.1f — does a real listed name fail our own validator? Deployed-API test
+
+**0 of 96** live v4 names are non-ASCII (the character-class rule rejects no real listed name),
+but **11 of 96 exceed 35 chars** and so fail the length cap. The longest real entity is the
+66-char `LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK` (`sam_exclusions`,
+high). Submitted against the **deployed dev API** (`POST .../dev/payments`, SigV4 as the
+payment-submitter role, validation ON):
+
+| payload | payee | deployed result |
+|---|---|---|
+| longest real listed name (66 ch) | `LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK` | **HTTP 400 `Invalid request body`** (edge `maxLength`) |
+| non-ASCII homoglyph (2.1b) | `Наwwk LLC` | **HTTP 400 `Invalid request body`** (edge `pattern`) |
+| clean short ASCII (control) | `Acme Test Vendor` | **HTTP 200 `queued`** |
+
+This empirically confirms two things that were assumptions until now: (1) **API Gateway request
+validation actually enforces both `maxLength` and the printable-ASCII `pattern`** — the `pattern`
+rejects the Cyrillic payee at the edge, before Lambda; (2) **a legitimate payment carrying a real
+listed entity's full name is rejected (400)** by our own cap. That is the availability cost of
+the cap made concrete: a payment to this Do Not Pay entity, submitted honestly with its full
+66-char name, is fail-closed rejected (safe — never paid — but it never reaches screening and
+must be handled out-of-band). 11/96 of the real list carries this cost.
+
+**Deployment gotcha (recorded in ERRORS.md):** the first `terraform apply` of this model failed
+(`Invalid model schema specified`). Root cause: a Terraform `? :` conditional between two
+differently-shaped schema *objects* unifies them to `map(string)` and **stringifies the integer
+constraints** (`"maxLength":"35"`), which API Gateway rejects. Fix: select between two
+independently-`jsonencode`d *strings* so `maxLength` stays an integer `35`. After the fix,
+`terraform apply` is clean and `terraform plan` shows no drift.

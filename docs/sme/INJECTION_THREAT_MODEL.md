@@ -107,11 +107,18 @@ live Titan, payee cosined vs the actual stored v4 vector
   over 22 to minimize both (see DECISIONS entry).
 
 Consequence for remediation: input validation (maxLength **+ character class**, sized to the
-rail) is the correct **primary** fix and substantially narrows F1, but a **large residual
-remains — 75/96 under a 35-char cap plus the whole transliteration class**, which is where a
-robust (windowed) matcher is the backstop, not the front line. The character-class control is
-a **tradeoff (single-script insufficient; ASCII-only closes the class but rejects diacritics),
-not a clean win** — both variants are in the remediation table.
+rail) is the correct **primary** fix, but the two halves do very different amounts of work.
+**The character-class rule is the load-bearing control, not the length cap:** the printable-
+ASCII pattern (`^[ -~]+$`) closes the **entire** transliteration/homoglyph class (Cyrillic and
+fullwidth are not printable ASCII — 2.1d(a)), while the 35-char cap closes only **~22% of the
+append class** (21/96 entities lack the budget; **75/96 stay evadable**). And because the
+control **rejects (400), it does not truncate**, the cap's cost is a legit-reject, not a
+screening miss: **35 chars → 11/96 legit names rejected, 78% evadable; 22 chars → 29/96
+rejected, 32% evadable** (verified vs the histogram). So input validation narrows F1 modestly
+and repairs the input contract, but a **large residual remains**, which is where a robust
+(windowed) matcher is the backstop. The character-class control is a **tradeoff (single-script
+insufficient; ASCII-only closes the class but rejects diacritics), not a clean win** — both
+variants are in the remediation table.
 
 ## 2.1c Attacker model (blocking)
 
@@ -274,12 +281,13 @@ defeats it.
    validation at Component A intake.** Bound `payee` to the rail size and restrict its
    character class at the schema (`api_intake_stage/main.tf` model) and the handler
    (`_extract_payment`), returning **400 fail-closed** (an unvalidated payment is never
-   screened, never approved). Cost: small. **Cap choice (35 vs 22):** 2.1d — a 22-char cap
-   makes 8/96 listed entities a screening miss if it truncates, or bounces 29/96 legit long
-   names if it rejects; 35 cuts that to 2/96 or 11/96. **35 (Fedwire) chosen** (DECISIONS
-   entry); rejects, does not truncate, so no cap-induced screening miss — at the cost of
-   bouncing the 11/96 legitimately >35-char names (availability, operator-handled).
-   **Character-class is a tradeoff, NOT a clean win (2.1d(a)):**
+   screened, never approved). Cost: small. **Cap choice (35 vs 22) — on rejection grounds
+   (the control rejects, it does not truncate, so there is no screening-miss cost):** verified
+   vs the 96-entry histogram, **35 chars rejects 11/96 legit names and leaves 75/96 (78%)
+   evadable; 22 chars rejects 29/96 and leaves 31/96 (32%) evadable.** **35 (Fedwire) chosen**
+   on usability grounds (11 legit 400s vs 29), explicitly accepting that **78% of the list
+   stays evadable** — the length cap is the minor control here. **The heavy lifting is the
+   character-class rule, which is a tradeoff, NOT a clean win (2.1d(a)):**
    - A **single-script-consistency** rule is **insufficient** — a full Cyrillic transliteration
      is single-script and evades all 5 (cosine 0.11–0.29).
    - **ASCII-printable-only** closes the transliteration/homoglyph/fullwidth class but **rejects

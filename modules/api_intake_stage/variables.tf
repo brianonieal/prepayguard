@@ -32,7 +32,7 @@ variable "payee_validation_enabled" {
 }
 
 variable "payee_max_length" {
-  description = "Phase 2.1e (DEC-29): max payee length. Sized to the Fedwire 35-char beneficiary-name field; 35 chosen over NACHA's 22 to minimize the cap's own cost (2.1d: a 22-char cap misses 8/96 listed entities if truncating, or bounces 29/96 legit long names if rejecting; 35 -> 2/96 or 11/96)."
+  description = "Phase 2.1e (DEC-29): max payee length. The control REJECTS (400) over-length payees, it does not truncate, so there is no screening-miss cost — only a legit-reject cost. Sized to the Fedwire 35-char name field; 35 over NACHA's 22 on usability grounds (2.1d, verified vs the 96-entry list: 35 rejects 11/96 legit names and leaves 75/96 evadable; 22 rejects 29/96 and leaves 31/96). The length cap is not the load-bearing control — the ASCII pattern is."
   type        = number
   default     = 35
 }
