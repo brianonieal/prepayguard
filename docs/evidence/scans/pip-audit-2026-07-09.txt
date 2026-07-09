@@ -1,0 +1,28 @@
+# for req in src/*/requirements.txt: pip-audit -r $req --strict  (CI: ci.yml:48-51) — run 2026-07-09
+# pip-audit 2.10.1
+
+== src/component_a_intake/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_b_enrichment/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_c_risk_scoring/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_d_disposition/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_e_batch_ingest/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_f_feeder/requirements.txt ==
+No known vulnerabilities found
+
+== src/component_g_refresher/requirements.txt ==
+No known vulnerabilities found
+
+== src/console_api/requirements.txt ==
+No known vulnerabilities found
+
+DONE

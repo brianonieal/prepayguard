@@ -1,0 +1,9 @@
+# checkov --config-file .checkov.yaml  (CI: ci.yml:55) — run 2026-07-09
+# checkov 3.3.6
+
+terraform scan results:
+
+Passed checks: 662, Failed checks: 0, Skipped checks: 3
+
+
+exit=0

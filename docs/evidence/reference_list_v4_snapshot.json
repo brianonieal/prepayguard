@@ -1,0 +1,489 @@
+{
+  "_provenance": "Snapshot of the live v4 reference list (s3://treasury-dev-reference-.../reference/current.json) taken 2026-07-09 for evidence durability (the S3 list does not survive teardown). name/source/severity ONLY — no TINs (real sam_exclusions entries carry no TIN; synthetic entries' 9000000xx TINs are excluded), no embedding vectors, no addresses. sam_exclusions (90) are REAL, PUBLIC SAM.gov exclusion records (a published federal transparency list). death_master_file/treasury_offset/oig_leie (6) are SYNTHETIC placeholders (DMF/TOP are not publicly obtainable; these are invented). No non-public PII is included.",
+  "version": 4,
+  "semantic_threshold": 0.72,
+  "count": 96,
+  "snapshot_date": "2026-07-09",
+  "entries": [
+    {
+      "name": "John Q Public",
+      "source": "death_master_file",
+      "severity": "high"
+    },
+    {
+      "name": "Mary M Sample",
+      "source": "death_master_file",
+      "severity": "high"
+    },
+    {
+      "name": "Globex Offshore Inc",
+      "source": "oig_leie",
+      "severity": "high"
+    },
+    {
+      "name": "Initech Systems LLC",
+      "source": "oig_leie",
+      "severity": "high"
+    },
+    {
+      "name": "Abundant Blessings Inc",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ALBAHR ALAAHMAR ENERGY FZE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Andrea A. Noel",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Angel Daniel BALESTRINI JARAMILLO",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ANITA TREGO",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ANNETTE JONES",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ANTHONY BAMONTE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Antoine Cazeau",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ARNITA LEFF",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Arob Kolnyang",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "AURORATOOLS LIMITED LIABILITY COMPANY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Bahrami Ali SHAYESTEH",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Body Energetics, Inc.",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "CAROL PARKER",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "CFK, INC",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Citadel Community Development Corporation",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Coast Medical Supply",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "COURTNEY RENEE KOONCE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "DAMIAN OKAPKO IDJAGBORO",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "DARLA DANAE GEARHART",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "DARRON BROADUS SR",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "David GOTMAN",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "David S. Coldewe",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "DIGITAL MARKETING AWARDS FZ LLC",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "EDEDEM EDEM",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "EDINA SECURITY CONSULTANTS",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Edward Joel Piesman",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "EKVIK LIMITED LIABILITY COMPANY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "ERYCKA RESEAN THOMAS",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "GINA CEVENE WEBSTER",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "GOLDEN LUXURY JEWELLERY TRADING L.L.C",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Haresh K. Mirani",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Hawwk LLC",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "HOLLY E BLOMQUIST",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "James Glenn Warner",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "James O. Wilson Jr.",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "James R. Sirois",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Jeff D. Haslam",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "JONATHAN HOWARD NEWCOMB",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Joni James Tate",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Kathleen Etling Ennis",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Kathleen J King",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Keith Sutton",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "KIBER SERVICE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "LETICIA KO CHY-KOA",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "LIMITED LIABILITY COMPANY LITHIUMION",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "LIMITED LIABILITY COMPANY OSNOVA LAB",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "LOLA LOLITA 1110, S. DE R.L. DE C.V.",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Mahmood Aminur Rahman",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Mark Denton Poolos",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Mark Thomas Mello",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Michael KUAJIEN",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Michael ROSS",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "MICHAEL TERRANCE MCGHEE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "MOHAMED YUSUF A SIDDIQUI",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Nasser Al Sheikh ALI",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "NAZAR MURADYAN",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "NICOLE MARIA PAULSON",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "NURKEZ",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "PATRICIA MARIE MELIA",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "PETER EDWARD DROUBAY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "PRINCE SEASHORE NO. 1 CO. LTD.",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "PURIFICACION CRISTOBAL",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Raynell Rankin",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "RENEE MICHELE HAAS",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "RICK ANTHONY LONG JR",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "SABRINA WINONA LAWHORNE",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Sandra Ann Whaley",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Sang Jun JI",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "SEPEHR ENERGY PAYA GOSTAR JAHAN",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "SOUTH WEALTH RESOURCES COMPANY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "STAR DRAGON CORPORATION LIMITED",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Steven S. Mclemore",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "SUN SCIENCE INTERNATIONAL CO., LIMITED",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Tarandzhit Singkh KAMBO",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "TAWU BVBA MECHANICAL ENGINEERING AND TRADING COMPANY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Teapot Oil & Refining Company",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Teofanes Salas-Campos",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "TERRY HILL",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Thomas Earl Nettles",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Timothy J. Cuddington",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Top Notch Construction",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "TOU CHAIKER VANG",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Usamah 'Abd-al-Wahid al-Jaza'iri BELKACEM",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "VINCENT ROMANAUSKAS",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Vishesh Giri",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "WILLIAM L ALFORD JR",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "YATAI SMART INDUSTRIAL NEW CITY",
+      "source": "sam_exclusions",
+      "severity": "high"
+    },
+    {
+      "name": "Jane A Doe",
+      "source": "treasury_offset",
+      "severity": "medium"
+    },
+    {
+      "name": "Umbrella Holdings Group",
+      "source": "treasury_offset",
+      "severity": "medium"
+    }
+  ]
+}
