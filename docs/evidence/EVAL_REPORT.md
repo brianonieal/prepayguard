@@ -7,7 +7,26 @@ variants that SHOULD match a listed entity), 10 clean, 7 hard negatives. Raw res
 `docs/evidence/semantic_eval_results.json`. Reproduce:
 `python scripts/eval_semantic_matching.py --stability --json docs/evidence/semantic_eval_results.json`.
 
-## The finding that matters most
+## The strongest finding: it is the embedding geometry, not a threshold, and not my case-mix
+
+> **Diluted-name vectors fall inside the hard-negative cosine band. No threshold separates an
+> append-class positive from a genuinely different similar name — this is a property of the
+> embedding space, not of how many append cases I chose to add.**
+
+Measured on the expanded set (§2.4, `semantic_eval_results_v2.json`): the 21 append-class
+positives span cosine **0.499–0.882**; the 16 hard negatives span **0.351–0.966**. **All 21/21
+append positives sit inside the hard-negative band**, and only 1 of 21 reaches the *lowest*
+benign-variation positive (0.831). Benign-variation positives, by contrast, occupy a tight high
+band **0.831–0.963**, cleanly above the hard negatives. So a threshold low enough to admit the
+diluted names (≈0.50) also admits nearly every hard negative (precision collapses); a threshold
+that keeps precision (≈0.72) misses the diluted names. There is no separating threshold because
+Titan places a listed name diluted by distant tokens in the same region as a *different* company
+sharing a token. **This claim does not depend on the case-mix**: adding or removing append cases
+changes the recall *number*, but the overlap of the two cosine distributions is a fixed property
+of the geometry. That is why 2.4's threshold sweep found no better threshold, and why input
+validation (bound the string before it is embedded) — not re-tuning — is the lever.
+
+## The blind-spot finding
 
 > **The 27-case evaluation set contained no append cases of any semantic distance. The sweep
 > endorsed 0.72. Adversarial testing then defeated 0.72 with a five-character append. The
@@ -22,7 +41,7 @@ excellent here (recall 1.00) is defeated in production by `"<listed name> " + 5 
 (2.0c: cosine drops to 0.51–0.61, below 0.72). **An evaluation set that omits the adversary's
 move cannot score a defense against it — the number it produces is precise and irrelevant.**
 
-## The second finding, unflattering
+## Also unflattering: no adversarial robustness over difflib
 
 > **The semantic layer provides tolerance to legitimate name variation. It provides no
 > adversarial robustness over difflib: both fall to the same append.**
@@ -104,15 +123,43 @@ adversarial testing hit it from outside. These numbers bound the matcher's behav
 set*; they do not generalize to production traffic, and 2.4 expands the set specifically to
 close the append blind spot this report names.
 
-## 2.4 outcome — the expanded set answers the blind spot
+## 2.4 outcome — recall reported per class, never blended
 
 The set was expanded 27 → 62 (append positives — adversarial/benign/numeric; legit-suffix
 positives; high-overlap hard negatives) and the identical sweep re-run
 (`docs/evidence/semantic_eval_results_v2.json`; construction in `docs/sme/SEMANTIC_EVAL.md` §9).
-**0.72 does not survive: recall falls 1.000 → 0.484, F1 0.909 → 0.566.** No threshold recovers
-it — recall peaks at 0.839 (threshold 0.60) at a 32% false-flag rate and still misses 5
-positives, because the diluted-name cosines (0.50–0.69) sit inside the hard-negative band. Of
-the 16 missed positives, 10 are >35 chars (rejected by 2.1e at intake) and **6 are the ≤35 live
-residual** that pass validation and still evade — the exact target for the windowed backstop.
-This confirms, with the adversary's move now in the set, what 2.0c found from outside: the
-threshold was never the lever.
+
+**A single blended recall figure ("1.000 → 0.484") is not a before/after — the matcher did not
+change; the case-mix did.** That number is a function of how many append cases I chose to add,
+not a property of Component B. Report the two classes separately (recall at 0.72):
+
+| positive class | what it tests | recall @ 0.72 |
+|---|---|---|
+| **benign-variation** (word sub, suffix expansion, nickname — what the layer is for) | honest name drift | **10/10 = 1.00** |
+| **append-class** (name + distant/legit-suffix tokens) | dilution | **5/21 = 0.24** |
+
+The benign-variation recall is unchanged from the 27-case run — the semantic layer does exactly
+its job on honest variation. The append-class recall is low because, per the geometry finding
+above, diluted names land in the hard-negative band. **These are two different questions and must
+not be averaged into one recall.** (The blended 0.484 across all 31 positives is reported only as
+an aside; its value moves with the positive/append ratio, which is an authoring choice.)
+
+### Conditioned on what the deployed system actually screens (C2)
+
+10 of the 15 rejected positives exceed 35 chars, so 2.1e refuses them at intake (400) — they
+**never reach the matcher**, and counting them as matcher false negatives conflates the intake
+layer with the matching layer. **Matcher recall on positives that PASS validation (≤35 ASCII —
+the deployed system): 10/16 = 0.625** (benign 9/9 = 1.00; append **1/7 = 0.14**). The
+pre-validation figure — all 31 positives, **15/31 = 0.484** — is **historical** (it describes the
+matcher before 2.1e, screening inputs the deployed system now rejects). Cite 0.625/benign-append
+split for the deployed system; cite 0.484 only as the pre-validation baseline.
+
+**No threshold recovers the append recall** (recall peaks 0.839 at 0.60, FPR 0.323, still 5 FN)
+— because, again, the diluted cosines sit inside the hard-negative band, not because of the
+threshold. The ≤35 append residual (6 of the 16 reaching positives) is the windowed backstop's
+target; input validation removes the >35 subset but cannot help the in-budget residual.
+
+> **One benign casualty of the cap:** `Acme Shell Limited Liability Company` (36 chars) is a
+> *legitimate* suffix-expansion variant — a benign positive — yet it exceeds 35 and is rejected
+> at intake. So the cap's false-reject cost lands on honest variation too, not only on attackers
+> (see C3/C4).

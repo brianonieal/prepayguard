@@ -1440,5 +1440,354 @@
         "Arob Kolnyang"
       ]
     }
+  },
+  "C4_long_entity_cap_matchability": {
+    "threshold": 0.72,
+    "fuzzy_threshold": 0.9,
+    "n_over_35": 11,
+    "entries": [
+      {
+        "name": "LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK",
+        "len": 66,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "LIMITED LIABILITY COMPANY SPECIALIZ",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.693,
+            "semantic": 0.3642,
+            "matched": false
+          },
+          "distinctive_tail": {
+            "form": "ALABUGA SOUTH PARK LLC",
+            "len": 22,
+            "exact": false,
+            "fuzzy": 0.409,
+            "semantic": 0.8388,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "LLC SPEC DEV ALABUGA SOUTH PARK",
+            "len": 31,
+            "exact": false,
+            "fuzzy": 0.639,
+            "semantic": 0.8167,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY",
+        "len": 61,
+        "any_form_matches": false,
+        "forms": {
+          "truncate_35": {
+            "form": "SCIENTIFIC AND PRODUCTION ASSOCIATI",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.729,
+            "semantic": 0.4774,
+            "matched": false
+          },
+          "distinctive_tail": {
+            "form": "MEASURING TECHNOLOGY ASSN",
+            "len": 25,
+            "exact": false,
+            "fuzzy": 0.465,
+            "semantic": 0.6256,
+            "matched": false
+          },
+          "abbreviation": {
+            "form": "SCI & PROD ASSN OF MEASURING TECH",
+            "len": 33,
+            "exact": false,
+            "fuzzy": 0.674,
+            "semantic": 0.6701,
+            "matched": false
+          }
+        }
+      },
+      {
+        "name": "TAWU BVBA MECHANICAL ENGINEERING AND TRADING COMPANY",
+        "len": 52,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "TAWU BVBA MECHANICAL ENGINEERING AN",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.805,
+            "semantic": 0.7857,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "TAWU BVBA",
+            "len": 9,
+            "exact": false,
+            "fuzzy": 0.295,
+            "semantic": 0.7566,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "TAWU BVBA MECH ENG & TRDG CO",
+            "len": 28,
+            "exact": false,
+            "fuzzy": 0.667,
+            "semantic": 0.9108,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "Citadel Community Development Corporation",
+        "len": 41,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "Citadel Community Development Corpo",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.921,
+            "semantic": 0.8882,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "Citadel Community Dev Corp",
+            "len": 26,
+            "exact": false,
+            "fuzzy": 0.776,
+            "semantic": 0.8895,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "Citadel COMM DEV CORP",
+            "len": 21,
+            "exact": false,
+            "fuzzy": 0.677,
+            "semantic": 0.7508,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "Usamah 'Abd-al-Wahid al-Jaza'iri BELKACEM",
+        "len": 41,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "Usamah 'Abd-al-Wahid al-Jaza'iri BE",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.919,
+            "semantic": 0.7512,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "Usamah al-Jaza'iri BELKACEM",
+            "len": 27,
+            "exact": false,
+            "fuzzy": 0.806,
+            "semantic": 0.8784,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "Usamah 'Abd-al-Wahid al-Jaza'iri BE",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.919,
+            "semantic": 0.7512,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "SUN SCIENCE INTERNATIONAL CO., LIMITED",
+        "len": 38,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "SUN SCIENCE INTERNATIONAL CO., LIMI",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.957,
+            "semantic": 0.8562,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "SUN SCIENCE INTL CO LTD",
+            "len": 23,
+            "exact": false,
+            "fuzzy": 0.78,
+            "semantic": 0.9718,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "SUN SCIENCE INTL CO., LTD",
+            "len": 25,
+            "exact": false,
+            "fuzzy": 0.78,
+            "semantic": 0.9675,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "GOLDEN LUXURY JEWELLERY TRADING L.L.C",
+        "len": 37,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "GOLDEN LUXURY JEWELLERY TRADING L.L",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.972,
+            "semantic": 0.9967,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "GOLDEN LUXURY JEWELLERY LLC",
+            "len": 27,
+            "exact": false,
+            "fuzzy": 0.844,
+            "semantic": 0.952,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "GOLDEN LUXURY JWLY TRDG L.L.C",
+            "len": 29,
+            "exact": false,
+            "fuzzy": 0.879,
+            "semantic": 0.7509,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "AURORATOOLS LIMITED LIABILITY COMPANY",
+        "len": 37,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "AURORATOOLS LIMITED LIABILITY COMPA",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.972,
+            "semantic": 0.9523,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "AURORATOOLS LLC",
+            "len": 15,
+            "exact": false,
+            "fuzzy": 0.577,
+            "semantic": 0.9464,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "AURORATOOLS LLC",
+            "len": 15,
+            "exact": false,
+            "fuzzy": 0.577,
+            "semantic": 0.9464,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "LOLA LOLITA 1110, S. DE R.L. DE C.V.",
+        "len": 36,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "LOLA LOLITA 1110, S. DE R.L. DE C.V",
+            "len": 35,
+            "exact": true,
+            "fuzzy": 1.0,
+            "semantic": 0.994,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "LOLA LOLITA 1110 SA DE CV",
+            "len": 25,
+            "exact": false,
+            "fuzzy": 0.842,
+            "semantic": 0.8262,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "LOLA LOLITA 1110, S. DE R.L. DE C.V",
+            "len": 35,
+            "exact": true,
+            "fuzzy": 1.0,
+            "semantic": 0.994,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "LIMITED LIABILITY COMPANY LITHIUMION",
+        "len": 36,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "LIMITED LIABILITY COMPANY LITHIUMIO",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.986,
+            "semantic": 0.8665,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "LITHIUMION LLC",
+            "len": 14,
+            "exact": false,
+            "fuzzy": 0.4,
+            "semantic": 0.8807,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "LLC LITHIUMION",
+            "len": 14,
+            "exact": false,
+            "fuzzy": 0.56,
+            "semantic": 0.9258,
+            "matched": true
+          }
+        }
+      },
+      {
+        "name": "LIMITED LIABILITY COMPANY OSNOVA LAB",
+        "len": 36,
+        "any_form_matches": true,
+        "forms": {
+          "truncate_35": {
+            "form": "LIMITED LIABILITY COMPANY OSNOVA LA",
+            "len": 35,
+            "exact": false,
+            "fuzzy": 0.986,
+            "semantic": 0.7857,
+            "matched": true
+          },
+          "distinctive_tail": {
+            "form": "OSNOVA LAB LLC",
+            "len": 14,
+            "exact": false,
+            "fuzzy": 0.4,
+            "semantic": 0.9085,
+            "matched": true
+          },
+          "abbreviation": {
+            "form": "LLC OSNOVA LAB",
+            "len": 14,
+            "exact": false,
+            "fuzzy": 0.56,
+            "semantic": 0.9172,
+            "matched": true
+          }
+        }
+      }
+    ],
+    "unmatchable_count": 1
   }
 }

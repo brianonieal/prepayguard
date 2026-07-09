@@ -274,8 +274,11 @@ residual is the target for the windowed matcher (recommended follow-on, not impl
 
 ## (e) 2.1f — does a real listed name fail our own validator? Deployed-API test
 
-**0 of 96** live v4 names are non-ASCII (the character-class rule rejects no real listed name),
-but **11 of 96 exceed 35 chars** and so fail the length cap. The longest real entity is the
+**11 of 96** live v4 names exceed 35 chars and so fail the length cap. (All 96 reference names
+happen to be ASCII — but that is **irrelevant** to the character-class rule's cost: the rule
+screens the incoming **payee stream**, not the reference list. Its false-reject lands on the
+payment side — a legitimate payee `José Muñoz` gets a 400 (C3). The reference list's ASCII-ness
+is not evidence the rule is cheap.) The longest real entity is the
 66-char `LIMITED LIABILITY COMPANY SPECIALIZED DEVELOPER ALABUGA SOUTH PARK` (`sam_exclusions`,
 high). Submitted against the **deployed dev API** (`POST .../dev/payments`, SigV4 as the
 payment-submitter role, validation ON):
@@ -300,3 +303,37 @@ differently-shaped schema *objects* unifies them to `map(string)` and **stringif
 constraints** (`"maxLength":"35"`), which API Gateway rejects. Fix: select between two
 independently-`jsonencode`d *strings* so `maxLength` stays an integer `35`. After the fix,
 `terraform apply` is clean and `terraform plan` shows no drift.
+
+## (f) C4 — does the cap OPEN a false-accept path against long listed entities?
+
+The cap forbids `payee` >35 chars, so a payment to any of the **11 reference entries whose name
+exceeds 35 chars** cannot carry the full listed name. A payer must submit a ≤35-char form — and
+whatever they submit is what the matcher screens against the *full* stored name. If no plausible
+short form matches, the listed entity is screened as clean → **auto-approved: a false accept the
+cap itself introduced.** Offline, live Titan, cosine vs each entity's own stored v4 vector; three
+realistic ≤35 forms per entity (truncation, distinctive tail, common abbreviation). Full grid:
+`matcher_evasion_bounded_data.json` → `C4_long_entity_cap_matchability`.
+
+**Result: 1 of 11 over-35 entities is unmatchable by any of the three plausible forms** —
+`SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY` (61 ch): truncate-35 semantic
+0.477 / fuzzy 0.73, distinctive-tail (`MEASURING TECHNOLOGY ASSN`) 0.626, abbreviation
+(`SCI & PROD ASSN OF MEASURING TECH`) 0.670 — **all three miss** (no exact, no fuzzy ≥0.90, no
+semantic ≥0.72). A payment to this listed Do Not Pay entity, submitted in any obvious ≤35 form,
+is approved. The other 10 match via at least one form.
+
+Two honest qualifications:
+- **The count is form-dependent** (a cleverer short form might match the one that missed); but
+  for a *generic descriptive* name whose identity is spread across common words
+  (SCIENTIFIC / PRODUCTION / ASSOCIATION / MEASURING / TECHNOLOGY), no obvious fragment carries
+  the entity, which is exactly the realistic payer behavior. So "≥1 of 11" is the floor.
+- **The matches that hold depend on SEMANTIC, not the string layers.** Across the 10 that match,
+  exact fires only once (`LOLA LOLITA 1110, S. DE R.L. DE C.V.` truncated) and fuzzy ≥0.90 only a
+  few times; the rest match *only* because semantic ≥0.72 on the truncated/abbreviated form. So
+  the cap makes correct screening of long entities **lean on the very semantic layer that 2.4
+  showed is defeated by a further in-budget append** — an attacker who knows the entity is long
+  can submit a matching ≤35 core and then dilute it within budget.
+
+**This is a consequence of remediation option 1, not a footnote:** bounding `payee` to the rail
+length opens a false-ACCEPT path against long listed entities (≥1 of 11 measured here), on top of
+the false-REJECT cost (a legit payment with the full long name is 400'd). Both directions of the
+cap's cost are real; see the threat model's option-1 entry.

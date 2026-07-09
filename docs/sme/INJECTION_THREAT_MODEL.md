@@ -291,8 +291,10 @@ defeats it.
    - A **single-script-consistency** rule is **insufficient** — a full Cyrillic transliteration
      is single-script and evades all 5 (cosine 0.11–0.29).
    - **ASCII-printable-only** closes the transliteration/homoglyph/fullwidth class but **rejects
-     every legitimate diacritic name** (`José Muñoz`, `François`, confirmed non-ASCII) — a real
-     false-reject.
+     every legitimate diacritic name** (`José Muñoz`, `François`) — a real false-reject on the
+     **payee stream** (the rule screens incoming payees, not the reference list; the reference
+     list being all-ASCII is irrelevant to this cost, C3). Cost unquantified — no real payee-name
+     distribution.
    - **Latin-script-only (allow diacritics)** is the lower-false-reject middle ground but needs
      NFKC folding to also stop fullwidth and is more complex.
    2.1e implements **ASCII-printable-only** (the version 2.1d shows is necessary to close the
@@ -301,6 +303,17 @@ defeats it.
    remain evadable via an in-budget short append.** So this repairs the input contract and
    closes the transliteration class, but does **not** close F1 — it is the front line, not the
    whole fix.
+   **⚠ The cap also opens a NEW false-ACCEPT path (C4).** 11/96 reference names exceed 35 chars;
+   a payment to those entities cannot carry the full name, so the matcher screens whatever ≤35
+   form the payer submits against the full stored name. Measured (real Titan, `matcher_evasion_bounded.md`
+   §f): **≥1 of the 11 long entities is unmatchable by any plausible ≤35 form**
+   (`SCIENTIFIC AND PRODUCTION ASSOCIATION OF MEASURING TECHNOLOGY`: truncation/tail/abbreviation
+   all miss) → that listed Do Not Pay entity is auto-approved. And the 10 that DO still match
+   match almost entirely via **semantic**, the layer 2.4 showed is defeated by a further in-budget
+   append. So option 1 trades an evasion narrowing for **both** a false-REJECT cost (long legit
+   names 400'd) **and** a false-ACCEPT cost (long listed entities screenable only by a short form
+   that may not match, or may itself be diluted). This is a consequence of the remediation, not a
+   footnote.
 2. **[RESIDUAL BACKSTOP] Windowed / n-gram semantic matching.** Slide a window over the
    (now bounded) payee, embed each window, take the max cosine per reference entry. A short
    distant token cannot dilute a window it does not overlap, so this catches the residual

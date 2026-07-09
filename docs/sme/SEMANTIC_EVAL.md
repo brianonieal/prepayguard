@@ -241,15 +241,28 @@ residual). That split is the point (§9.3).
    0.88   8  23   3  28  0.727   0.258  0.381  0.097     1.00
 ```
 
-**Does 0.72 survive contact with the new cases? No.** Recall falls from **1.000 to 0.484** — 16
-of 31 positives now miss. F1 falls from 0.909 to 0.566.
+**Does 0.72 survive? Report recall PER CLASS — a blended figure is not a before/after** (the
+matcher did not change; only the case-mix did, and that mix is an authoring choice). At 0.72:
 
-**Does any other threshold rescue it? No.** Recall peaks at **0.839 at threshold 0.60** (still 5
-FN), and buying that costs precision 0.722 / **FPR 0.323** — a third of legitimate payees falsely
-flagged to review — and it *still* misses 5 positives. The append positives sit at cosine
-0.50–0.69, which is squarely inside the hard-negative band (`Acme Shield LLC` 0.637,
-`Umbrella Insurance Group` 0.743): **there is no threshold that separates a diluted listed name
-from a genuinely different similar name.** The append class is not a threshold-tuning problem.
+| positive class | recall @ 0.72 |
+|---|---|
+| benign-variation (what the layer is for) | **10/10 = 1.00** (unchanged from the 27-case run) |
+| append-class (dilution) | **5/21 = 0.24** |
+
+**Conditioned on the deployed system (C2):** 10 of the missed positives exceed 35 chars and are
+rejected by 2.1e at intake — they never reach the matcher, so counting them as matcher FNs
+conflates the two layers. **Matcher recall on validated (≤35 ASCII) input = 10/16 = 0.625**
+(benign 9/9; append 1/7 = 0.14). The all-31-positives figure **15/31 = 0.484 is historical**
+(pre-2.1e). Do not average benign and append into one recall.
+
+**Does any threshold rescue the append class? No — and this is threshold-INDEPENDENT.** The 21
+append positives span cosine **0.499–0.882**, entirely inside the hard-negative band
+**0.351–0.966** (`Acme Shield LLC` 0.637, `Umbrella Insurance Group` 0.743); benign positives sit
+in a separate high band 0.831–0.963. A threshold low enough to admit the diluted names (≈0.50)
+admits nearly every hard negative (recall peaks 0.839 at 0.60, FPR 0.323, still 5 FN). **No
+threshold separates a diluted listed name from a genuinely different similar name** — the overlap
+is a property of the embedding geometry, not the case-mix. The append class is not a
+threshold-tuning problem.
 
 ### 9.3 The layered read — where 2.1e input validation helps and where the residual lives
 
