@@ -12,10 +12,8 @@ locks the brief/LLM invariants.
 import json
 
 import pytest
-
 from conftest import _load
-# Reuse the console_api fixture (audit bucket + reviews table + seeded r1 record).
-from test_console_api import console_api  # noqa: F401  (pytest fixture)
+from test_console_api import console_api  # noqa: F401  shared pytest fixture (audit bucket + seeded r1)
 
 # The Phase 1 payloads, verbatim from docs/evidence/injection_trials.md.
 INJECTION_PAYLOADS = [
@@ -99,7 +97,7 @@ def test_brief_output_never_in_audit_record():
 
 # --- Invariant 3: a failing brief endpoint (502) never blocks the disposition ------------
 
-def test_brief_502_never_blocks_disposition(console_api, monkeypatch):
+def test_brief_502_never_blocks_disposition(console_api, monkeypatch):  # noqa: F811  (imported fixture)
     """The brief is an on-demand read over the already-written audit. If the model errors,
     the endpoint returns 502 brief_unavailable and the disposition/audit is untouched."""
     def boom(record):
