@@ -7,24 +7,59 @@ variants that SHOULD match a listed entity), 10 clean, 7 hard negatives. Raw res
 `docs/evidence/semantic_eval_results.json`. Reproduce:
 `python scripts/eval_semantic_matching.py --stability --json docs/evidence/semantic_eval_results.json`.
 
-## The strongest finding: it is the embedding geometry, not a threshold, and not my case-mix
+## The strongest finding: the append-positive and hard-negative distributions overlap — no threshold separates them
 
-> **Diluted-name vectors fall inside the hard-negative cosine band. No threshold separates an
-> append-class positive from a genuinely different similar name — this is a property of the
-> embedding space, not of how many append cases I chose to add.**
+> **There is no cosine threshold `t` at which every append-class positive scores ≥ `t` and every
+> hard negative scores < `t`. The two distributions overlap, so a threshold that admits diluted
+> listed names also admits genuinely different similar names. Re-tuning the threshold cannot fix
+> this; it is a property of the embedding space, not of my case-mix.**
 
-Measured on the expanded set (§2.4, `semantic_eval_results_v2.json`): the 21 append-class
-positives span cosine **0.499–0.882**; the 16 hard negatives span **0.351–0.966**. **All 21/21
-append positives sit inside the hard-negative band**, and only 1 of 21 reaches the *lowest*
-benign-variation positive (0.831). Benign-variation positives, by contrast, occupy a tight high
-band **0.831–0.963**, cleanly above the hard negatives. So a threshold low enough to admit the
-diluted names (≈0.50) also admits nearly every hard negative (precision collapses); a threshold
-that keeps precision (≈0.72) misses the diluted names. There is no separating threshold because
-Titan places a listed name diluted by distant tokens in the same region as a *different* company
-sharing a token. **This claim does not depend on the case-mix**: adding or removing append cases
-changes the recall *number*, but the overlap of the two cosine distributions is a fixed property
-of the geometry. That is why 2.4's threshold sweep found no better threshold, and why input
-validation (bound the string before it is embedded) — not re-tuning — is the lever.
+*(This corrects an earlier draft that claimed benign positives sit "cleanly above the hard
+negatives" using min/max intervals. That was wrong — see below. The min/max framing distinguishes
+nothing because the intervals nest; the correct statement is about distribution overlap.)*
+
+Measured on the expanded set (§2.4, `semantic_eval_results_v2.json`):
+
+- **The 21 append-class positives span 0.499–0.882.** The 16 hard negatives span 0.351–**0.966**.
+- **Separation test (explicit): is there a `t` with all-append ≥ `t` AND all-hard-neg < `t`? NO.**
+  It needs `min(append) > max(hard-neg)`, i.e. `0.499 > 0.966` — false. Concretely, **12 of the
+  16 hard negatives sit at or above the lowest append positive (0.499)**, and **4 hard negatives
+  (0.966, 0.966, 0.952, 0.876) sit at or above the entire benign-variation band (0.831–0.963)**.
+  So no threshold cleanly separates append positives from hard negatives, and hard negatives are
+  not even cleanly separated from *benign* positives.
+- Full sorted hard-negative distribution: `0.966 Initech Solutions LLC`, `0.966 Globex Onshore
+  Inc`, `0.952 Initech Systemics LLC`, `0.876 Globex Ashore Inc`, `0.815 Acme Shelling Co`,
+  `0.798 Robert Rowe`, `0.743 Umbrella Insurance Group`, then 0.701, 0.650, 0.637, 0.570, 0.565,
+  0.489, 0.437, 0.426, 0.351.
+
+A threshold low enough to admit the diluted names (≈0.50) admits nearly every hard negative;
+0.72 misses the diluted names *and still* misclassifies the top hard negatives (next finding).
+The overlap is a fixed property of the geometry — Titan places a listed name diluted by distant
+tokens in the same region as a *different* company sharing a token — so **input validation (bound
+the string before it is embedded), not re-tuning, is the lever.**
+
+## Separate finding (previously unreported): 7 production false positives at the deployed 0.72
+
+Because the distributions overlap at the top, **7 of the 16 hard negatives score ≥ 0.72 and are
+therefore false positives in production** at the deployed threshold — each flags a *different*
+entity as a match, sending a clean payment to human review:
+
+| hard-negative payee | cosine | matched (wrongly) to |
+|---|---|---|
+| `Initech Solutions LLC` | 0.966 | Initech Systems LLC |
+| `Globex Onshore Inc` | 0.966 | Globex Offshore Inc |
+| `Initech Systemics LLC` | 0.952 | Initech Systems LLC |
+| `Globex Ashore Inc` | 0.876 | Globex Offshore Inc |
+| `Acme Shelling Co` | 0.815 | Acme Shell LLC |
+| `Robert Rowe` | 0.798 | Robert Roe |
+| `Umbrella Insurance Group` | 0.743 | Umbrella Holdings Group |
+
+Two (0.966) are false positives at *every* threshold below 0.966 — no usable threshold sheds
+them. This is the precision cost of the deployed matcher, contained (not eliminated) by the
+REVIEW cap: a semantic hit is capped to human review (`NAME_MATCH_CAP=60`), so these become
+reviewer load, not auto-rejections. On this synthetic set that is 7/16 hard negatives; the real
+false-positive *rate* depends on how often such near-duplicate names occur in real traffic, which
+this set cannot estimate.
 
 ## The blind-spot finding
 

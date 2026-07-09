@@ -180,13 +180,25 @@ vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
   seed, users, console, verify): `docs/BOOTSTRAP.md`.**
 - **CI/CD (DEC-6):** GitHub Actions, `ci.yml` (fmt/validate/tflint/pytest/ruff/pip-audit/
   checkov, no creds) and `plan.yml` (terraform plan on PRs, no auto-apply).
+- **Deployment-readiness gotcha (ERR-1, RESOLVED v3.9.0):** `terraform validate` passing does
+  **not** guarantee `apply` succeeds. The 2.1e payee-validation model first failed at `apply`
+  (`UpdateModel: Invalid model schema specified`) because an HCL `? :` between two differently-
+  shaped schema objects unified them to `map(string)` and **stringified the integer `maxLength`**
+  (`"35"`), which API Gateway rejects — `validate` does not evaluate the rendered API-Gateway
+  schema, so it passed. Fixed by selecting between two independently-`jsonencode`d strings. Lesson
+  for future model edits: never `? :` between object shapes if values must keep distinct types.
+  Full post-mortem: `foundation/ERRORS.md` ERR-1.
 
 ---
 
 ## 4. Security findings
 
-Zero failing static-analysis findings across checkov, ruff, pip-audit, tflint. Posture is
-defense-in-depth:
+Zero failing **static-analysis** findings across checkov (662/0/3), ruff (pass), pip-audit
+(8/8 components clean), tflint (clean) — raw dated output in `docs/evidence/scans/` (2026-07-09).
+**But static analysis is not the whole picture:** the **container-image** scan (ECR scan-on-push,
+the DEC-8 image-scanning mechanism) reports **2 HIGH + 1 MEDIUM + 1 LOW OS-package CVEs on every
+image** at the deployed tag — see §4.1 row 12 and `docs/evidence/scans/ecr-image-scan-2026-07-09.txt`.
+Posture is otherwise defense-in-depth:
 
 - **Identity/auth (DEC-5/15/17):** API Gateway AWS_IAM (SigV4) + resource policies scoping
   invoke to named roles; console uses Cognito → temp IAM creds → SigV4; role-based access
@@ -200,19 +212,24 @@ defense-in-depth:
   SQS SSE.
 - **Secrets (DEC-7/22):** the webhook URL and any external API key live in Secrets Manager
   / gitignored local files, never in code or git.
-- **Supply chain (DEC-8/9):** pip-audit + checkov + tflint + ruff in CI; ECR immutable
-  tags + scan-on-push.
+- **Supply chain (DEC-8/9):** pip-audit + checkov + tflint + ruff in CI (Python deps clean);
+  ECR immutable tags + scan-on-push for images. Grype (DEC-8 original) was superseded by ECR
+  scan-on-push (DEC-8 v3.7.2 amendment; hermetic CI can't build/scan images) — Grype the tool
+  never ran, and the handoff does not claim it did (`docs/evidence/scans/grype-2026-07-09-superseded.txt`).
+  The ECR scan's actual findings (2 HIGH base-image CVEs/image) are now retrieved and rated below.
 - **Responsible AI:** the reviewer brief (DEC-20) is advisory only, grounded in the audit
   record, and never written to S3/the audit record/the decision (code-verified,
   `docs/sme/BEDROCK_COST.md` §5). The semantic matcher only ever adds a REVIEW flag.
 
 ### 4.1 Risk-rating table (DEC-11)
 
-Findings rated High / Medium / Low by likelihood × impact at course scope. **No High-
-severity finding is open:** the load-bearing controls (AWS_IAM auth + resource-policy
-scoping, Object Lock COMPLIANCE immutability live-verified, SSE-KMS, maker/checker
-segregation of duties) are in place and evidenced. The open items are Medium/Low
-hardening, observability, and scope, each with a remediation status.
+Findings rated High / Medium / Low by likelihood × impact at course scope. The load-bearing
+platform controls (AWS_IAM auth + resource-policy scoping, Object Lock COMPLIANCE immutability
+live-verified, SSE-KMS, maker/checker segregation of duties) are in place and evidenced. **Two
+High-severity findings are open, both with a stated remediation path:** the matcher-dilution
+evasion (row 5, F1 — partly remediated by 2.1e input validation, residual open) and the base-
+image OS CVEs surfaced by the ECR scan (row 12). The remaining items are Medium/Low hardening,
+observability, and scope.
 
 | # | Finding | Area / component | Severity | Status | Evidence |
 |---|---|---|---|---|---|
@@ -220,16 +237,18 @@ hardening, observability, and scope, each with a remediation status.
 | 2 | Console JS dependencies are not CVE-scanned in CI (`npm ci --no-audit`, no Dependabot); Python side is covered by `pip-audit --strict` | Supply chain / console | **Medium** | Open (follow-on: enable `npm audit` / Dependabot) | `.github/workflows/ci.yml` |
 | 3 | Local Terraform state; safe for one operator, unsafe for team/CI applies | Deployment / state | **Medium** | Accepted at course scope; remote state + OIDC plan role is the production upgrade | `environments/dev/backend.tf`, `plan.yml` |
 | 4 | One real screening source (SAM exclusions) capped to a demo-sized slice; three sources remain synthetic | Data fidelity / reference list | **Medium** | Accepted / documented; full extract + record linkage is follow-on | DEC-22, `docs/sme/REAL_SOURCE_INGEST.md` |
-| 5 | Semantic-matcher accuracy measured only on a 27-case synthetic set; no adversarial name obfuscation; English/Latin only | Model evaluation scope | **Medium** | Accepted / measured + scoped (precision 0.83 / recall 1.00 / F1 0.91) | `docs/sme/SEMANTIC_EVAL.md` §7 |
+| 5 | Semantic matcher is defeated by name **dilution** (append ~5 distant tokens / a homoglyph): a listed Do Not Pay entity is auto-approved (F1). The 27-case eval's "recall 1.00" had no append cases; the 62-case set (append-inclusive) shows the append-positive and hard-negative cosine distributions overlap — **no threshold separates them**, and 0.72 already yields 7/16 hard-negative false positives | Model robustness / component B | **High** | **Partly remediated:** 2.1e input validation (DEC-29) narrows it (bounds the field, closes the transliteration class) but leaves 75/96 evadable; windowed matching is the recommended, un-built backstop | `docs/sme/INJECTION_THREAT_MODEL.md`, `docs/evidence/EVAL_REPORT.md`, `docs/sme/SEMANTIC_EVAL.md` §9 |
 | 6 | Bedrock is a soft dependency in B; an outage silently degrades the semantic net to rule-based screening | Availability / component B | **Low** | Mitigated: fails safe to deterministic rules (not blind); a Bedrock-availability alarm is follow-on | `src/component_b_enrichment/app.py` (semantic degrade) |
 | 7 | Single webhook notification path for review routing (DEC-7) | Review routing / component D | **Low** | Mitigated by the age-of-oldest-message alarm; a second path is follow-on | DEC-7, `modules/review_queue/main.tf` |
 | 8 | MFA is optional (opt-in TOTP), not enforced | Identity / Cognito | **Low** | Accepted; operator-provisioned users only, no public sign-up | `modules/console_foundation/main.tf` |
 | 9 | `OPTIONS` preflight is unauthenticated (`Principal:"*"`, MOCK integration, no data path) for browser CORS | API surface | **Low** | Accepted; the `Deny`-all-but-named-roles policy exempts only anonymous `OPTIONS`, and the mock returns headers only | `modules/*_stage/main.tf`, `modules/console_api/main.tf` |
 | 10 | WAF absent on the APIs and CloudFront; no cross-region replication of the audit bucket | Edge protection / DR | **Low** | Accepted at course scope (IAM-authed, resource-policy-scoped, single-region); recorded as residual risk | `.checkov.yaml` (justified skips) |
 | 11 | No load / DR / chaos testing; cold-start latency unmeasured under load | Performance / resilience | **Low** | Open (follow-on: load + chaos testing, right-size memory/concurrency) | §5.5, §6.5 |
+| 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
 
-Full raw scan output (checkov / ruff / pip-audit / tflint pass counts): **Appendix A**;
-every checkov skip is individually justified in `.checkov.yaml`.
+Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
+findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in
+**Appendix A**; every checkov skip is individually justified in `.checkov.yaml`.
 
 ---
 
@@ -239,13 +258,22 @@ every checkov skip is individually justified in `.checkov.yaml`.
    demo-sized slice, and contains real public debarment names (DEC-22); the other three
    sources are synthetic. Not the exhaustive federal list; production needs the full
    extract + a vector index.
-2. **Semantic eval scope:** measured on a small synthetic set; no adversarial name
-   obfuscation, English/Latin names only (§7, `docs/sme/SEMANTIC_EVAL.md`).
-3. **Local Terraform state:** safe for one operator, unsafe for a team/CI applies.
-4. **Webhook single notification path (DEC-7):** age-of-oldest-message alarm is the only
+2. **Matcher dilution / F1 (High, partly remediated):** the semantic + string matcher is
+   defeated by appending ~5 distant tokens or a homoglyph to a listed name; the append-positive
+   and hard-negative cosine distributions overlap, so no threshold fixes it (0.72 already gives
+   7/16 hard-negative false positives on the eval set). 2.1e input validation (DEC-29) narrows
+   it but leaves 75/96 of the list evadable and opens a cap-side false-accept on long entities
+   (1/11 unscreenable, C4); a windowed matcher is the recommended, un-built backstop. Eval is
+   synthetic (same author wrote perturbations + matcher). `INJECTION_THREAT_MODEL.md`,
+   `EVAL_REPORT.md`, `SEMANTIC_EVAL.md` §9.
+3. **Container base-image CVEs (High):** every Lambda image carries 2 HIGH OS-package CVEs
+   (`sqlite-libs`) from the amzn2023 base (ECR scan-on-push, §4.1 row 12); rebuild on a patched
+   base to clear. Grype the tool never ran (superseded by ECR scan-on-push, DEC-8 v3.7.2).
+4. **Local Terraform state:** safe for one operator, unsafe for a team/CI applies.
+5. **Webhook single notification path (DEC-7):** age-of-oldest-message alarm is the only
    backstop.
-5. **No load/DR testing;** cold-start latency unmeasured under load.
-6. **Bedrock as a soft dependency in B:** an outage silently degrades the semantic net to
+6. **No load/DR testing;** cold-start latency unmeasured under load.
+7. **Bedrock as a soft dependency in B:** an outage silently degrades the semantic net to
    rule-based screening (observable via Bedrock error metrics; alarm is follow-on).
 
 ---
@@ -323,18 +351,29 @@ Full account: `docs/sme/AI_ASSISTED_DEVELOPMENT.md`.
 
 ## Appendix A: Raw scan output
 
+Raw, dated artifacts committed under **`docs/evidence/scans/`** (2026-07-09):
+
 ```
-checkov  : Passed / Failed 0 / Skipped (justified in .checkov.yaml)
-ruff     : All checks passed!            (src + tests; config ruff.toml)
-pip-audit: No known vulnerabilities found
-tflint   : 0 issues
-terraform fmt -check / validate: clean
-pytest   : 135 passed        vitest: 34 passed
-GitHub Actions ci.yml: green
+STATIC ANALYSIS (as CI runs them)
+  checkov  : Passed 662 / Failed 0 / Skipped 3 (justified in .checkov.yaml)   scans/checkov-2026-07-09.txt
+  ruff     : All checks passed!  (ruff check src tests)                        scans/ruff-2026-07-09.txt
+  pip-audit: No known vulnerabilities found — all 8 src/*/requirements.txt     scans/pip-audit-2026-07-09.txt
+  tflint   : 0 issues (--recursive)                                           scans/tflint-2026-07-09.txt
+  terraform fmt -check / validate: clean
+  pytest   : 152 passed, 1 xfailed        vitest: (console) green
+  GitHub Actions ci.yml: green
+
+CONTAINER IMAGE SCAN (ECR scan-on-push — DEC-8 mechanism; Grype the tool NOT run, superseded)
+  every image @v3.8.3: 2 HIGH + 1 MEDIUM + 1 LOW                              scans/ecr-image-scan-2026-07-09.txt
+    HIGH   sqlite-libs  CVE-2026-11822, CVE-2026-11824
+    MEDIUM libxml2      CVE-2026-6653
+    LOW    gnupg2       CVE-2026-57062
+  Grype status                                                               scans/grype-2026-07-09-superseded.txt
 ```
 
 *(Original v1.0.0 scan snapshot 2026-07-03: checkov 289/0/3, referenced for the graded
-baseline; re-run current at each gate.)*
+baseline; re-run current at each gate. The 1 xfailed pytest is the documented F1 short-name
+append residual — `tests/test_injection_resistance.py`.)*
 
 ## Appendix B: Evidence & decisions
 

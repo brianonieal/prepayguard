@@ -256,13 +256,17 @@ conflates the two layers. **Matcher recall on validated (≤35 ASCII) input = 10
 (pre-2.1e). Do not average benign and append into one recall.
 
 **Does any threshold rescue the append class? No — and this is threshold-INDEPENDENT.** The 21
-append positives span cosine **0.499–0.882**, entirely inside the hard-negative band
-**0.351–0.966** (`Acme Shield LLC` 0.637, `Umbrella Insurance Group` 0.743); benign positives sit
-in a separate high band 0.831–0.963. A threshold low enough to admit the diluted names (≈0.50)
-admits nearly every hard negative (recall peaks 0.839 at 0.60, FPR 0.323, still 5 FN). **No
-threshold separates a diluted listed name from a genuinely different similar name** — the overlap
-is a property of the embedding geometry, not the case-mix. The append class is not a
-threshold-tuning problem.
+append positives span cosine **0.499–0.882**; the 16 hard negatives span **0.351–0.966**.
+**Separation test: no `t` satisfies all-append ≥ `t` and all-hard-neg < `t`** (needs
+`0.499 > 0.966` — false); 12/16 hard negatives sit at/above the lowest append positive. Note the
+distributions are NOT cleanly separated even for benign positives — 4 hard negatives (0.966,
+0.966, 0.952, 0.876) sit at or above the benign band 0.831–0.963. A threshold low enough to admit
+the diluted names (≈0.50) admits nearly every hard negative (recall peaks 0.839 at 0.60, FPR
+0.323, still 5 FN). **No threshold separates a diluted listed name from a genuinely different
+similar name** — the distributions overlap, a property of the embedding geometry, not the
+case-mix. **And at the deployed 0.72, 7/16 hard negatives are already false positives**
+(`Initech Solutions LLC` 0.966, `Globex Onshore Inc` 0.966, … see `EVAL_REPORT.md`); the two at
+0.966 are FPs at every threshold below 0.966. The append class is not a threshold-tuning problem.
 
 ### 9.3 The layered read — where 2.1e input validation helps and where the residual lives
 

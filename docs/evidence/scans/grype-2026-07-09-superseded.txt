@@ -1,0 +1,26 @@
+# Grype — status: SUPERSEDED, not run (V7 resolution) — 2026-07-09
+
+DECISIONS.md DEC-8 originally committed to "Grype against each built ECR image ... in CI".
+DEC-8's v3.7.2 amendment (2026-07-07) already SUPERSEDED that: the CI is deliberately hermetic
+(DEC-6 — no AWS creds, no image build in CI), so Grype cannot scan images in-pipeline. Image
+scanning is instead provided by **ECR scan-on-push** (`modules/ecr_repo/main.tf:17`,
+`scan_on_push = true`), which scans every pushed image against the AWS/Amazon-Linux CVE feed.
+
+V7 decision: **do NOT install/run Grype** (option a), because
+  - it contradicts the hermetic-CI decision (DEC-6), and DEC-8 already replaced it;
+  - ECR scan-on-push already provides continuous image scanning and is the committed mechanism;
+  - the actual gap was EVIDENCE, not the tool.
+
+Instead, the real ECR scan-on-push findings for the deployed images were retrieved (the artifact
+the handoff was missing): see **`ecr-image-scan-2026-07-09.txt`** in this directory.
+
+FINDING (previously unsurfaced): every one of the 8 Lambda container images at the deployed tag
+`v3.8.3` carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base —
+`sqlite-libs` CVE-2026-11822 / CVE-2026-11824 (HIGH), `libxml2` CVE-2026-6653 (MEDIUM),
+`gnupg2-minimal` CVE-2026-57062 (LOW). These are base-image OS packages, not the app's Python
+dependencies (pip-audit is clean, 8/8). This belongs in the handoff Security Findings + Residual
+Risks (rebuild on a patched base image to clear the two HIGH sqlite CVEs).
+
+Grype the TOOL was never run and no Grype output exists — do not let the handoff claim otherwise.
+Running Grype/Trivy in a credentialed deploy workflow (to cross-check ECR's feed) remains an
+optional follow-on.

@@ -1,5 +1,0 @@
-# grype — run 2026-07-09
-# grype is NOT installed on this machine and is NOT part of the CI pipeline
-# (ci.yml runs ruff, pip-audit, checkov, tflint, npm audit — no grype step).
-# Container image scanning (grype/trivy) is not currently wired into CI; this is a gap for
-# the handoff Security Findings section. No artifact produced.
