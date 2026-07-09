@@ -112,6 +112,10 @@ Phase 3 and Phase 4: it does not mention the semantic layer, the LLM brief,
 roles and segregation of duties, the versioned reference store, analytics, or
 the console at their current state. The repo is now at 21 locked decisions and 90
 tests. `docs/HANDOFF.docx` is the rendered twin of the same stale content.
+**[Update 2026-07-09, v3.9.0: this paragraph is itself a historical snapshot. `docs/HANDOFF.md`
+has since been brought current (Phase 2.1 security work, objective-5 eval, ERR-1, F5, ECR
+findings) and `docs/HANDOFF.docx` was regenerated from it via pandoc — it is no longer stale.
+The repo is now at 29 locked decisions and pytest `152 passed, 1 xfailed`.]**
 
 Consequence for grading: there is currently no objective-5 section (evaluate LLM
 workflows on performance, stability, cost, human review, responsible use) in the

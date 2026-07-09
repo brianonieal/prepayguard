@@ -11,9 +11,9 @@ decision is recorded immutably, and every disposition cites the exact screening-
 version it was judged against.
 
 **Status at this refresh:** everything through Phase 5 (v3.7.1) is complete and **live
-on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **27
-architectural decisions locked.** Verified green: **pytest 135/135, console vitest
-34/34, checkov clean, ruff clean, terraform validate clean.** The one differentiating
+on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **29
+architectural decisions locked.** Verified green: **pytest `152 passed, 1 xfailed`, console
+vitest green, checkov 662/0/3, ruff clean, tflint clean, terraform validate clean.** The one differentiating
 component (the semantic matcher) is **measured**, the screening list includes **one
 real federal source** (SAM.gov exclusions) alongside three modeled ones and is kept
 current automatically by a daily refresher, and real federal payments now flow in
@@ -42,6 +42,29 @@ caller (SigV4) ─> API Gateway (AWS_IAM) ─> [A] Intake, payment-ID idempotenc
 [G] Refresher (EventBridge, daily) → re-pulls real SAM.gov exclusions → re-embeds → republishes the versioned list on change (DEC-24)
 Console API (AWS_IAM): reviews, audit, decisions, batches, reference publish, feed config, LLM briefs, analytics
 Reviewer Console: React/Vite SPA on S3 + CloudFront; Cognito → temp IAM creds → SigV4 (DEC-15)
+```
+
+The same pipeline as a diagram (GitHub renders the block below):
+
+```mermaid
+flowchart TD
+  caller["caller (SigV4, submitter role — DEC-5)"] --> apigw["API Gateway — AWS_IAM<br/>payee validation: maxLength 35 + printable-ASCII (DEC-29)"]
+  apigw --> A["A · Intake<br/>payment-ID idempotency (commitment 1)"]
+  A -->|SQS| B["B · Enrichment<br/>TIN/name exact · fuzzy · semantic (Titan)"]
+  B -->|SQS| C["C · Risk Scoring<br/>rule score + disposition; NAME_MATCH_CAP=60"]
+  C -->|SQS| D["D · Disposition"]
+  D --> audit[("S3 Object Lock audit<br/>COMPLIANCE — commitment 4")]
+  D --> review["SQS review queue<br/>ambiguous → human (commitment 2)"]
+  D --> hook["webhook (Secrets Manager — DEC-7)"]
+  refstore[("versioned reference list<br/>S3 + per-entry Titan vectors")] --> B
+  E["E · Batch Ingest (S3-triggered)"] -->|reuses A's queue + idempotency (DEC-16)| B
+  F["F · Feeder (EventBridge)"] --> E
+  G["G · Refresher (EventBridge, daily)"] --> refstore
+  console["Reviewer Console (React/CloudFront)<br/>Cognito → SigV4 (DEC-15)"] --> capi["Console API (AWS_IAM)<br/>reviews · audit · decisions · LLM brief (advisory)"]
+  capi -.reads.-> audit
+  capi -.reads.-> review
+  subgraph controls["cross-cutting: every SQS stage has DLQ+redrive (commitment 2), max-concurrency + queue-depth alarm (commitment 3)"]
+  end
 ```
 
 Seven Lambda container images (DEC-2) plus a console API, x86_64, `publish=true` behind
@@ -80,8 +103,10 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_fee
   (`src/component_b_enrichment/reference_data.json`, self-labeled). DMF and TOP are **not
   publicly obtainable** (DMF access is restricted to certified users under the DPPA/NTIS
   program; TOP is an internal Treasury offset system), which is precisely why they are
-  modeled rather than integrated. OIG LEIE is public but is kept synthetic here for
-  consistency with the other restricted feeds. See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
+  modeled rather than integrated. OIG LEIE **is** publicly downloadable; keeping it synthetic
+  here is a **deliberate scoping choice** (one real end-to-end integration — SAM — is enough to
+  demonstrate the ingest/refresh path; a second adds cost and PII surface without new evidence),
+  **not an oversight or a missed source.** See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
 - **LLM adjudication briefs (DEC-20):** on-demand Bedrock Nova Lite summary for reviewers,
   grounded only in the audit record, advisory, never written to the immutable record.
 
@@ -127,8 +152,10 @@ alias to the prior version (seconds, no rebuild). Reference-data rollback: repoi
 
 ## 2. Tests
 
-Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest 135/135,
-vitest 34/34**, both green locally and in CI. Registry: `foundation/TESTS.md`.
+Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest `152 passed,
+1 xfailed`** (the xfail is the documented F1 residual, not a failure), vitest green, both in CI.
+**Rendered summary + four-commitment mapping + Object-Lock moto caveat: [`docs/TEST_REPORT.md`](TEST_REPORT.md).**
+Registry: `foundation/TESTS.md`.
 
 ### 2.1 Graded-commitment evidence
 
@@ -245,6 +272,7 @@ observability, and scope.
 | 10 | WAF absent on the APIs and CloudFront; no cross-region replication of the audit bucket | Edge protection / DR | **Low** | Accepted at course scope (IAM-authed, resource-policy-scoped, single-region); recorded as residual risk | `.checkov.yaml` (justified skips) |
 | 11 | No load / DR / chaos testing; cold-start latency unmeasured under load | Performance / resilience | **Low** | Open (follow-on: load + chaos testing, right-size memory/concurrency) | §5.5, §6.5 |
 | 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
+| 13 | Matcher **false positives** on legitimate look-alike names (F5): 7/16 hard negatives score ≥0.72 on the eval; two (`Initech Solutions LLC`, `Globex Onshore Inc`) at 0.966 are FPs at every threshold below 0.966. Same whole-string defect as F1 (row 5), opposite direction | Model robustness / component B | **Medium** | Contained: `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW (reviewer load, not a wrong auto-reject); robust-matcher follow-on fixes F1 and F5 together | `docs/sme/INJECTION_THREAT_MODEL.md` F5, `docs/evidence/EVAL_REPORT.md` |
 
 Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
 findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in
@@ -337,7 +365,7 @@ human-approved workflow, not free-form generation. AI assistance produced handle
 code (A to E, console API), the Terraform modules, the tests, the React console, and
 this SME hardening pass. Review and control came from human approval gates at every
 version, decisions recorded with their alternatives and objections in
-`foundation/DECISIONS.md` (27 locked), and static analysis (ruff, checkov, tflint,
+`foundation/DECISIONS.md` (29 locked), and static analysis (ruff, checkov, tflint,
 pip-audit) plus the test suite on every change. Judgment was applied, not deferred to
 the assistant: examples include rejecting the Powertools idempotency decorator for
 visible hand-rolled logic (DEC-13), rejecting an ML risk model for transparent rules

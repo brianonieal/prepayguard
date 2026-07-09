@@ -93,9 +93,10 @@
 ## DEC-8 - Dependency and Image Scanning
 **Date:** 2026-07-03
 **Severity:** LIGHTWEIGHT
-**Decision:** pip-audit against each component's requirements.txt; Grype against each built ECR image. Both run in CI (see DEC-6).
+**Decision:** pip-audit against each component's requirements.txt; ~~Grype against each built ECR image. Both run in CI~~ **[the Grype-in-CI clause is SUPERSEDED — see the v3.7.2 and v3.9.0 amendments; Grype the tool has never run and is not in CI]** (see DEC-6).
 **Rationale:** answers the course's vulnerable-package and dependency-security objective. Reuses a tool (Grype) already used successfully in this program's prior security labs.
 **Amendment (v3.7.2, 2026-07-07):** the CI in `.github/workflows/ci.yml` is deliberately hermetic (DEC-6: no AWS credentials, no image build in CI), so container images are not built there and Grype cannot scan them in-pipeline. Image scanning is instead provided by **ECR scan-on-push** (`modules/ecr_repo/main.tf`, `scan_on_push = true`) on every pushed image, and JS dependencies gained a blocking `npm audit --omit=dev --audit-level=high` gate plus Dependabot. Net posture is unchanged (pip-audit for Python packages, ECR scan for images, npm audit for JS), but the mechanism differs from the original "Grype in CI" wording; running Grype in a credentialed deploy workflow is recorded as optional follow-on.
+**Amendment (v3.9.0, 2026-07-09) — SUPERSEDES the original "Grype in CI" commitment, with evidence:** Grype the tool has **never run** — it is not installed and not in `ci.yml`; there is no Grype output. The committed image-scan mechanism and evidence is **ECR scan-on-push**: its findings were retrieved for the deployed tag `v3.8.3` (`docs/evidence/scans/ecr-image-scan-2026-07-09.txt`) and show **2 HIGH + 1 MEDIUM + 1 LOW OS-package CVEs on every image** (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2`, `gnupg2`), tracked as HANDOFF §4.1 row 12 / residual risk. This decision no longer claims Grype runs anywhere; a Grype/Trivy cross-check in a credentialed deploy workflow stays optional follow-on. See `docs/evidence/scans/grype-2026-07-09-superseded.txt`.
 **Resolution:** PROCEED
 **Status:** LOCKED
 
