@@ -1,7 +1,10 @@
 # Test report — PrePayGuard
 
-**Date:** 2026-07-09. **Result: `152 passed, 1 xfailed`** (the 1 xfail is a *deliberately*
-documented known limitation, see below — not a failure). Reproduce: `pytest` from the repo root
+**Date:** 2026-07-09. **Result: 149 test functions; 152 assertions pass with a local Terraform
+binary present (3 of these skip in a toolchain-free clone, giving 149 passed / 3 skipped), plus 1
+documented xfail (the F1 residual).** The xfail is a deliberately documented known limitation (see
+below), not a failure; the 3 skips are the terraform-gated tests in `test_queue_depth_scaling.py`
+(`.tools/` is gitignored, so absent from any clone). Reproduce: `pytest` from the repo root
 (hermetic — `moto`/local fakes, no live AWS; runs in CI, `.github/workflows/ci.yml` `python` job).
 Runtime ≈ 90 s.
 
@@ -27,7 +30,8 @@ This is the rendered summary; raw pytest output is in `docs/HANDOFF.md` Appendix
 | `test_object_lock.py` | 4 | **Commitment 4** — Object Lock immutability (config, moto) |
 | `test_queue_depth_scaling.py` | 3 | **Commitment 3** — max-concurrency + queue-depth alarm |
 
-(149 `def test_` functions; parametrization expands to 152 passed + 1 xfailed.)
+(149 `def test_` functions; parametrization expands to 152 passed + 1 xfailed with a local
+Terraform binary present; 3 of those pass-count tests skip in a toolchain-free clone.)
 
 ## The four graded commitments
 

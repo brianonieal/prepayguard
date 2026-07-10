@@ -12,8 +12,10 @@ version it was judged against.
 
 **Status at this refresh:** everything through Phase 5 (v3.7.1) is complete and **live
 on AWS** (us-east-2), console at **https://d2rbxaf6pqgvb1.cloudfront.net**. **29
-architectural decisions locked.** Verified green: **pytest `152 passed, 1 xfailed`, console
-vitest green, checkov 662/0/3, ruff clean, tflint clean, terraform validate clean.** The one differentiating
+architectural decisions locked.** Verified green: **149 test functions; 152 assertions pass
+with a local Terraform binary present (3 of these skip in a toolchain-free clone, giving 149
+passed / 3 skipped), plus 1 documented xfail (the F1 residual). Console vitest green, checkov
+662/0/3, ruff clean, tflint clean, terraform validate clean.** The one differentiating
 component (the semantic matcher) is **measured**, the screening list includes **one
 real federal source** (SAM.gov exclusions) alongside three modeled ones and is kept
 current automatically by a daily refresher, and real federal payments now flow in
@@ -152,8 +154,10 @@ alias to the prior version (seconds, no rebuild). Reference-data rollback: repoi
 
 ## 2. Tests
 
-Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **pytest `152 passed,
-1 xfailed`** (the xfail is the documented F1 residual, not a failure), vitest green, both in CI.
+Runner: **pytest** (hermetic, moto-backed) + console **vitest**. **149 test functions; 152
+assertions pass with a local Terraform binary present (3 of these skip in a toolchain-free
+clone, giving 149 passed / 3 skipped), plus 1 documented xfail (the F1 residual).** vitest green,
+both in CI.
 **Rendered summary + four-commitment mapping + Object-Lock moto caveat: [`docs/TEST_REPORT.md`](TEST_REPORT.md).**
 Registry: `foundation/TESTS.md`.
 
@@ -220,6 +224,17 @@ Registry: `foundation/TESTS.md`.
 
 ## 4. Security findings
 
+The threat this system exists to counter is a single event: a payment leaving Treasury to a
+recipient the government has already determined is ineligible — a debarred contractor, a deceased
+payee, an entity with delinquent federal debt. Every finding below is rated by its effect on that
+failure. A matcher that can be evaded (F1) is severe because it lets that payment through
+unreviewed; an unpaged DLQ alarm is lower because it delays detection rather than causing the
+disbursement. The load-bearing controls, in domain terms: identity matching that escalates rather
+than guesses (NAME_MATCH_CAP caps every uncertain match to human review, never auto-reject), an
+immutable audit record written before any routing decision, and maker/checker segregation so no
+single role both screens and disposes. The findings are what remains after those controls are in
+place.
+
 Zero failing **static-analysis** findings across checkov (662/0/3), ruff (pass), pip-audit
 (8/8 components clean), tflint (clean) — raw dated output in `docs/evidence/scans/` (2026-07-09).
 **But static analysis is not the whole picture:** the **container-image** scan (ECR scan-on-push,
@@ -267,12 +282,13 @@ observability, and scope.
 | 5 | Semantic matcher is defeated by name **dilution** (append ~5 distant tokens / a homoglyph): a listed Do Not Pay entity is auto-approved (F1). The 27-case eval's "recall 1.00" had no append cases; the 62-case set (append-inclusive) shows the append-positive and hard-negative cosine distributions overlap — **no threshold separates them**, and 0.72 already yields 7/16 hard-negative false positives | Model robustness / component B | **High** | **Partly remediated:** 2.1e input validation (DEC-29) narrows it (bounds the field, closes the transliteration class) but leaves 75/96 evadable; windowed matching is the recommended, un-built backstop | `docs/sme/INJECTION_THREAT_MODEL.md`, `docs/evidence/EVAL_REPORT.md`, `docs/sme/SEMANTIC_EVAL.md` §9 |
 | 6 | Bedrock is a soft dependency in B; an outage silently degrades the semantic net to rule-based screening | Availability / component B | **Low** | Mitigated: fails safe to deterministic rules (not blind); a Bedrock-availability alarm is follow-on | `src/component_b_enrichment/app.py` (semantic degrade) |
 | 7 | Single webhook notification path for review routing (DEC-7) | Review routing / component D | **Low** | Mitigated by the age-of-oldest-message alarm; a second path is follow-on | DEC-7, `modules/review_queue/main.tf` |
-| 8 | MFA is optional (opt-in TOTP), not enforced | Identity / Cognito | **Low** | Accepted; operator-provisioned users only, no public sign-up | `modules/console_foundation/main.tf` |
+| 8 | Console MFA is opt-in TOTP, not enforced; more broadly, identity hardening (enforced MFA, no long-lived credentials) was under-applied during development, including on the operator's own AWS account | Identity / Cognito + operational | **Medium** | Partly remediated: the operator account was hardened (MFA enabled, credentials rotated) after this was identified; enforcing Cognito MFA on the console is the first follow-on hardening step | `modules/console_foundation/main.tf`, §5.8 |
 | 9 | `OPTIONS` preflight is unauthenticated (`Principal:"*"`, MOCK integration, no data path) for browser CORS | API surface | **Low** | Accepted; the `Deny`-all-but-named-roles policy exempts only anonymous `OPTIONS`, and the mock returns headers only | `modules/*_stage/main.tf`, `modules/console_api/main.tf` |
 | 10 | WAF absent on the APIs and CloudFront; no cross-region replication of the audit bucket | Edge protection / DR | **Low** | Accepted at course scope (IAM-authed, resource-policy-scoped, single-region); recorded as residual risk | `.checkov.yaml` (justified skips) |
 | 11 | No load / DR / chaos testing; cold-start latency unmeasured under load | Performance / resilience | **Low** | Open (follow-on: load + chaos testing, right-size memory/concurrency) | §5.5, §6.5 |
 | 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
 | 13 | Matcher **false positives** on legitimate look-alike names (F5): 7/16 hard negatives score ≥0.72 on the eval; two (`Initech Solutions LLC`, `Globex Onshore Inc`) at 0.966 are FPs at every threshold below 0.966. Same whole-string defect as F1 (row 5), opposite direction | Model robustness / component B | **Medium** | Contained: `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW (reviewer load, not a wrong auto-reject); robust-matcher follow-on fixes F1 and F5 together | `docs/sme/INJECTION_THREAT_MODEL.md` F5, `docs/evidence/EVAL_REPORT.md` |
+| 14 | Input-validation cap (F1 remediation) makes 1/11 over-length listed entities unscreenable: name exceeds the 35-char field, exact+fuzzy fail, only the fragile semantic layer remains | Model robustness / remediation tradeoff | **Medium** | Open; the windowed-matcher follow-on that fixes F1 also fixes this | `docs/evidence/matcher_evasion_bounded.md` C4, §5.9 |
 
 Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
 findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in
@@ -303,6 +319,18 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
 6. **No load/DR testing;** cold-start latency unmeasured under load.
 7. **Bedrock as a soft dependency in B:** an outage silently degrades the semantic net to
    rule-based screening (observable via Bedrock error metrics; alarm is follow-on).
+8. **Identity hardening under-applied during development (Medium, partly remediated):** enforced
+   MFA and no-long-lived-credentials were not consistently applied while building — including on
+   the operator's own AWS account. Identified and remediated (root MFA enabled, credentials
+   rotated, zero root access keys); enforcing Cognito MFA on the console is the first follow-on
+   hardening step (§4.1 row 8). Recorded as an operational lesson (objective 10: responding to
+   real production constraints), not a standing exposure.
+9. **Remediation-introduced false-accept (C4):** the 2.1e input-validation cap (35 chars,
+   printable ASCII) that narrows F1 also renders 1 of 11 over-length listed entities unscreenable
+   — its full name cannot fit the field, so exact and fuzzy matching fail and only the semantic
+   layer (itself the fragile one) remains. This is a cost the F1 remediation introduced, not a
+   pre-existing gap; it is the direct tradeoff of bounding the input. A robust (windowed) matcher
+   closes both F1 and this simultaneously (§4.1 row 14). `docs/evidence/matcher_evasion_bounded.md` C4.
 
 ---
 
@@ -388,7 +416,7 @@ STATIC ANALYSIS (as CI runs them)
   pip-audit: No known vulnerabilities found — all 8 src/*/requirements.txt     scans/pip-audit-2026-07-09.txt
   tflint   : 0 issues (--recursive)                                           scans/tflint-2026-07-09.txt
   terraform fmt -check / validate: clean
-  pytest   : 152 passed, 1 xfailed        vitest: (console) green
+  pytest   : 149 functions; 152 pass w/ local terraform (3 skip in a clean clone -> 149 passed/3 skipped), 1 xfailed   vitest: green
   GitHub Actions ci.yml: green
 
 CONTAINER IMAGE SCAN (ECR scan-on-push — DEC-8 mechanism; Grype the tool NOT run, superseded)

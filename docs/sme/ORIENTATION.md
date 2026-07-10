@@ -115,7 +115,9 @@ tests. `docs/HANDOFF.docx` is the rendered twin of the same stale content.
 **[Update 2026-07-09, v3.9.0: this paragraph is itself a historical snapshot. `docs/HANDOFF.md`
 has since been brought current (Phase 2.1 security work, objective-5 eval, ERR-1, F5, ECR
 findings) and `docs/HANDOFF.docx` was regenerated from it via pandoc — it is no longer stale.
-The repo is now at 29 locked decisions and pytest `152 passed, 1 xfailed`.]**
+The repo is now at 29 locked decisions and pytest: 149 test functions; 152 assertions pass with a
+local Terraform binary present (3 skip in a toolchain-free clone, giving 149 passed / 3 skipped),
+plus 1 documented xfail (the F1 residual).]**
 
 Consequence for grading: there is currently no objective-5 section (evaluate LLM
 workflows on performance, stability, cost, human review, responsible use) in the
