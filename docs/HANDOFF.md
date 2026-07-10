@@ -135,7 +135,7 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_fee
 Lambda **versions + aliases**, identical across components: rollback repoints the `live`
 alias to the prior version (seconds, no rebuild). Reference-data rollback: repoint
 `current.json` to a prior `versions/{N}.json`. Infra rollback via git (every gate tagged
-`syntaris-gate-vX.Y.Z`). Runbook: `docs/ROLLBACK.md`.
+`gate-vX.Y.Z`). Runbook: `docs/ROLLBACK.md`.
 
 ### 1.6 Known unknowns (course objective 3)
 

@@ -1,6 +1,6 @@
 # VERSION_ROADMAP.md
 # Calibration: 0.34x multiplier applied (operator-level, 16 gates, HIGH confidence).
-#   Source: ~/.claude/syntaris/calibration-profile.md, PAT-001.
+#   Source: operator calibration profile (PAT-001).
 #   CAVEAT: contributing projects (Test-App, Notes-App, Briefing Tool) are NOT
 #   AWS/Terraform. The 0.34x bias was learned on other stacks, so it is a starting
 #   point only. Later gates use ranges. Re-pull after 3 project gates close.

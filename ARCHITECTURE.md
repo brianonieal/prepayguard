@@ -137,7 +137,7 @@ One mechanism, identical across every Lambda component:
    infrastructure destroy/recreate (rejected in DEC-10 as too coarse).
 
 Infrastructure-level mistakes roll back via git: every gate is tagged
-(`syntaris-gate-vX.Y.Z`); `terraform plan` against a checked-out tag shows the
+(`gate-vX.Y.Z`); `terraform plan` against a checked-out tag shows the
 exact reversion diff before any apply.
 
 ## 4. Irreversibility register

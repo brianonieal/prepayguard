@@ -46,3 +46,7 @@ Thumbs.db
 # Console SPA
 console/node_modules/
 console/dist/
+
+# Exposure cleanup — do not re-commit these artifacts
+.syntaris/
+prepayguard-main.zip

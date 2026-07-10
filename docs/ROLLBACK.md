@@ -26,7 +26,7 @@ One mechanism, identical across all four components: **Lambda versions + aliases
 ## Scope
 - **Code rollback** (a bad handler image): alias repoint, seconds.
 - **Infrastructure rollback** (a bad Terraform change): `git` — every gate is
-  tagged `syntaris-gate-vX.Y.Z`; `terraform plan` against a checked-out tag shows
+  tagged `gate-vX.Y.Z`; `terraform plan` against a checked-out tag shows
   the exact reversion diff before any apply.
 
 ## Not used
