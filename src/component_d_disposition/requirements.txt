@@ -1,4 +1,4 @@
 # Component D runtime dependencies.
 # boto3 ships in the Lambda base image; pinned for the build + pip-audit (DEC-8).
 # Webhook POST uses stdlib urllib - no requests dependency.
-boto3>=1.43.41,<2
+boto3>=1.43.45,<2
