@@ -115,7 +115,7 @@ export default function App() {
         {isAdmin && (
           <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Admin</button>
         )}
-        <button className={route === "tour" ? "on" : ""} onClick={() => nav("#/tour")}>Tour</button>
+        {/* Tour removed from nav (still reachable via the dashboard card and the #/tour route). */}
       </nav>
       <main className="content">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}

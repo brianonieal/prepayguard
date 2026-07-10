@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getShowcase } from "../lib/api.js";
+import { useNameMasker } from "../lib/pii.js";
 
 // v3.0.0 Executive Showcase, condensed + plain-English pass (v3.2.x).
 // Live data, hand-built SVG charts, no chart library, and no em dashes anywhere.
@@ -171,6 +172,7 @@ export function PipelineFlow() {
 // --- worked example ---------------------------------------------------------
 
 export function ExampleCard({ ex }) {
+  const { mask } = useNameMasker();
   if (!ex) return null;
   const d = DISPO[ex.disposition] || DISPO.review;
   return (
@@ -179,7 +181,7 @@ export function ExampleCard({ ex }) {
         <span className={`pill ${d.pill}`}>{d.label}</span>
         <span className="sc-ex-score">risk score <b>{ex.risk_score ?? 0}</b></span>
       </div>
-      <div className="sc-ex-payee">{ex.payee || "(unnamed payee)"}</div>
+      <div className="sc-ex-payee">{ex.payee ? mask(ex.payee) : "(unnamed payee)"}</div>
       <div className="sc-ex-amount mono">{fmtAmount(ex.amount)}</div>
 
       {ex.matches && ex.matches.length > 0 ? (

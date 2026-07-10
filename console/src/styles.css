@@ -75,6 +75,22 @@ th{background:#efece4;text-align:left;font:600 12px var(--mono);text-transform:u
 td{padding:11px 14px;border-bottom:1px solid #eee9df;font-size:14px}
 tr:last-child td{border-bottom:0}
 .mono{font-family:var(--mono);font-size:12.5px}
+
+/* PII: masked individual name (display only; underlying data unchanged) */
+.masked{color:#4a4436;letter-spacing:.02em}
+
+/* Reference-data table: the name is load-bearing and must not clip. Fixed layout
+   with explicit column widths so name/TIN/source/severity all render fully; give
+   the entries panel more room than the version sidebar. No color/theme change. */
+.ref-grid{grid-template-columns:1.85fr .75fr}
+.reftable{table-layout:fixed}
+.reftable th,.reftable td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.reftable th:nth-child(1),.reftable td:nth-child(1){width:42%}
+.reftable th:nth-child(2),.reftable td:nth-child(2){width:16%}
+.reftable th:nth-child(3),.reftable td:nth-child(3){width:24%}
+.reftable th:nth-child(4),.reftable td:nth-child(4){width:12%}
+.reftable input{width:100%;min-width:0}
+.reftable-ro td{font-size:13px}
 .pill{font:600 11px var(--mono);padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
 .p-pending{background:#f6e8cc;color:var(--amber)}
 .p-approved{background:#ddefdb;color:var(--green)}

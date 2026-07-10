@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listReviews, bulkDecide } from "../lib/api.js";
+import { useNameMasker } from "../lib/pii.js";
 
 const AGE_H = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso)) / 3.6e6));
 const AGE = (iso) => {
@@ -8,6 +9,7 @@ const AGE = (iso) => {
 };
 
 export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDecide = true }) {
+  const { mask } = useNameMasker();
   const [status, setStatus] = useState(defaultFilter);
   const [items, setItems] = useState(null);
   const [cursor, setCursor] = useState(null);
@@ -120,7 +122,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
                   )}
                 </td>
                 <td className="mono">{r.payment_id}</td>
-                <td>{r.payee || "-"}</td>
+                <td>{r.payee ? mask(r.payee) : "-"}</td>
                 <td>{r.match || "-"}</td>
                 <td><span className={`score ${Number(r.score) >= 80 ? "s-high" : Number(r.score) >= 30 ? "s-mid" : "s-low"}`}>{r.score}</span></td>
                 <td>{AGE(r.received_at)}</td>

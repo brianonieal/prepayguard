@@ -265,7 +265,9 @@ test("batch upload accepts a JSON file and previews rows client-side", async () 
     "vendors.json", { type: "application/json" });
   fireEvent.change(await screen.findByTestId("csv-input"), { target: { files: [file] } });
   expect(await screen.findByText("J-1")).toBeInTheDocument();
-  expect(screen.getByText("Beta Vendor")).toBeInTheDocument();
+  // PII: an unlisted, designator-less payee is treated as an individual and masked
+  // to "First L." on the batch preview (see lib/pii.js). Row still renders.
+  expect(screen.getByText("Beta V.")).toBeInTheDocument();
 });
 
 test("batch upload accepts an Excel file (server-parsed, no client preview)", async () => {
@@ -380,7 +382,8 @@ test("admin can switch the feed to Sub-Awards", async () => {
 test("tour walks through the feature steps", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Tour" }));
+  // Tour was removed from the top nav; it remains reachable via the dashboard card.
+  fireEvent.click(await screen.findByRole("button", { name: "Take the 2-minute tour →" }));
   expect(await screen.findByText("What PrePayGuard actually does")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Next →" }));
   expect(await screen.findByText("Your dashboard, at a glance")).toBeInTheDocument();
