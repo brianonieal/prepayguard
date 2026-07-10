@@ -189,7 +189,7 @@ Registry: `foundation/TESTS.md`.
 
 ## 3. Deployment documentation
 
-- **Stack:** AWS-only, single account (<ACCOUNT_ID>), region **us-east-2**, `dev`
+- **Stack:** AWS-only, single account (ACCOUNT_ID), region **us-east-2**, `dev`
   environment. Terraform ≥1.6, AWS provider ~>5.0 (pinned lockfile). Local state (course
   scope; remote state is the production upgrade).
 - **Live console:** `https://d2rbxaf6pqgvb1.cloudfront.net` (Cognito login; operator-

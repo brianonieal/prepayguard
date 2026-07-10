@@ -5,7 +5,7 @@ had cost REASONING (DEC-19: ~$2/mo idle baseline vs ~$700/mo for a managed vecto
 DB; DEC-20: "~$0.0001/brief") but no MEASURED per-invocation cost from a real run.
 This closes that with real token counts times current published pricing.
 
-- Measured: 2026-07-06, account <ACCOUNT_ID>, us-east-2.
+- Measured: 2026-07-06, account ACCOUNT_ID, us-east-2.
 - Reproduce: `python scripts/measure_bedrock_cost.py` (real Bedrock; token counts
   from live responses). Embedding counts also come from the WO1 eval run.
 

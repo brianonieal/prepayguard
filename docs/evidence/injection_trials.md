@@ -12,7 +12,7 @@
 > To keep this evidence live, re-run with in-budget payloads; do not read the >35-char payloads
 > below as reproducible against the deployed default.
 
-**Date:** 2026-07-09. **Environment:** live dev account <ACCOUNT_ID>, us-east-2.
+**Date:** 2026-07-09. **Environment:** live dev account ACCOUNT_ID, us-east-2.
 **Not mocked.** Payments were submitted through the real intake API (SigV4 as
 `treasury-dev-payment-submitter`), screened by the real B/C/D pipeline, and the
 audit records and Bedrock briefs were read from the deployed system.

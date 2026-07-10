@@ -446,7 +446,7 @@ One router Lambda behind an IAM-authed REST API (console role only, CORS preflig
 
 ### Verified
 - `pytest` 26/26.
-- **LIVE commitment-4 proof** (`treasury-dev-audit-<ACCOUNT_ID>`): retention auto-applied COMPLIANCE; `delete` → AccessDenied; shorten-retention → AccessDenied.
+- **LIVE commitment-4 proof** (`treasury-dev-audit-ACCOUNT_ID`): retention auto-applied COMPLIANCE; `delete` → AccessDenied; shorten-retention → AccessDenied.
 - fmt/validate clean; tflint/checkov unchanged (271/0, no `.tf` change); `plan` 68/0/0 (audit_store live, **0 drift**).
 
 ### Deployed (first real AWS spend)
@@ -529,9 +529,9 @@ One router Lambda behind an IAM-authed REST API (console role only, CORS preflig
 - `tflint --recursive` (ruleset-aws 0.48.0): 0 issues.
 - `checkov`: 270 passed / 0 failed; all Object Lock, versioning, encryption,
   and public-access checks pass (DEC-9's target class).
-- `terraform plan` (us-east-2, account <ACCOUNT_ID>): **74 to add, 0 to change,
+- `terraform plan` (us-east-2, account ACCOUNT_ID): **74 to add, 0 to change,
   0 to destroy**, no errors/warnings. Caller identity, audit bucket
-  (`treasury-dev-audit-<ACCOUNT_ID>`), and Object Lock COMPLIANCE all resolved.
+  (`treasury-dev-audit-ACCOUNT_ID`), and Object Lock COMPLIANCE all resolved.
 
 ### Changed
 - Region aligned **us-east-1 → us-east-2** (tfvars, variable default,

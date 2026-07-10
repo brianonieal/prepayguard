@@ -22,7 +22,7 @@ deliberate size cap so the in-store cosine design (DEC-19, scoped to hundreds of
 entries) and its publish-time embedding cost stay bounded.
 
 Usage:
-  SAM_API_KEY=... python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> [--limit 300] [--dry-run]
+  SAM_API_KEY=... python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID [--limit 300] [--dry-run]
 """
 from __future__ import annotations
 

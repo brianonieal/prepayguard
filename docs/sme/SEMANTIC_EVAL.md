@@ -15,7 +15,7 @@ on a labeled set, against real Bedrock Titan embeddings.
   `tests/test_semantic_eval.py` (deterministic, no Bedrock).
 - Labeled set: `scripts/semantic_eval_set.json`. Raw results:
   `docs/sme/semantic_eval_results.json`.
-- Run date: 2026-07-06, account <ACCOUNT_ID>, us-east-2.
+- Run date: 2026-07-06, account ACCOUNT_ID, us-east-2.
 
 ## 1. Weakest-case-first (what this eval does NOT establish)
 

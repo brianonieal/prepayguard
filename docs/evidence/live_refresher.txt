@@ -1,6 +1,6 @@
 LIVE REFRESHER PROOF (Component G, v3.4.0, DEC-24) - 2026-07-06
 
-Deployed to us-east-2 (account <ACCOUNT_ID>): terraform apply "8 added" (refresher
+Deployed to us-east-2 (account ACCOUNT_ID): terraform apply "8 added" (refresher
 Lambda + version/alias + EventBridge Scheduler + scheduler role + exec IAM role/policy
 + log group), plus the treasury-dev-refresher ECR repo and image tag v3.2.1.
 

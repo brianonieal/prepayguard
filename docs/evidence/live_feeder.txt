@@ -1,6 +1,6 @@
 LIVE FEEDER PROOF (Component F, v3.3.0, DEC-23) - 2026-07-06
 
-Deployed to us-east-2 (account <ACCOUNT_ID>): terraform apply "8 added" (feeder
+Deployed to us-east-2 (account ACCOUNT_ID): terraform apply "8 added" (feeder
 Lambda + version/alias + EventBridge rule/target + IAM role/policy + log group),
 plus the treasury-dev-feeder ECR repo and image tag v3.2.1.
 

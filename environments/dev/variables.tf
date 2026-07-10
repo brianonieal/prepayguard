@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region for all resources."
   type        = string
-  default     = "us-east-2" # Ohio — matches the operator's console/account (<OPERATOR>, <ACCOUNT_ID>)
+  default     = "us-east-2" # Ohio — matches the operator's console/account (OPERATOR, ACCOUNT_ID)
 }
 
 variable "project_name" {

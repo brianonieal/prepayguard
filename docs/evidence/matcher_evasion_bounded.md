@@ -3,7 +3,7 @@
 **Date:** 2026-07-09. **Blocking for the F1 remediation ordering.** **Method:** offline,
 live `amazon.titan-embed-text-v2:0` (`normalize:true`, us-east-2). Each payee variant is
 embedded and cosined against the **actual stored v4 per-entry vector** pulled from
-`s3://treasury-dev-reference-<ACCOUNT_ID>/reference/current.json` — i.e. the exact vector
+`s3://treasury-dev-reference-ACCOUNT_ID/reference/current.json` — i.e. the exact vector
 Component B cosines at runtime (`component_b_enrichment/app.py:146`), not a re-embedded
 name. Fuzzy = `difflib.SequenceMatcher` on `_normalize_name` (`app.py:171,89-91`), threshold
 0.90; semantic threshold 0.72 (`app.py:123-127`). The semantic operator is **`>=`**

@@ -106,15 +106,15 @@ audit record, so a real-source screening is audited end to end.
 
 ```
 # OPTION A - OpenSanctions (keyless, no rate limit, CC-BY-NC): works immediately.
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --source opensanctions --limit 90 --dry-run
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --source opensanctions --limit 90
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID --source opensanctions --limit 90 --dry-run
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID --source opensanctions --limit 90
 
 # OPTION B - authoritative GSA API (needs SAM_API_KEY; free tier 10/day, resets 00:00 GMT):
 export SAM_API_KEY="$(tr -d '[:space:]' < .sam_api_key)"   # gitignored, never committed
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90 --dry-run
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --limit 90
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID --limit 90 --dry-run
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID --limit 90
 # GSA full list / higher-tier key: one async extract call, capped locally
-python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-<ACCOUNT_ID> --extract --limit 300 --dry-run
+python scripts/ingest_sam_exclusions.py --bucket treasury-dev-reference-ACCOUNT_ID --extract --limit 300 --dry-run
 ```
 
 Both sources normalize into the identical schema and publish through the same

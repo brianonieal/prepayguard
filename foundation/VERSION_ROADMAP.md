@@ -75,7 +75,7 @@ console_api endpoint). Recent gates run ~40–50% under estimate.
 **Phase 4 total (calibrated):** ~7-9h across 3 gates, **actual ~4.5h. Phase 4 COMPLETE (2026-07-04).** v3.3.0 Automated Real-Data Feed added 2026-07-06 (DEC-23). (Optional Notifications, a real SES email digest, still deferred unless requested.)
 
 ## NOTES
-- v0.1.0 fully green: fmt/validate/tflint/checkov + `terraform plan` all clean. Plan ran in us-east-2 against account <ACCOUNT_ID>: **74 to add, 0 to change, 0 to destroy**, no errors/warnings. Region aligned us-east-1 → us-east-2 to match the operator's account before planning.
+- v0.1.0 fully green: fmt/validate/tflint/checkov + `terraform plan` all clean. Plan ran in us-east-2 against account ACCOUNT_ID: **74 to add, 0 to change, 0 to destroy**, no errors/warnings. Region aligned us-east-1 → us-east-2 to match the operator's account before planning.
 - Every gate is backend/infra → flow is **CONFIRMED → ROADMAP APPROVED → GO** (no MOCKUPS/FRONTEND).
 - Build order within v0.1.0 starts at `modules/queue_worker_stage/main.tf` (dependency root for B, C, D via `for_each`), per owner instruction.
 - Graded commitments land across v0.2.0 (1), v0.4.0 (2, 4), v0.5.0 (3). Each with a passing test file before its gate closes.

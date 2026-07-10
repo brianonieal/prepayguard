@@ -1,6 +1,6 @@
 LIVE FEED CONTROL PROOF (in-console Feed tab, v3.5.0, DEC-25) - 2026-07-06
 
-Deployed to us-east-2 (account <ACCOUNT_ID>):
+Deployed to us-east-2 (account ACCOUNT_ID):
 - All 8 component images rebuilt/retagged v3.5.0; terraform apply reconciled clean
   (final "No changes. Your infrastructure matches the configuration.").
 - console_api Lambda updated: GET/PUT /feed/config + POST /feed/run routes, admin-only
