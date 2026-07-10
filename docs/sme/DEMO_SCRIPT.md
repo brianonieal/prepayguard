@@ -18,6 +18,25 @@ all visible.
 - Have `docs/evidence/live_object_lock_proof.txt` open in a tab. You will SHOW
   immutability from this file; you will not perform it live (section 5).
 
+### 0.1 Optional: the one staging-free real-overlap case (`Hawwk LLC`)
+
+There is exactly one confirmed case where the public records line up on their own, with no
+staging or seeding: **`Hawwk LLC`** appears on the live SAM.gov exclusions list AND appears in
+USASpending award records (real contract awards, ~$86K). State it as exactly that — a
+public-record observation: **the data shows an entity that is on the exclusions list also
+appears in award records.** It does **not** establish fraud, wrongdoing, or an improper payment,
+and you must not present it as such; an exclusion can post-date an award, and the award record
+alone proves nothing about intent. Say what the records say, nothing beyond it.
+
+Fed the recipient name directly, the matcher catches it: `HAWWK LLC` → `name_exact` on
+`sam_exclusions` → **review**, score 60 — the correct disposition (name-only, no TIN; see F6).
+The reason it is not already in the console is F7: the scheduled feed samples by award amount
+descending and never reaches a ~$86K award. **Demo prep (off-screen):** to show it as an organic
+pull rather than a seeded case, reach it with a recipient-targeted or small-award feeder query
+(admin Run-now with a narrow filter) so a real `HAWWK LLC` award row flows through the live
+pipeline. If you use it, disclose that you narrowed the query to surface a known real overlap —
+that narrowing is itself the F7 point, and naming it is more credible than hiding it.
+
 ## 1. The one sentence (say this first)
 
 "PrePayGuard screens every payment against Do Not Pay sources before the money
@@ -114,6 +133,11 @@ Be the one to name the limits:
   prototype, not for production multi-operator or DR.
 - **No load or chaos testing** yet; scaling and cold-start behavior are designed
   and configured but unmeasured under stress.
+- **On a random real-data pull the distribution is ~100% approve — that is correct
+  behavior at the true base rate,** not a broken screen; the review path is shown via a
+  disclosed staged/seeded case and reject via a disclosed TIN-bearing submission (feed data
+  has no TIN, so it can never auto-reject — F6/F7). Never present a forced or balanced
+  disposition mix as organic screening output.
 
 Follow-on (v0.2 direction): integrate the real restricted sources (SSA DMF, TOP,
 OIG LEIE) behind proper record linkage and per-source threshold tuning; remote

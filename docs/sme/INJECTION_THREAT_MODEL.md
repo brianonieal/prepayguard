@@ -255,6 +255,69 @@ capped to **REVIEW** by `NAME_MATCH_CAP=60` (`component_c_risk_scoring/app.py:27
 these become reviewer load, not wrong auto-rejections. **Contained, not eliminated.** The
 robust-matcher follow-on (windowed / entity-resolution) is the fix for both F1 and F5.
 
+### F6. The `reject` path is implemented and correct, but unexercisable on current data - MEDIUM (design principle meets data limitation)
+
+**The reject path is implemented and behaves correctly.** Component C reaches `reject` when the
+best match value clears `REJECT_THRESHOLD = 80` (`component_c_risk_scoring/app.py:25,56`), which
+only a **TIN match** does — scored `confidence * weight = 95 * 1.0 = 95` (`app.py:46`; confidence
+set at `component_b_enrichment/app.py:168`). Name matches — exact, fuzzy, or semantic — are
+deliberately **capped at `NAME_MATCH_CAP = 60`** (`app.py:27,50`) so they land in `review`, never
+`reject`. **This is a design principle, not a limitation: the system never auto-rejects on a name
+alone.** A name is not an identity; auto-rejecting a payment because a payee's name resembles a
+listed one would produce wrong rejections of legitimate look-alikes (the F5 failure mode). Reject
+is reserved for TIN-level identity confirmation, and routing name-only hits to a human is the
+correct, intended behavior.
+
+That correct design meets a **data limitation** on the current public sources: **neither public
+source carries a TIN.** USAspending keys on UEI, so the scheduled feeder maps each award to
+name + amount only — "No TIN (USAspending keys on UEI)" (`component_f_feeder/app.py:142`); the row
+is `{"payment_id", "payee", "amount"}` with no `payee_tin` (`:156`). The keyless SAM export is the
+same: on the live v4 watchlist only the 6 synthetic seeds carry TINs (`900000001–8`); the 90 real
+SAM exclusion entries have **no TIN at all** (SAM's public Exclusions API keys on name/UEI). With no
+TIN on either side, B's TIN branch (`component_b_enrichment/app.py:167`) has nothing to match, so
+`best` cannot exceed 60 and **current public-source data can only ever produce `approve` or
+`review`.** A `reject` requires a submitted payment carrying a `payee_tin` that matches a listed
+TIN — which, today, exists only for the synthetic seeds.
+
+CI4A: **Integrity / assurance** of the disposition control. State it precisely so it is not misread:
+**this is not a two-state classifier and reject is not dead code — it is a correctly-built third
+disposition that the present data cannot trigger.** The consequence to record: the reject branch is
+not exercised by the automated feed, so a future regression in it would not be caught by feed
+traffic, and a demo driven from the feed cannot show an organic reject. Neither is a defect in
+Component C or F; both behave correctly given a TIN-less input. Fix direction: ingest a real
+identifier (UEI or TIN) alongside the reference and payment data, so identity-strong matches — and a
+real, exercised reject — become possible against real listed entities.
+
+### F7. Feed sampling bias misses the at-risk population - MEDIUM (sampling–mission misalignment)
+
+The feeder pulls awards **sorted by award amount, descending** (`component_f_feeder/app.py:117`),
+rotating through `_PAGE_ROTATION = 500` pages one per hour (`:40,58-60`) at a small default page
+size (`FEED_LIMIT`). It therefore walks only the **top few thousand awards by dollar value**. Empirical
+reach: a spread across pages 1→450 of the live query returned awards all **≥ ~$13M** (page 450 was
+still a $13M award), i.e. the biggest federal primes (Humana, Lockheed, Sandia, UC Regents).
+
+Screened against the live v4 watchlist with the real matcher, **0 of 300 fed awards hit at any
+disposition** — best fuzzy 0.765 (threshold 0.90), best semantic 0.4644 (threshold 0.72), every
+near-miss against a synthetic seed. That is the correct output at the true base rate: the largest
+prime contractors are not on a debarment list.
+
+The reverse check is the finding. Querying USAspending directly for all 90 real SAM names surfaced
+exactly one **genuine** overlap — **`Hawwk LLC`**, on the SAM list, with real contract awards topping
+out at **~$86K**. The matcher **catches it when fed directly** (`HAWWK LLC` → `name_exact` → `review`);
+this is not a matcher miss. But at ~$86K it sits **far below the feed's amount floor** and the
+scheduled feed will therefore **never surface it.** (Two other raw reverse-hits — `Michael Ross`, a
+name collision the matcher correctly routes to review, and `Coast Medical Supply` ≠ `GOLD COAST
+MEDICAL SUPPLY LP`, correctly not matched — confirm the matcher's behavior, not a coverage gain.)
+
+Domain implication, stated plainly: **debarred parties are overwhelmingly small vendors and
+individuals receiving small awards. The feed samples where improper payments are least likely (the
+largest primes) and is structurally blind to where they are most likely (small awards to small
+vendors).** This is a **sampling–mission misalignment, not a matcher failure** — the detection
+control works; the data path feeding it points away from the target population. CI4A: **Integrity /
+efficacy** of the detection mission. Fix direction (follow-on): amount-independent or randomized
+sampling across the full result set, or a small-award-focused pull (e.g. an amount ceiling, or
+ascending sort), so the feed can actually reach the at-risk population.
+
 ## CI4A summary map
 
 | Finding | Confidentiality | Integrity | Authentication | Authorization | Availability | Accountability |
@@ -264,6 +327,8 @@ robust-matcher follow-on (windowed / entity-resolution) is the fix for both F1 a
 | F3 review-band brief | - | advisory | - | - | - | decision |
 | F4 no in-handler authz | if edge fails | - | - | PRIMARY | - | - |
 | F5 look-alike false positive | - | PRIMARY (clean payee flagged) | - | - | - | - |
+| F6 reject unexercisable on current data | - | design-correct (no name-only auto-reject) | - | - | - | assurance gap (reject unexercised) |
+| F7 feed sampling bias | - | PRIMARY (detection points away from target) | - | - | efficacy | - |
 
 ## Risk-rating table
 
@@ -274,6 +339,8 @@ robust-matcher follow-on (windowed / entity-resolution) is the fix for both F1 a
 | F3 | Brief poisoning, review band | Unknown (not shown) | Medium | **MEDIUM (open)** | UI adjacency of evidence and brief (`AuditDetail.jsx:71,81,99`); brief on-demand and labeled. | A stronger model/phrasing could flip it; reviewer-trust dependent. Open. |
 | F4 | No in-handler authz on brief/audit | Low (edge holds) | Medium | **MEDIUM** | API Gateway resource policy restricts invoke to console roles. | Single control; a misconfig exposes audit/brief data. Open. |
 | F5 | Look-alike false positives (whole-string cosine) | Unknown rate (synthetic set) | Medium | **MEDIUM** | `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW, so a false positive is reviewer load, not a wrong auto-reject. | **7/16 hard negatives ≥0.72 on the eval; two at 0.966 unsheddable at any threshold** (`EVAL_REPORT.md`). Same whole-string defect as F1; robust-matcher follow-on fixes both. Open. |
+| F6 | `reject` implemented and correct, but unexercisable on current data (no-name-only-auto-reject principle meets TIN-less public sources) | Certain (structural) | Medium | **MEDIUM** | By design: name matches cap at 60 → review (`component_c_risk_scoring/app.py:27,50`); reject is reserved for TIN-level identity confirmation. Neither public source carries a TIN (feeder maps name+amount, `component_f_feeder/app.py:142,156`; keyless SAM export). | Not a build gap and not a two-state classifier — reject is correctly built but the present data cannot trigger it, so the branch is unexercised by feed traffic and a demo cannot show an organic reject. Ingest a real identifier (UEI/TIN) to exercise reject against real entries. Open. |
+| F7 | Feed samples the largest primes; blind to the small-vendor at-risk population | Certain (structural) | Medium | **MEDIUM** | None. Feeder sorts by amount desc over ~500 pages (`component_f_feeder/app.py:117,40,58-60`); reach floor ~$13M across pages 1→450. | 0/300 fed awards hit; the one real overlap (`Hawwk LLC`, ~$86K) is caught when fed but below the feed floor. Sampling–mission misalignment; matcher is not at fault. Fix: amount-independent/randomized or small-award-focused sampling. Open. |
 
 ## Root cause (state it plainly)
 

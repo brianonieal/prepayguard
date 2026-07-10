@@ -289,6 +289,8 @@ observability, and scope.
 | 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
 | 13 | Matcher **false positives** on legitimate look-alike names (F5): 7/16 hard negatives score ≥0.72 on the eval; two (`Initech Solutions LLC`, `Globex Onshore Inc`) at 0.966 are FPs at every threshold below 0.966. Same whole-string defect as F1 (row 5), opposite direction | Model robustness / component B | **Medium** | Contained: `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW (reviewer load, not a wrong auto-reject); robust-matcher follow-on fixes F1 and F5 together | `docs/sme/INJECTION_THREAT_MODEL.md` F5, `docs/evidence/EVAL_REPORT.md` |
 | 14 | Input-validation cap (F1 remediation) makes 1/11 over-length listed entities unscreenable: name exceeds the 35-char field, exact+fuzzy fail, only the fragile semantic layer remains | Model robustness / remediation tradeoff | **Medium** | Open; the windowed-matcher follow-on that fixes F1 also fixes this | `docs/evidence/matcher_evasion_bounded.md` C4, §5.9 |
+| 15 | **`reject` is implemented and correct, but unexercisable on current data (F6).** By design the system never auto-rejects on a name alone: name matches cap at 60 → review (`component_c_risk_scoring/app.py:25,27,50`), and reject is reserved for TIN-level identity confirmation (conf 95 ≥ 80). Neither public source carries a TIN — the feeder maps name+amount only (`component_f_feeder/app.py:142,156`) and the keyless SAM export has none (only the 6 synthetic seeds carry TINs; the 90 real SAM entries do not). So current data can only produce `approve` or `review` | Design principle × data limitation / components C, F, B | **Medium** | Not a build gap and not a two-state classifier — reject is correctly built but the present data cannot trigger it. Ingest a real identifier (UEI/TIN) to exercise reject against real entries (follow-on §6) | `docs/sme/INJECTION_THREAT_MODEL.md` F6 |
+| 16 | **Feed sampling bias misses the at-risk population (F7).** The feeder sorts by award amount descending over ~500 pages (`component_f_feeder/app.py:117,40,58-60`); reach floor ~$13M (page 450). Debarred small vendors receiving small awards sit below it and are invisible to the feed. The one real SAM-excluded entity with real awards (`Hawwk LLC`, ~$86K) is never reachable by the default query, though the matcher catches it when fed directly (name_exact → review). 0/300 fed awards hit | Data path / component F | **Medium** | Sampling–mission misalignment, **not** a matcher failure. Fix: amount-independent/randomized or small-award-focused sampling (follow-on §6) | `docs/sme/INJECTION_THREAT_MODEL.md` F7 |
 
 Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
 findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in
@@ -331,6 +333,25 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
    layer (itself the fragile one) remains. This is a cost the F1 remediation introduced, not a
    pre-existing gap; it is the direct tradeoff of bounding the input. A robust (windowed) matcher
    closes both F1 and this simultaneously (§4.1 row 14). `docs/evidence/matcher_evasion_bounded.md` C4.
+10. **`reject` implemented and correct, but unexercisable on current data (F6, Medium):** by
+   design the system never auto-rejects on a name alone — name matches cap at 60 → review
+   (`component_c_risk_scoring/app.py:25,27,50`) and reject is reserved for TIN-level identity
+   confirmation (conf 95 ≥ 80), which avoids wrongly rejecting legitimate look-alikes (the F5
+   mode). That correct principle meets a data limitation: neither public source carries a TIN —
+   USAspending keys on UEI so the feeder maps name+amount only (`component_f_feeder/app.py:142,156`),
+   and the keyless SAM export has none (only the 6 synthetic seeds carry TINs; the 90 real SAM
+   entries do not). Current data therefore yields only `approve` or `review`. This is **not** a
+   build gap and **not** a two-state classifier — the reject branch is correctly built but present
+   data cannot trigger it, so it is unexercised by feed traffic and a demo cannot show an organic
+   reject. Ingest a real identifier (UEI/TIN) to exercise reject against real entries (§4.1 row 15).
+   `INJECTION_THREAT_MODEL.md` F6.
+11. **Feed sampling bias (F7, Medium):** the feeder samples by award amount descending
+   (`component_f_feeder/app.py:117,40,58-60`), reaching only the top few thousand awards
+   (~$13M floor at page 450) — the largest primes, where improper payments are least likely.
+   It is structurally blind to the small awards to small vendors where debarred parties
+   concentrate. The one real SAM overlap (`Hawwk LLC`, ~$86K) is caught when fed directly but
+   below the feed floor. Matcher is not at fault; the data path points away from the target
+   population (§4.1 row 16). `INJECTION_THREAT_MODEL.md` F7.
 
 ---
 
@@ -345,6 +366,12 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
 5. **Load & chaos testing;** measure cold-start and right-size memory/concurrency.
 6. **Per-source semantic thresholds** tuned on real data (re-run the §7 sweep).
 7. **Second notification path** to harden DEC-7 beyond the single webhook.
+8. **Amount-independent feed sampling (fixes F7)** and **real identifier ingestion
+   (addresses F6):** replace the amount-descending page walk with randomized or
+   amount-independent sampling across the full result set, or a small-award-focused pull, so
+   the feed can reach the small-vendor population where debarments concentrate; and ingest real
+   UEI/TIN with the reference data so identity-strong matches (and a real-entity `reject`) are
+   possible against real listed entities, not only synthetic seeds.
 
 ---
 
