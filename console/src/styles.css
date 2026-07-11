@@ -400,6 +400,13 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .topbar .brand b{font-size:15px;letter-spacing:.02em}
 .topbar .brand-sub{font-size:11px;color:#9db4cc}
 .topbar-spacer{flex:1}
+/* Admin-only role-preview simulation: dropdown in the topbar + an unmissable banner while
+   active. Rendering-only (see App.jsx); the styling is deliberately loud (amber, full-width)
+   so a reviewer can never mistake a previewed role for their own real access. */
+.rolepreview{font:600 12px var(--mono);background:var(--navy-2);color:#e8ecf2;border:1px solid #3a4a63;border-radius:6px;padding:4px 8px;cursor:pointer}
+.preview-banner{background:var(--amber);color:#3a2a05;font:600 13px inherit;padding:9px 20px;display:flex;align-items:center;gap:14px}
+.preview-exit{margin-left:auto;background:#3a2a05;color:#fff;border:0;border-radius:5px;padding:5px 12px;font:600 12px inherit;cursor:pointer}
+.preview-exit:hover{background:#2a1e03}
 /* dashboard head + live indicator */
 .dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .dash-head h2{margin-bottom:2px}

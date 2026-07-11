@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { render, screen, fireEvent } from "@testing-library/react";
 import App from "./App.jsx";
 import { parseCsv } from "./lib/csv.js";
@@ -333,6 +334,72 @@ test("admin role sees both tabs and the role chip", async () => {
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
   expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
+});
+
+test("role-preview dropdown only appears for a real admin session", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]);
+  render(<App />);
+  await signIn();
+  expect(screen.queryByTestId("role-preview-select")).toBeNull();
+});
+
+test("previewing as Submitter hides Dashboard/Admin/Audit log/Review Queue, shows the banner, keeps Submit", async () => {
+  render(<App />); // real admin (default mock)
+  await signIn();
+  fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "submitter" } });
+
+  expect(await screen.findByTestId("role-preview-banner")).toHaveTextContent("Previewing as: Submitter");
+  expect(screen.getByTestId("role-preview-banner")).toHaveTextContent("Your actual access remains Admin");
+  expect(screen.getByTestId("role-chip")).toHaveTextContent("submitter");
+  expect(screen.queryByRole("button", { name: "Dashboard" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Audit log" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Review Queue" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Pitch" })).toBeInTheDocument();       // unrestricted, stays visible
+  expect(screen.getByRole("button", { name: "Treasury News" })).toBeInTheDocument(); // unrestricted, stays visible
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  expect(screen.getByRole("button", { name: "Submit payment" })).toBeInTheDocument(); // submitter CAN submit
+});
+
+test("previewing as Auditor: Review Queue is view-only and Admin/Submit disappear", async () => {
+  render(<App />); // real admin
+  await signIn();
+  fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "auditor" } });
+  await screen.findByTestId("role-preview-banner");
+
+  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  fireEvent.click(screen.getByTestId("user-menu-btn"));
+  expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull(); // auditor can't submit
+  fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: "View →" }))[0]); // "View", not "Review"
+  expect(await screen.findByText("Screening evidence")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Approve payment" })).toBeNull(); // no decide controls
+});
+
+test("exiting preview (banner button or dropdown) restores the real Admin view", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "auditor" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Exit preview" }));
+  expect(screen.queryByTestId("role-preview-banner")).toBeNull();
+  expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
+  expect(await screen.findByRole("button", { name: "Admin" })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "submitter" } });
+  await screen.findByTestId("role-preview-banner");
+  fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "admin" } }); // dropdown's own exit
+  expect(screen.queryByTestId("role-preview-banner")).toBeNull();
+  expect(await screen.findByRole("button", { name: "Admin" })).toBeInTheDocument();
+});
+
+test("role preview is a pure render-layer simulation: no screen ever receives previewRole/effectiveRole", () => {
+  // Static guard: only the pre-existing gating booleans (canDecide/canReview/isAdmin) are
+  // threaded to data-fetching screens; previewRole/effectiveRole never leave App.jsx, so no
+  // child screen or lib/api.js call can be shaped by the simulated role.
+  const src = readFileSync("src/App.jsx", "utf-8"); // vitest cwd = console/
+  const jsxProps = src.split("\n").filter((l) => /<(Dashboard|ReviewQueue|AuditDetail|Analytics|Admin|Tour|SubmitModal)[\s/]/.test(l)).join("\n");
+  expect(jsxProps).not.toMatch(/previewRole|effectiveRole/);
+  expect(src).not.toMatch(/api\.js["'].*previewRole|previewRole.*api\.js/); // never threaded toward the API client
 });
 
 test("admin defaults to the Feed builder sub-tab", async () => {
