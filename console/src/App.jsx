@@ -9,6 +9,7 @@ import Analytics from "./screens/Analytics.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 import Tour from "./screens/Tour.jsx";
 import Pitch from "./screens/Pitch.jsx";
+import TreasuryNews from "./screens/TreasuryNews.jsx";
 import SubmitModal from "./components/SubmitModal.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
@@ -100,8 +101,9 @@ export default function App() {
           onSubmit={canSubmit ? () => setSubmitOpen(true) : undefined} />
       </header>
       <nav className="tabs">
-        {/* Nav order: Pitch, Dashboard, Admin, Audit log, Review Queue. Pitch (leftmost) is
-            open to any authenticated user; the rest keep their existing role gates and routes. */}
+        {/* Nav order: Pitch, Dashboard, Admin, Audit log, Review Queue, Treasury News (last).
+            Pitch and Treasury News are open to any authenticated user; the rest keep their role
+            gates. Treasury News is read-only and shares no code path with the screening pipeline. */}
         <button className={route === "pitch" ? "on" : ""} onClick={() => nav("#/pitch")}>Pitch</button>
         {canReview && (
           <button className={route === "dashboard" ? "on" : ""} onClick={() => nav("#/dashboard")}>Dashboard</button>
@@ -115,6 +117,7 @@ export default function App() {
         {canReview && (
           <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
         )}
+        <button className={route === "news" ? "on" : ""} onClick={() => nav("#/news")}>Treasury News</button>
       </nav>
       <main className="content">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}
@@ -124,6 +127,7 @@ export default function App() {
         {onAdmin && isAdmin && <Admin initial={route === "reference" ? "reference" : "feed"} />}
         {route === "tour" && <Tour onNav={nav} canReview={canReview} isAdmin={isAdmin} />}
         {route === "pitch" && <Pitch />}
+        {route === "news" && <TreasuryNews />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>

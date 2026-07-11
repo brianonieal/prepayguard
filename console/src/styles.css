@@ -100,6 +100,17 @@ tr:last-child td{border-bottom:0}
 .rd-ilabel{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:#8a8272;margin-bottom:4px}
 .nr{color:#a29a88;font-style:italic}
 
+/* Treasury News: read-only news cards (display-only; no screening-pipeline connection). */
+.news-list{display:flex;flex-direction:column;gap:14px}
+.news-card{background:#fff;border:1px solid var(--line);border-left:3px solid var(--copper);border-radius:8px;padding:15px 18px}
+.news-head{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.news-src{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--navy);color:#fff;padding:2px 9px;border-radius:99px}
+.news-date{font:12px var(--mono);color:#8a8272}
+.news-title{font-size:16px;font-weight:600;margin:0 0 6px;color:var(--ink);border:0;padding:0;text-transform:none;letter-spacing:normal}
+.news-summary{font-size:13.5px;color:#4a4436;line-height:1.55;margin:0 0 10px}
+.news-link{font:600 13px inherit;color:var(--navy);text-decoration:none}
+.news-link:hover{text-decoration:underline}
+
 /* Reference-data table: full-width, fixed layout with column widths sized to fit
    the content so nothing clips (TIN, source, severity, remove). Long entity names
    in the editable name input scroll with a hover tooltip; read-only cells wrap. */
