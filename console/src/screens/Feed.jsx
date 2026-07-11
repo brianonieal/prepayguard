@@ -22,9 +22,10 @@ const SUB = [
 const cats = (mode) => (mode === "sub" ? SUB : PRIME);
 const selFromCodes = (codes, mode) => {
   const set = new Set(codes || []);
-  const s = {};
-  for (const c of cats(mode)) s[c.key] = c.codes.every((x) => set.has(x));
-  return s;
+  // Single-select: award types must come from one USAspending group per query
+  // (mixing groups is a 422), so load the first group whose codes are all present.
+  const hit = cats(mode).find((c) => c.codes.every((x) => set.has(x)));
+  return hit ? { [hit.key]: true } : {};
 };
 const codesFromSel = (sel, mode) => cats(mode).filter((c) => sel[c.key]).flatMap((c) => c.codes);
 const isoDaysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
@@ -101,7 +102,10 @@ export default function Feed() {
   }, [agencyCode]);
 
   const setModeReset = (m) => { setMode(m); setSel(m === "sub" ? { subcontracts: true } : { contracts: true }); };
-  const toggle = (k) => setSel((p) => ({ ...p, [k]: !p[k] }));
+  // Single-select: USAspending rejects award_type_codes that span more than one
+  // group (HTTP 422), so checking one award type unchecks the rest. All boxes stay
+  // clickable; exactly one is checked at a time.
+  const toggle = (k) => setSel({ [k]: true });
   const codes = codesFromSel(sel, mode);
   const agencyName = agencies.find((a) => a.code === agencyCode)?.name || "";
   const PERIODS = timePeriods();

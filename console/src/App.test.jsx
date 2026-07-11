@@ -419,6 +419,25 @@ test("admin can switch the feed to Sub-Awards", async () => {
   expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ subawards: true }));
 });
 
+test("feed award types are single-select (checking one unchecks the others; USAspending rejects mixed groups)", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
+  expect(await screen.findByLabelText("Contracts")).toBeChecked();
+  // checking Grants unchecks Contracts — only one group at a time
+  fireEvent.click(screen.getByLabelText("Grants"));
+  expect(screen.getByLabelText("Grants")).toBeChecked();
+  expect(screen.getByLabelText("Contracts")).not.toBeChecked();
+  // all boxes stay clickable (nothing greyed out / disabled)
+  expect(screen.getByLabelText("Contracts")).not.toBeDisabled();
+  expect(screen.getByLabelText("Loans")).not.toBeDisabled();
+  // the run sends codes from a single group only
+  fireEvent.click(screen.getByRole("button", { name: "Run now" }));
+  await screen.findByText(/Pulled now/);
+  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ award_type_codes: ["02", "03", "04", "05"] }));
+});
+
 test("tour walks through the feature steps", async () => {
   render(<App />);
   await signIn();
