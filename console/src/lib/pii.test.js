@@ -46,6 +46,28 @@ describe("classification field overrides the heuristic (authoritative)", () => {
   });
 });
 
+// LEIE individuals are REAL people; the ingest (scripts/ingest_leie.py) derives
+// classification="Individual" from the source name columns, so the public console masks
+// them to "First L." — the hard PII gate for the real LEIE source. Names below are
+// SYNTHETIC: committing a real excluded person's name would leak the very PII this gate
+// protects. The classification-from-columns derivation is pinned in
+// tests/test_leie_ingest.py and re-verified against real data at publish time.
+describe("LEIE individuals render MASKED on the public surface (PII gate)", () => {
+  test.each([
+    ["Marcus Delacroix", "Marcus D.", "Delacroix"],     // FIRSTNAME LASTNAME
+    ["Priya R Venkataraman", "Priya V.", "Venkataraman"], // FIRSTNAME MIDNAME LASTNAME
+    ["Angela Johnson", "Angela J.", "Johnson"],           // LASTNAME "NULL" -> assembled first+mid
+  ])("Individual %s -> %s (surname never shown)", (name, masked, surname) => {
+    const out = maskName(name, "Individual", null);
+    expect(out).toBe(masked);
+    expect(out).not.toContain(surname); // the gate: the full surname must not reach the public surface
+  });
+
+  test("an LEIE entity (BUSNAME) renders FULL", () => {
+    expect(maskName("1 Best Care, Inc", "Entity", null)).toBe("1 Best Care, Inc");
+  });
+});
+
 describe("brief redaction removes the individual's surname from prose", () => {
   test("full name and standalone surname are redacted; first name kept", () => {
     const brief = "The payment to James O. Wilson Jr. matched a listed entity; Wilson appears on SAM.";
