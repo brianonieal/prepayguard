@@ -9,9 +9,10 @@ feeds below; its only output is console/public/news.json. The feeds are hit ONLY
 this script runs (deploy / schedule), never on a console page load.
 
 Source whitelist (chosen so links are NOT paywalled; no Bloomberg/WSJ, no social media):
-  - Federal Register API (Treasury dept, financial rules) - JSON, CORS-open, always free
-  - GAO reports - improper-payments / financial oversight, prioritized
-  - Government Executive, Federal News Network - reliably-free federal press
+Government (official, always free): Federal Register API (Treasury financial rules, JSON,
+  CORS-open) and GAO reports (improper-payments / financial oversight, prioritized).
+Press (reputable, reliably-free): Government Executive, Federal News Network, Politico.
+Each item is tagged tier="government"|"press" so the console groups + badges by tier.
 
 A dead/unreachable/garbled feed is skipped with a logged warning; the others still publish.
 Summaries use the feed's OWN description (HTML stripped, trimmed to 3-4 sentences). If a feed
@@ -37,21 +38,26 @@ UA = "PrePayGuard-news/1.0 (capstone; display-only)"
 # Register) or "rss" (RSS 2.0 / Atom). To add a source, add a free feed here - never a
 # paywalled outlet (Bloomberg/WSJ) and never social media.
 FEEDS = [
-    {"source": "Federal Register", "type": "json",
+    # --- Government sources (official, always free, public record) ---
+    {"source": "Federal Register", "type": "json", "tier": "government",
      "url": "https://www.federalregister.gov/api/v1/documents.json?per_page=8&order=newest"
             "&fields[]=title&fields[]=abstract&fields[]=html_url&fields[]=publication_date"
             "&conditions[agencies][]=treasury-department",
      "note": "Treasury financial rules"},
-    {"source": "GAO", "type": "rss", "url": "https://www.gao.gov/rss/reports.xml",
+    {"source": "GAO", "type": "rss", "tier": "government", "url": "https://www.gao.gov/rss/reports.xml",
      "note": "improper payments / financial oversight"},
-    # Omitted (checked, not fabricated): Treasury.gov exposes no clean press RSS (the
-    # obvious URLs 404), so Treasury content is surfaced via the Federal Register feed
-    # above; Oversight.gov's only public feed (rss.xml) is a site-nav feed, not OIG
-    # reports (its /api/v1/reports 404s), and GAO already covers federal oversight.
-    {"source": "Government Executive", "type": "rss", "url": "https://www.govexec.com/rss/all/",
+    # Omitted after checking (NOT fabricated): Treasury.gov exposes no clean press RSS (the
+    # obvious URLs 404), so Treasury content is surfaced via the Federal Register feed above;
+    # Oversight.gov / HHS-OIG expose no clean reports feed (site-nav rss.xml only; the /api
+    # and oig.hhs.gov RSS paths 404), and GAO already covers federal oversight.
+    # --- Press (reputable, reliably-free outlets; NO Bloomberg/WSJ paywalls, NO social media) ---
+    {"source": "Government Executive", "type": "rss", "tier": "press", "url": "https://www.govexec.com/rss/all/",
      "note": "free federal press"},
-    {"source": "Federal News Network", "type": "rss", "url": "https://federalnewsnetwork.com/feed/",
+    {"source": "Federal News Network", "type": "rss", "tier": "press", "url": "https://federalnewsnetwork.com/feed/",
      "note": "free federal press"},
+    {"source": "Politico", "type": "rss", "tier": "press", "url": "https://rss.politico.com/politics-news.xml",
+     "note": "free politico.com items (not Pro)"},
+    # Omitted: AP (no public RSS; apnews.com/index.rss 401s) - cannot confirm a free feed.
 ]
 
 _TAG = re.compile(r"<[^>]+>")
@@ -158,6 +164,8 @@ def fetch_all(per_source: int) -> tuple[list[dict], list[str]]:
             raw = _get(f["url"])
             got = (parse_json_federal_register if f["type"] == "json" else parse_rss)(raw, f["source"], per_source)
             if got:
+                for it in got:
+                    it["tier"] = f["tier"]  # "government" | "press" -> the console groups + badges by this
                 items.extend(got)
                 live.append(f"{f['source']} ({len(got)})")
             else:
@@ -173,7 +181,7 @@ def main():
     ap.add_argument("--out", default="console/public/news.json")
     ap.add_argument("--per-source", type=int, default=6)
     ap.add_argument("--max", type=int, default=30)
-    ap.add_argument("--generated-at", default=None, help="ISO timestamp (else omitted; no wall-clock in tests)")
+    ap.add_argument("--generated-at", default=None, help="ISO timestamp (default: now, UTC) for the 'last updated' stamp")
     args = ap.parse_args()
 
     items, status = fetch_all(args.per_source)
@@ -181,16 +189,17 @@ def main():
     items.sort(key=lambda x: x.get("date") or "", reverse=True)
     items = items[:args.max]
 
-    doc = {"items": items}
-    if args.generated_at:
-        doc["generated_at"] = args.generated_at
+    doc = {"generated_at": args.generated_at or datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
+           "items": items}
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=2, ensure_ascii=False)
 
-    by_source = {}
+    by_source, by_tier = {}, {}
     for it in items:
         by_source[it["source"]] = by_source.get(it["source"], 0) + 1
-    print(f"Wrote {args.out}: {len(items)} items")
+        by_tier[it["tier"]] = by_tier.get(it["tier"], 0) + 1
+    print(f"Wrote {args.out}: {len(items)} items (generated_at {doc['generated_at']})")
+    print(f"  by tier: {by_tier}")
     print(f"  by source: {by_source}")
     print(f"  feeds: {', '.join(status)}")
 
