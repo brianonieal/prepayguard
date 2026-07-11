@@ -247,8 +247,7 @@ export default function Feed() {
       {msg && <div className="result-ok" style={{ marginTop: 0, marginBottom: 16 }}>{msg}</div>}
       {err && <div className="verdict bad" style={{ marginBottom: 16 }}>{err}</div>}
 
-      <div className="feed-cols">
-        <div className="feed-col">
+      <div className="feed-grid">
         <div className="panel">
           <h3>Award types</h3>
           <div className="toggle">
@@ -263,10 +262,7 @@ export default function Feed() {
             ))}
           </div>
           {noTypes && <div className="warn">Pick at least one award type.</div>}
-        </div>
-
-        <div className="panel">
-          <h3>Agency</h3>
+          <h3 style={{ marginTop: 24 }}>Agency</h3>
           <div className="toggle">
             <label><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
             <label><input type="radio" name="agtype" aria-label="Funding Agency" checked={agencyType === "funding"} onChange={() => setAgencyType("funding")} /> Funding</label>
@@ -290,10 +286,7 @@ export default function Feed() {
               {subAgencies.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-        </div>
-
-        <div className="panel">
-          <h3>Location</h3>
+          <h3 style={{ marginTop: 24 }}>Location</h3>
           <div className="toggle">
             <label><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
             <label><input type="radio" name="loc" aria-label="Place of Performance" checked={locType === "pop"} onChange={() => setLocType("pop")} /> Place of performance</label>
@@ -378,14 +371,15 @@ export default function Feed() {
           </div>
           {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
-        </div>
+      </div>
 
-        <div className="feed-col">
         <div className="panel dl-panel">
+        <div className="dl-split">
+        <div className="dl-side">
         <h3>Download the raw award file (optional)</h3>
         <div className="setdesc" style={{ marginBottom: 12 }}>
           The full matching Custom Award Data file straight from USAspending, using the filters
-          above — a raw export to your browser, not run through screening.
+          above. A raw export to your browser, not run through screening.
         </div>
         <div className="dl-summary">
           <div className="dl-sum-h">Your selections</div>
@@ -430,7 +424,9 @@ export default function Feed() {
           </div>
         )}
 
-        <div className="section-split" style={{ margin: "22px 0 14px" }}><span>or upload a file to screen</span></div>
+        </div>
+        <div className="dl-side">
+        <h3>Or upload a file to screen</h3>
         <div className="setdesc" style={{ marginBottom: 10 }}>
           Upload the raw award file above (recipient names are mapped automatically) or a payments file (payment_id, payee, amount). Every row runs through screening and is written to the audit log, the same as Run now.
         </div>
@@ -448,13 +444,13 @@ export default function Feed() {
             {up.result?.duplicate ? `, ${up.result.duplicate} already screened` : ""}. They appear in the Audit log shortly.
           </div>
         )}
+        </div>
+        </div>
 
         <div style={{ marginTop: 14 }}>
           <button className="linkbtn" onClick={doReset}>Reset form and start over</button>
         </div>
         </div>
-        </div>
-      </div>
     </div>
   );
 }
