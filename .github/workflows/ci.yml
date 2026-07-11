@@ -29,6 +29,10 @@ jobs:
         with:
           tflint_version: v0.63.1
       - name: tflint
+        # Authenticate tflint --init's plugin download so it uses GitHub's 5,000/hr
+        # limit, not the ~60/hr anonymous one (which 403'd the runner and failed CI).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tflint --init
           tflint --recursive
