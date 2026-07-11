@@ -441,6 +441,17 @@ test("feed award types are single-select (checking one unchecks the others; USAs
   expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ award_type_codes: ["02", "03", "04", "05"] }));
 });
 
+test("feed page uploads a raw award file, maps it, and screens it via the batch pipeline", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
+  const csv = 'recipient_name,contract_award_unique_key,current_total_value_of_award\n"YATAI SMART INDUSTRIAL",CONT_AWD_1,500000';
+  const file = new File([csv], "All_Contracts_PrimeTransactions.csv", { type: "text/csv" });
+  fireEvent.change(await screen.findByTestId("feed-upload-input"), { target: { files: [file] } });
+  expect(await screen.findByText(/Screened .*award recipients/)).toBeInTheDocument();
+});
+
 test("tour walks through the feature steps", async () => {
   render(<App />);
   await signIn();

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { getFeedConfig, putFeedConfig, runFeed } from "../lib/api.js";
+import { useEffect, useRef, useState } from "react";
+import { getFeedConfig, putFeedConfig, runFeed, presignBatch, uploadFile, getBatch } from "../lib/api.js";
+import { parseFeedUpload, toPaymentsCsv } from "../lib/csv.js";
 import { fetchAgencies, fetchSubAgencies, STATES, COUNTRIES, DOWNLOAD_FORMATS, requestAwardDownload, pollAwardDownload } from "../lib/usaspending.js";
 
 // USAspending award_type_codes grouped into the builder's friendly categories.
@@ -72,6 +73,8 @@ export default function Feed() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [lastRun, setLastRun] = useState(null);
+  const [up, setUp] = useState(null);   // { state: "reading"|"uploading"|"processing"|"done", kind, count, result?, error? }
+  const upRef = useRef();
 
   useEffect(() => { fetchAgencies().then(setAgencies).catch(() => {}); }, []);
 
@@ -152,6 +155,44 @@ export default function Feed() {
       setLastRun(r.result || {});
       setMsg(`Pulled now: ${r.result?.written ?? 0} payment(s) screened. They appear in the console shortly.`);
     } catch (ex) { setErr(String(ex?.message || "run failed")); } finally { setBusy(""); }
+  };
+
+  // Upload a file to screen. Accepts a raw USAspending award file (mapped) or a plain
+  // payments file. CSV/JSON are parsed + normalized client-side; anything else (xlsx) is
+  // uploaded raw for Component E to parse as payments. Screens via the batch pipeline.
+  const onUpload = async (file) => {
+    if (!file) return;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const readText = (f) => new Promise((res, rej) => {
+      const rd = new FileReader();
+      rd.onload = () => res(String(rd.result)); rd.onerror = () => rej(new Error("could not read file"));
+      rd.readAsText(f);
+    });
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    setUp({ state: "reading" });
+    try {
+      let toUpload = file, kind = "payments", count = null;
+      if (ext === "csv" || ext === "json") {
+        const text = await readText(file);
+        const parsed = parseFeedUpload(text, ext);
+        if (!parsed.rows.length) { setUp({ state: "done", error: parsed.errors[0] || "no screenable rows found" }); return; }
+        kind = parsed.kind; count = parsed.rows.length;
+        const base = file.name.replace(/\.[^.]+$/, "") || "upload";
+        toUpload = new File([toPaymentsCsv(parsed.rows)], `${base}-screen.csv`, { type: "text/csv" });
+      }
+      setUp({ state: "uploading", kind, count });
+      const { upload_url, batch_id } = await presignBatch(toUpload.name);
+      await uploadFile(upload_url, toUpload);
+      setUp({ state: "processing", kind, count });
+      for (let i = 0; i < 30; i++) {
+        const s = await getBatch(batch_id);
+        if (s.status === "complete") { setUp({ state: "done", kind, count, result: s }); return; }
+        await wait(1500);
+      }
+      setUp({ state: "done", kind, count, error: "Still processing. Check the Audit log shortly." });
+    } catch (ex) {
+      setUp({ state: "done", error: ex?.message || "upload failed" });
+    }
   };
 
   // USAspending Custom Award Data bulk download uses prime_award_types / sub_award_types
@@ -342,7 +383,7 @@ export default function Feed() {
         </div>
 
         <div className="panel dl-panel">
-        <h3>Download the raw award file (USAspending)</h3>
+        <h3>Download the raw award file (optional)</h3>
         <div className="setdesc" style={{ marginBottom: 12 }}>
           The full matching Custom Award Data file straight from USAspending, using the filters
           above — a raw export to your browser, not run through screening.
@@ -389,6 +430,26 @@ export default function Feed() {
             <a href={dl.url} className="rowlink" target="_blank" rel="noopener noreferrer">Download the ZIP →</a>
           </div>
         )}
+
+        <div className="section-split" style={{ margin: "22px 0 14px" }}><span>or upload a file to screen</span></div>
+        <div className="setdesc" style={{ marginBottom: 10 }}>
+          Upload the raw award file above (recipient names are mapped automatically) or a payments file (payment_id, payee, amount). Every row runs through screening and is written to the audit log, the same as Run now.
+        </div>
+        <input ref={upRef} type="file" accept=".csv,.json,.xlsx" style={{ display: "none" }} data-testid="feed-upload-input"
+          onChange={(e) => { onUpload(e.target.files[0]); e.target.value = ""; }} />
+        <button className="btn btn-primary btn-sm"
+          disabled={up?.state === "reading" || up?.state === "uploading" || up?.state === "processing"}
+          onClick={() => upRef.current.click()}>
+          {up?.state === "reading" ? "Reading…" : up?.state === "uploading" ? "Uploading…" : up?.state === "processing" ? "Screening…" : "Upload a file"}
+        </button>
+        {up?.state === "done" && up.error && <div className="verdict bad" style={{ marginTop: 10 }}>{up.error}</div>}
+        {up?.state === "done" && !up.error && (
+          <div className="result-ok" style={{ maxWidth: "none", marginTop: 10 }}>
+            Screened {up.result?.queued ?? up.count ?? ""} {up.kind === "award" ? "award recipients" : "payments"}
+            {up.result?.duplicate ? `, ${up.result.duplicate} already screened` : ""}. They appear in the Audit log shortly.
+          </div>
+        )}
+
         <div style={{ marginTop: 14 }}>
           <button className="linkbtn" onClick={doReset}>Reset form and start over</button>
         </div>

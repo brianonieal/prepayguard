@@ -56,3 +56,70 @@ export function parseJsonPayments(text) {
   });
   return { rows, errors };
 }
+
+// Robust CSV parse (handles quoted fields with commas/newlines) -> array of arrays.
+// The naive split above is fine for the simple payments format; the raw USAspending
+// Custom Award Data file has 297 quoted columns and needs this.
+function csvRows(text) {
+  const rows = []; let row = [], field = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+      else field += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((f) => f.trim() !== ""));
+}
+const firstCol = (header, names) => { for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; } return -1; };
+
+// v3.9: Feed-page upload. Accepts a plain payments file (payment_id, payee, amount)
+// OR a raw USAspending Custom Award Data CSV (recipient_name + award id + amount, real
+// column names verified against a live download), normalizing both to payment rows for
+// screening. Returns { kind: "payments" | "award" | null, rows, errors }.
+export function parseFeedUpload(text, ext) {
+  if (ext === "json") { const r = parseJsonPayments(text); return { kind: r.rows.length ? "payments" : null, rows: r.rows, errors: r.errors }; }
+  const rows = csvRows(text);
+  if (!rows.length) return { kind: null, rows: [], errors: ["file is empty"] };
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const body = rows.slice(1);
+  // plain payments file
+  const pi = header.indexOf("payment_id"), py = header.indexOf("payee"), am = header.indexOf("amount");
+  if (pi >= 0 && py >= 0 && am >= 0) {
+    const out = [], errors = [];
+    body.forEach((c, i) => {
+      const payment_id = (c[pi] || "").trim(), payee = (c[py] || "").trim(), amount = Number(c[am]);
+      if (!payment_id || !payee) errors.push(`row ${i + 2}: payment_id and payee are required`);
+      else if (!Number.isFinite(amount) || amount < 0) errors.push(`row ${i + 2}: invalid amount`);
+      else out.push({ payment_id, payee, amount });
+    });
+    return { kind: "payments", rows: out, errors };
+  }
+  // raw USAspending Custom Award Data CSV -> map recipient/id/amount to payment rows
+  const rn = header.indexOf("recipient_name");
+  const idc = firstCol(header, ["contract_award_unique_key", "assistance_award_unique_key", "award_id_piid", "award_id_fain"]);
+  const amc = firstCol(header, ["current_total_value_of_award", "total_obligated_amount", "total_dollars_obligated", "federal_action_obligation"]);
+  if (rn >= 0 && amc >= 0) {
+    const out = [], seen = new Set();
+    body.forEach((c, i) => {
+      const payee = (c[rn] || "").trim();
+      const amount = Number(c[amc]);
+      const id = (idc >= 0 && (c[idc] || "").trim()) || `ROW${i + 1}`;
+      if (!payee || !Number.isFinite(amount) || amount <= 0 || seen.has(id)) return; // skip blanks/zero; one per award
+      seen.add(id);
+      out.push({ payment_id: `USASPEND-UP-${id}`, payee, amount: Math.round(amount * 100) / 100 });
+    });
+    return { kind: "award", rows: out, errors: out.length ? [] : ["no screenable award rows found (need recipient_name and an award amount > 0)"] };
+  }
+  return { kind: null, rows: [], errors: ["unrecognized columns. Expected a payments file (payment_id, payee, amount) or a USAspending award file (recipient_name, an award id, an amount)."] };
+}
+
+// Serialize normalized rows to the payments CSV that Component E ingests.
+export function toPaymentsCsv(rows) {
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  return "payment_id,payee,amount\n" + rows.map((r) => [r.payment_id, r.payee, r.amount].map(esc).join(",")).join("\n");
+}
