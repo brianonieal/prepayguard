@@ -140,7 +140,7 @@ export default function App() {
           <button className={route === "dashboard" ? "on" : ""} onClick={() => nav("#/dashboard")}>Dashboard</button>
         )}
         {isAdmin && (
-          <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Admin</button>
+          <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Data &amp; Feed</button>
         )}
         {canAnalytics && (
           <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Audit log</button>
@@ -150,7 +150,9 @@ export default function App() {
         )}
         <button className={route === "news" ? "on" : ""} onClick={() => nav("#/news")}>Treasury News</button>
       </nav>
-      <main className="content">
+      {/* key by top-level route so switching tabs re-triggers the 150ms content fade */}
+      <main className="content" key={route} data-route={route}>
+        <div className="route-fade">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}
         {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} canDecide={canDecide} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
@@ -161,6 +163,7 @@ export default function App() {
         {route === "news" && <TreasuryNews />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
+        </div>
       </main>
       {submitOpen && <SubmitModal onClose={() => setSubmitOpen(false)} />}
       <footer className="foot">

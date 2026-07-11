@@ -352,7 +352,7 @@ test("previewing as Submitter hides Dashboard/Admin/Audit log/Review Queue, show
   expect(screen.getByTestId("role-preview-banner")).toHaveTextContent("Your actual access remains Admin");
   expect(screen.getByTestId("role-chip")).toHaveTextContent("submitter");
   expect(screen.queryByRole("button", { name: "Dashboard" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Data & Feed" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Audit log" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Review Queue" })).toBeNull();
   expect(screen.getByRole("button", { name: "Pitch" })).toBeInTheDocument();       // unrestricted, stays visible
@@ -367,7 +367,7 @@ test("previewing as Auditor: Review Queue is view-only and Admin/Submit disappea
   fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "auditor" } });
   await screen.findByTestId("role-preview-banner");
 
-  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Data & Feed" })).toBeNull();
   fireEvent.click(screen.getByTestId("user-menu-btn"));
   expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull(); // auditor can't submit
   fireEvent.click(screen.getByRole("button", { name: "Review Queue" }));
@@ -383,13 +383,13 @@ test("exiting preview (banner button or dropdown) restores the real Admin view",
   fireEvent.click(await screen.findByRole("button", { name: "Exit preview" }));
   expect(screen.queryByTestId("role-preview-banner")).toBeNull();
   expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
-  expect(await screen.findByRole("button", { name: "Admin" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Data & Feed" })).toBeInTheDocument();
 
   fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "submitter" } });
   await screen.findByTestId("role-preview-banner");
   fireEvent.change(screen.getByTestId("role-preview-select"), { target: { value: "admin" } }); // dropdown's own exit
   expect(screen.queryByTestId("role-preview-banner")).toBeNull();
-  expect(await screen.findByRole("button", { name: "Admin" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Data & Feed" })).toBeInTheDocument();
 });
 
 test("role preview is a pure render-layer simulation: no screen ever receives previewRole/effectiveRole", () => {
@@ -405,7 +405,7 @@ test("role preview is a pure render-layer simulation: no screen ever receives pr
 test("admin defaults to the Feed builder sub-tab", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   // Feed builder is the default (leftmost, highlighted) sub-tab — feed content shows
   // without switching, and the reference-data editor is not the initial view.
   expect(await screen.findByRole("button", { name: "Run now" })).toBeInTheDocument();
@@ -415,7 +415,7 @@ test("admin defaults to the Feed builder sub-tab", async () => {
 test("admin edits the reference list and publishes a new version", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));  // Admin defaults to Feed builder
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));  // Admin defaults to Feed builder
   fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   expect((await screen.findAllByText("v1")).length).toBeGreaterThan(0); // stat card + history pill
@@ -431,7 +431,7 @@ test("admin edits the reference list and publishes a new version", async () => {
 test("admin removes a reference entry via the row remove button", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "remove entry 0" }));
@@ -442,7 +442,7 @@ test("admin removes a reference entry via the row remove button", async () => {
 test("admin bulk-selects and deletes reference entries (select all → delete)", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   // select-all reveals the bulk bar; delete clears the working copy
@@ -456,13 +456,13 @@ test("reviewer role has no Admin tab (no reference or feed access)", async () =>
   render(<App />);
   await signIn();
   expect(await screen.findByRole("button", { name: "Review Queue" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Data & Feed" })).toBeNull();
 });
 
 test("admin configures the full feed (agency + award types) and runs it", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   expect(await screen.findByRole("heading", { name: "Award types" })).toBeInTheDocument();
   expect(screen.getByLabelText("Contracts")).toBeChecked(); // loaded from config (prime mode)
@@ -480,7 +480,7 @@ test("admin configures the full feed (agency + award types) and runs it", async 
 test("admin can switch the feed to Sub-Awards", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   fireEvent.click(await screen.findByLabelText("Sub-Awards"));
   expect(screen.getByLabelText("Sub-Contracts")).toBeChecked();
@@ -492,7 +492,7 @@ test("admin can switch the feed to Sub-Awards", async () => {
 test("feed award types are single-select (checking one unchecks the others; USAspending rejects mixed groups)", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   expect(await screen.findByLabelText("Contracts")).toBeChecked();
   // checking Grants unchecks Contracts — only one group at a time
@@ -511,7 +511,7 @@ test("feed award types are single-select (checking one unchecks the others; USAs
 test("feed page uploads a raw award file, maps it, and screens it via the batch pipeline", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   const csv = 'recipient_name,contract_award_unique_key,current_total_value_of_award\n"YATAI SMART INDUSTRIAL",CONT_AWD_1,500000';
   const file = new File([csv], "All_Contracts_PrimeTransactions.csv", { type: "text/csv" });
@@ -550,7 +550,7 @@ test("pitch tab is open to any authenticated user; renders verbatim with no em d
 test("feed builder: Time Period preset and full country list work", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   // Date range: switch to Time Period and pick a preset.
   fireEvent.click(await screen.findByLabelText("Time Period"));
@@ -564,7 +564,7 @@ test("feed builder: Time Period preset and full country list work", async () => 
 test("admin downloads the raw award file directly from USAspending", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Data & Feed" }));
   fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
   fireEvent.click(await screen.findByLabelText("TXT (pipe-delimited)"));   // pick pipe-delimited
   fireEvent.click(screen.getByRole("button", { name: "Download" }));
