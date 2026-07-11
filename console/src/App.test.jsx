@@ -332,10 +332,21 @@ test("admin role sees both tabs and the role chip", async () => {
   expect(screen.getByTestId("role-chip")).toHaveTextContent("admin");
 });
 
+test("admin defaults to the Feed builder sub-tab", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  // Feed builder is the default (leftmost, highlighted) sub-tab — feed content shows
+  // without switching, and the reference-data editor is not the initial view.
+  expect(await screen.findByRole("button", { name: "Run now" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("entry 0 name")).toBeNull();
+});
+
 test("admin edits the reference list and publishes a new version", async () => {
   render(<App />);
   await signIn();
-  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));  // Admin tab (defaults to Reference data)
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));  // Admin defaults to Feed builder
+  fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   expect((await screen.findAllByText("v1")).length).toBeGreaterThan(0); // stat card + history pill
   // Edit an entry name -> the working copy is dirty -> publish becomes available.
@@ -351,6 +362,7 @@ test("admin removes a reference entry via the row remove button", async () => {
   render(<App />);
   await signIn();
   fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "remove entry 0" }));
   // the only entry is gone from the working copy
@@ -361,6 +373,7 @@ test("admin bulk-selects and deletes reference entries (select all → delete)",
   render(<App />);
   await signIn();
   fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Reference data" }));
   expect(await screen.findByLabelText("entry 0 name")).toBeInTheDocument();
   // select-all reveals the bulk bar; delete clears the working copy
   fireEvent.click(screen.getByLabelText("Select all entries"));

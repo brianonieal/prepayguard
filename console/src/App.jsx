@@ -118,7 +118,7 @@ export default function App() {
         {onReviews && canReview && !detailId && <ReviewQueue defaultFilter={settings.defaultFilter} canDecide={canDecide} onOpen={(id) => nav(`#/reviews/${id}`)} />}
         {onReviews && canReview && detailId && <AuditDetail paymentId={detailId} canDecide={canDecide} onBack={() => nav("#/reviews")} />}
         {route === "analytics" && canAnalytics && <Analytics />}
-        {onAdmin && isAdmin && <Admin initial={route === "feed" ? "feed" : "reference"} />}
+        {onAdmin && isAdmin && <Admin initial={route === "reference" ? "reference" : "feed"} />}
         {route === "tour" && <Tour onNav={nav} canReview={canReview} isAdmin={isAdmin} />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
