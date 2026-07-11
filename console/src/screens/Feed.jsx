@@ -262,10 +262,7 @@ export default function Feed() {
             ))}
           </div>
           {noTypes && <div className="warn">Pick at least one award type.</div>}
-        </div>
-
-        <div className="panel">
-          <h3>Agency</h3>
+          <h3 style={{ marginTop: 24 }}>Agency</h3>
           <div className="toggle">
             <label><input type="radio" name="agtype" aria-label="Awarding Agency" checked={agencyType === "awarding"} onChange={() => setAgencyType("awarding")} /> Awarding</label>
             <label><input type="radio" name="agtype" aria-label="Funding Agency" checked={agencyType === "funding"} onChange={() => setAgencyType("funding")} /> Funding</label>
@@ -289,10 +286,7 @@ export default function Feed() {
               {subAgencies.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-        </div>
-
-        <div className="panel">
-          <h3>Location</h3>
+          <h3 style={{ marginTop: 24 }}>Location</h3>
           <div className="toggle">
             <label><input type="radio" name="loc" aria-label="Recipient Location" checked={locType === "recipient"} onChange={() => setLocType("recipient")} /> Recipient</label>
             <label><input type="radio" name="loc" aria-label="Place of Performance" checked={locType === "pop"} onChange={() => setLocType("pop")} /> Place of performance</label>
