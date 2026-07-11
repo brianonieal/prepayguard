@@ -129,7 +129,7 @@ export default function App() {
       </main>
       {submitOpen && <SubmitModal onClose={() => setSubmitOpen(false)} />}
       <footer className="foot">
-        <span>PrePayGuard · v3.2.1</span>
+        <span>PrePayGuard · v3.8.3</span>
         <span>DEV · us-east-2</span>
         <span>Records are immutably audited · S3 Object Lock (COMPLIANCE)</span>
       </footer>

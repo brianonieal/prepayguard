@@ -460,7 +460,12 @@ test("pitch tab is open to any authenticated user; renders verbatim with no em d
   // section headers verbatim
   ["The problem", "What I built", "The idea that makes it work", "What I found by attacking it", "The short version"]
     .forEach((h) => expect(screen.getByText(h)).toBeInTheDocument());
-  // scope guard: no em dashes anywhere in the rendered pitch
+  // injection before/after callout: model said APPROVE, system did REJECT (score 95)
+  expect(screen.getByText("The model said")).toBeInTheDocument();
+  expect(screen.getByText("APPROVE")).toBeInTheDocument();
+  expect(screen.getByText("The system did")).toBeInTheDocument();
+  expect(screen.getByText("REJECT (score 95)")).toBeInTheDocument();
+  // scope guard: no em dashes anywhere in the rendered pitch (incl. the new caption)
   expect(document.querySelector(".pitch").textContent).not.toMatch(/—/);
 });
 
