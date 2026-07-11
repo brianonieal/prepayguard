@@ -13,6 +13,7 @@ export default function ReferenceData() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [selected, setSelected] = useState(new Set()); // row indices selected for bulk delete
   const { mask, isIndividual } = useNameMasker();
 
   const load = () => {
@@ -30,8 +31,20 @@ export default function ReferenceData() {
     next[i] = { ...next[i], [k]: e.target.value };
     return next;
   });
-  const remove = (i) => setEntries((prev) => prev.filter((_, j) => j !== i));
+  const remove = (i) => { setEntries((prev) => prev.filter((_, j) => j !== i)); setSelected(new Set()); };
   const dirty = JSON.stringify(entries) !== JSON.stringify(doc.entries);
+
+  // Multi-select → bulk delete. Edits the working copy; Publish persists a new
+  // immutable version (same model as single remove / add / field edits).
+  const toggleSel = (i) => setSelected((prev) => {
+    const n = new Set(prev);
+    n.has(i) ? n.delete(i) : n.add(i);
+    return n;
+  });
+  const allSelected = entries.length > 0 && entries.every((_, i) => selected.has(i));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(entries.map((_, i) => i)));
+  const deleteSelected = () => { setEntries((prev) => prev.filter((_, i) => !selected.has(i))); setSelected(new Set()); };
+  const addEntry = () => { setEntries((p) => [...p, { ...BLANK }]); setSelected(new Set()); };
 
   const publish = async () => {
     setBusy(true); setErr(""); setMsg("");
@@ -64,21 +77,39 @@ export default function ReferenceData() {
       {msg && <div className="result-ok" style={{ marginTop: 0 }}>{msg}</div>}
       {err && <div className="verdict bad">{err}</div>}
 
-      <div className="detail-grid ref-grid">
-        <div className="panel">
-          <h3>Entries (working copy)</h3>
-          <table className="reftable">
-            <thead><tr><th>Name</th><th>TIN</th><th>Source</th><th>Severity</th><th></th></tr></thead>
+      <div className="panel">
+        <h3>Entries (working copy)</h3>
+        {selected.size > 0 && (
+          <div className="bulkbar" role="region" aria-label="Bulk actions">
+            <span><b>{selected.size}</b> selected</span>
+            <button className="btn btn-red btn-sm" onClick={deleteSelected}>Delete {selected.size}</button>
+            <button className="rowlink" onClick={() => setSelected(new Set())}>Clear</button>
+            <span className="sub" style={{ margin: 0 }}>Publish to persist a new version.</span>
+          </div>
+        )}
+        <div className="reftable-wrap">
+          <table className="reftable reftable-edit">
+            <thead><tr>
+              <th className="c-sel">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                  aria-label="Select all entries" disabled={entries.length === 0} />
+              </th>
+              <th>Name</th><th>TIN</th><th>Source</th><th>Severity</th><th></th>
+            </tr></thead>
             <tbody>
               {entries.map((e, i) => (
-                <tr key={i}>
+                <tr key={i} className={selected.has(i) ? "row-sel" : ""}>
+                  <td className="c-sel">
+                    <input type="checkbox" checked={selected.has(i)} onChange={() => toggleSel(i)}
+                      aria-label={`select entry ${i}`} />
+                  </td>
                   <td>
                     {isIndividual(e.name, e.classification)
                       ? <span className="masked" title="Individual name masked on this surface (PII)">{mask(e.name, e.classification)}</span>
                       : <input aria-label={`entry ${i} name`} title={e.name} value={e.name} onChange={set(i, "name")} />}
                   </td>
-                  <td><input aria-label={`entry ${i} tin`} className="mono" value={e.tin || ""} onChange={set(i, "tin")} style={{ maxWidth: 120 }} /></td>
-                  <td><input aria-label={`entry ${i} source`} value={e.source} onChange={set(i, "source")} /></td>
+                  <td><input aria-label={`entry ${i} tin`} className="mono" value={e.tin || ""} onChange={set(i, "tin")} /></td>
+                  <td><input aria-label={`entry ${i} source`} title={e.source} value={e.source} onChange={set(i, "source")} /></td>
                   <td>
                     <select aria-label={`entry ${i} severity`} value={e.severity} onChange={set(i, "severity")}>
                       {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -89,20 +120,21 @@ export default function ReferenceData() {
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEntries((p) => [...p, { ...BLANK }])}>+ Add entry</button>
-            <button className="btn btn-primary btn-sm" disabled={busy || !dirty || entries.length === 0} onClick={publish}>
-              {busy ? "Publishing…" : `Publish new version (v${doc.version + 1})`}
-            </button>
-          </div>
-          <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>
-            Publishing never edits history: v{doc.version} stays retrievable forever, and audit
-            records that cite it keep meaning exactly what they meant.
-          </div>
         </div>
+        <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+          <button className="btn btn-ghost btn-sm" onClick={addEntry}>+ Add entry</button>
+          <button className="btn btn-primary btn-sm" disabled={busy || !dirty || entries.length === 0} onClick={publish}>
+            {busy ? "Publishing…" : `Publish new version (v${doc.version + 1})`}
+          </button>
+        </div>
+        <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>
+          Publishing never edits history: v{doc.version} stays retrievable forever, and audit
+          records that cite it keep meaning exactly what they meant.
+        </div>
+      </div>
 
-        <div className="panel">
-          <h3>Version history</h3>
+      <div className="panel" style={{ marginTop: 14 }}>
+        <h3>Version history</h3>
           {versions.length === 0 && <div className="sub" style={{ margin: 0 }}>No versions yet.</div>}
           <dl>
             {versions.map((v) => (
@@ -130,6 +162,5 @@ export default function ReferenceData() {
           )}
         </div>
       </div>
-    </div>
   );
 }

@@ -202,7 +202,8 @@ export default function Feed() {
       {msg && <div className="result-ok" style={{ marginTop: 0, marginBottom: 16 }}>{msg}</div>}
       {err && <div className="verdict bad" style={{ marginBottom: 16 }}>{err}</div>}
 
-      <div className="detail-grid">
+      <div className="feed-cols">
+        <div className="feed-col">
         <div className="panel">
           <h3>Award types</h3>
           <div className="toggle">
@@ -275,6 +276,9 @@ export default function Feed() {
           </div>
         </div>
 
+        </div>
+
+        <div className="feed-col">
         <div className="panel">
           <h3>Dates and size</h3>
           <div className="field">
@@ -332,14 +336,12 @@ export default function Feed() {
           </div>
           {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
-      </div>
 
-      <div className="panel dl-panel">
+        <div className="panel dl-panel">
         <h3>Download the raw award file (USAspending)</h3>
         <div className="setdesc" style={{ marginBottom: 12 }}>
-          Download the full matching Custom Award Data file straight from USAspending, using the
-          filters above. This is a raw data export to your browser (the same file the USAspending
-          download center produces); it does not run through screening.
+          The full matching Custom Award Data file straight from USAspending, using the filters
+          above — a raw export to your browser, not run through screening.
         </div>
         <div className="dl-summary">
           <div className="dl-sum-h">Your selections</div>
@@ -385,6 +387,8 @@ export default function Feed() {
         )}
         <div style={{ marginTop: 14 }}>
           <button className="linkbtn" onClick={doReset}>Reset form and start over</button>
+        </div>
+        </div>
         </div>
       </div>
     </div>
