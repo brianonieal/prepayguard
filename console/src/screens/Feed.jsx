@@ -321,6 +321,9 @@ export default function Feed() {
           </div>
         </div>
 
+        </div>
+
+        <div className="feed-col">
         <div className="panel">
           <h3>Dates and size</h3>
           <div className="field">
@@ -378,14 +381,12 @@ export default function Feed() {
           </div>
           {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
-        </div>
 
-        <div className="feed-col">
         <div className="panel dl-panel">
         <h3>Download the raw award file (optional)</h3>
         <div className="setdesc" style={{ marginBottom: 12 }}>
           The full matching Custom Award Data file straight from USAspending, using the filters
-          above — a raw export to your browser, not run through screening.
+          above. A raw export to your browser, not run through screening.
         </div>
         <div className="dl-summary">
           <div className="dl-sum-h">Your selections</div>
