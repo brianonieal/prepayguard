@@ -244,6 +244,19 @@ export default function Feed() {
         pulls immediately. Each pull screens real payees and writes permanent audit records.
       </div>
 
+      <div className="feed-sources" aria-label="Government data sources">
+        <div className="feed-src">
+          <span className="feed-src-k">Awards from</span>
+          <span className="feed-src-v">USAspending.gov</span>
+          <span className="feed-src-d">real federal award data (the payments to screen)</span>
+        </div>
+        <div className="feed-src">
+          <span className="feed-src-k">Screened against</span>
+          <span className="feed-src-v">SAM.gov exclusions · HHS-OIG LEIE</span>
+          <span className="feed-src-d">real federal Do Not Pay lists (the reference watchlist)</span>
+        </div>
+      </div>
+
       {msg && <div className="result-ok" style={{ marginTop: 0, marginBottom: 16 }}>{msg}</div>}
       {err && <div className="verdict bad" style={{ marginBottom: 16 }}>{err}</div>}
 

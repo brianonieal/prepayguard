@@ -155,7 +155,7 @@ export default function Pitch() {
 
       <section className="pitch-section">
         <h2>What I built</h2>
-        <p>A working, deployed system on AWS. A payment comes in, gets screened against real SAM.gov exclusion data, and gets one of three outcomes: approve, send to a human, or block. Real federal award data flows through it live from USASpending. Every decision writes a permanent, tamper-evident record. It runs on Lambda and SQS, the infrastructure is all Terraform, it ships through CI with security scanning, and it's covered by 149 tests. This isn't a mockup. It's real and it runs.</p>
+        <p>A working, deployed system on AWS. A payment comes in, gets screened against real federal exclusion data from two public government sources, SAM.gov and the HHS-OIG LEIE, and gets one of three outcomes: approve, send to a human, or block. Real federal award data flows through it live from USASpending. Every decision writes a permanent, tamper-evident record. It runs on Lambda and SQS, the infrastructure is all Terraform, it ships through CI with security scanning, and it's covered by 149 tests. This isn't a mockup. It's real and it runs.</p>
         <figure className="pitch-figure pitch-figure-sm">
           <OutcomeFlow />
         </figure>
