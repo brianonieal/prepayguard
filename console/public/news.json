@@ -1,172 +1,245 @@
 {
+  "generated_at": "2026-07-11T18:31:04+00:00",
   "items": [
     {
       "source": "Federal Register",
       "title": "Agency Information Collection Activities; Comment Request on Forms 3520 and 3520-A",
       "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
       "link": "https://www.federalregister.gov/documents/2026/07/13/2026-14005/agency-information-collection-activities-comment-request-on-forms-3520-and-3520-a",
-      "date": "2026-07-13"
+      "date": "2026-07-13",
+      "tier": "government"
     },
     {
       "source": "Federal Register",
       "title": "Agency Information Collection Activities; Comment Request on U.S. Information Returns and Related Forms, Schedules, Attachments, and Published Guidance",
       "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
       "link": "https://www.federalregister.gov/documents/2026/07/13/2026-13997/agency-information-collection-activities-comment-request-on-us-information-returns-and-related-forms",
-      "date": "2026-07-13"
+      "date": "2026-07-13",
+      "tier": "government"
     },
     {
       "source": "Federal Register",
       "title": "Agency Information Collection Activities; Comment Request on Revenue Procedure 2014-49",
       "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
       "link": "https://www.federalregister.gov/documents/2026/07/10/2026-13994/agency-information-collection-activities-comment-request-on-revenue-procedure-2014-49",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "government"
     },
     {
       "source": "Federal Register",
       "title": "Revising Qualified Domestic Trust Regulations Under Section 2056A To Update Outdated References and Procedures",
       "summary": "This document contains final regulations that amend the Federal estate tax regulations applicable to estates of decedents passing property to or for the benefit of a noncitizen spouse in a domestic trust that satisfies all of the requirements under applicable Federal tax law and regulations to be a qualified domestic trust and for which the executor of the decedent's estate has made a qualified domestic trust election. These final regulations modify the existing regulations to update outdated references, information, and procedures. These final regulations primarily affect the estates of…",
       "link": "https://www.federalregister.gov/documents/2026/07/10/2026-13925/revising-qualified-domestic-trust-regulations-under-section-2056a-to-update-outdated-references-and",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "government"
     },
     {
       "source": "GAO",
       "title": "Inflation Reduction Act: U.S. Fish and Wildlife Service Should Develop Performance Goals for Its Wildlife Refuge Projects",
       "summary": "What GAO Found The Inflation Reduction Act of 2022 (IRA) provided $125 million in supplemental appropriations to the U.S. Fish and Wildlife Service (FWS) to rebuild and restore units of the National Wildlife Refuge System (NWRS) and state wildlife management areas. Among other things, the appropriations are intended to increase the resiliency of habitats and infrastructure to withstand weather events. As of April 1, 2026, FWS had obligated 99.6 percent of the appropriations, primarily for financial awards to state agencies and other partners for the design, implementation, and monitoring of…",
       "link": "https://www.gao.gov/products/gao-26-108212",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "government"
     },
     {
       "source": "GAO",
       "title": "VA Disability Benefits: Opportunities and Challenges to Modernizing Technology and Adopting AI",
       "summary": "What GAO Found The Department of Veterans Affairs (VA) is working to modernize its IT systems to increase efficiency and accuracy of claims processing for disability compensation. However, past GAO reports have found that VA faces long-standing challenges in managing its disability compensation program and implementing innovative technologies. For example, GAO found gaps in VA’s oversight of the quality of exams provided by contracted medical providers and in the management of training for claims processors. Moreover, in 2009, VA began developing an electronic, paperless system called the…",
       "link": "https://www.gao.gov/products/gao-26-109137",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "government"
     },
     {
       "source": "Government Executive",
       "title": "Trump empties out election commission leadership just months before midterms",
       "summary": "Career staff can continue day-to-day operations, but the leadership gap could affect decisions on voting technology, standards and federal election programs.",
       "link": "https://www.govexec.com/management/2026/07/trump-empties-out-election-commission-leadership-just-months-midterms/414708/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Government Executive",
       "title": "Fired EPA dissenters sue for reinstatement, alleging First Amendment violations",
       "summary": "Seven former EPA employees said they were targeted for removal for signing an open “declaration of dissent” in their personal capacities because they had fewer civil service protections rather than any wrongdoing.",
       "link": "https://www.govexec.com/workforce/2026/07/fired-epa-dissenters-sue-reinstatement-alleging-first-amendment-violations/414687/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Government Executive",
       "title": "IRS missed hiring goals for 2026 tax season, which watchdog says impacted service performance",
       "summary": "The tax agency temporarily reassigned hundreds of employees to cover the gaps in staffing.",
       "link": "https://www.govexec.com/oversight/2026/07/irs-missed-hiring-goals-2026-tax-season-which-watchdog-says-impacted-service-performance/414665/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Government Executive",
       "title": "Calls grow for an independent probe into fatal Houston ICE shooting",
       "summary": "House Democrats are demanding body camera footage and answers from DHS and ICE, arguing the agencies have yet to back up their public account of the encounter.",
       "link": "https://www.govexec.com/management/2026/07/calls-grow-independent-probe-fatal-houston-ice-shooting/414688/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Government Executive",
       "title": "Transportation loses its top tech official amid wave of CIO departures",
       "summary": "Pavan Pidugu, who led the department's IT modernization efforts, will step down in September as turnover among federal technology leaders continues.",
       "link": "https://www.govexec.com/technology/2026/07/transportation-loses-top-tech-official-amid-wave-cio-departures/414690/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "GSA names new leaders for regions, PBS",
       "summary": "Michael Gelber will now serve as acting commissioner of the Public Buildings Service and be one of two deputy PBS directors under a new dual-deputy structure.",
       "link": "https://federalnewsnetwork.com/management/2026/07/gsa-names-new-leaders-for-regions-pbs/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "State Dept is looking to rebuild after major staffing cuts. Laid-off diplomats say they’re not welcome back",
       "summary": "One year after sweeping layoffs, the State Department is hiring again for many of the same roles, leaving former employees questioning the agency's strategy.",
       "link": "https://federalnewsnetwork.com/workforce/2026/07/state-dept-is-looking-to-rebuild-after-major-staffing-cuts-laid-off-diplomats-say-theyre-not-welcome-back/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "Federal Movers & Shakers | July 10, 2026",
       "summary": "Tracking leadership changes across the federal government",
       "link": "https://federalnewsnetwork.com/leadership-connect/2026/07/federal-movers-shakers-july-10/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "House report details how DHS used FEMA to bolster immigration crackdown",
       "summary": "The House Dems' report argues the deployments threaten public trust in FEMA and further weaken an agency already flagging from thousands of staff cuts.",
       "link": "https://federalnewsnetwork.com/agency-oversight/2026/07/house-report-details-how-dhs-used-fema-to-bolster-immigration-crackdown/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "DoD class deviation leaves contractors with more questions than answers",
       "summary": "“It's not entirely clear what the rulemakers were intending here,” Tracye Howard said.",
       "link": "https://federalnewsnetwork.com/defense-main/2026/07/dod-class-deviation-leaves-contractors-with-more-questions-than-answers/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal News Network",
       "title": "AI in battlefield intelligence: Expanding the speed of decision-making",
       "summary": "Reducing the time between data collection and actionable insight can strengthen situational awareness and improve responsiveness in dynamic environments.",
       "link": "https://federalnewsnetwork.com/commentary/2026/07/ai-in-battlefield-intelligence-expanding-the-speed-of-decision-making/",
-      "date": "2026-07-10"
+      "date": "2026-07-10",
+      "tier": "press"
     },
     {
       "source": "Federal Register",
       "title": "Agency Information Collection Activities; Comment Request on Notice of Qualified Equity Investment for New Markets Credit",
       "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
       "link": "https://www.federalregister.gov/documents/2026/07/09/2026-13909/agency-information-collection-activities-comment-request-on-notice-of-qualified-equity-investment",
-      "date": "2026-07-09"
+      "date": "2026-07-09",
+      "tier": "government"
     },
     {
       "source": "Federal Register",
       "title": "Prompt Payment Interest Rate; Contract Disputes Act",
       "summary": "For the period beginning July 1, 2026, and ending on December 31, 2026, the prompt payment interest rate is 4-3/4 per centum per annum.",
       "link": "https://www.federalregister.gov/documents/2026/07/09/2026-13903/prompt-payment-interest-rate-contract-disputes-act",
-      "date": "2026-07-09"
+      "date": "2026-07-09",
+      "tier": "government"
     },
     {
       "source": "GAO",
       "title": "Priority Open Recommendations: Department of Energy",
       "summary": "What GAO Found In April 2025, GAO identified 30 priority recommendations for the Department of Energy (DOE). Since then, DOE has implemented 5 of those recommendations by, among other things, directing NNSA Production Modernization programs to follow best practices for schedule development. In July 2026, GAO identified an additional priority recommendation, and removed the priority status from two recommendations, bringing the total number to 24. GAO is highlighting the following three areas that warrant timely and focused attention: Addressing nuclear modernization challenges, Addressing DOE…",
       "link": "https://www.gao.gov/products/gao-26-109001",
-      "date": "2026-07-09"
+      "date": "2026-07-09",
+      "tier": "government"
     },
     {
       "source": "Government Executive",
       "title": "HUD's tech chief appears headed for Interior",
       "summary": "The expected pick would replace the agency's recently departed technology chief and continue a string of leadership changes.",
       "link": "https://www.govexec.com/technology/2026/07/huds-tech-chief-appears-headed-interior/414682/",
-      "date": "2026-07-09"
+      "date": "2026-07-09",
+      "tier": "press"
     },
     {
       "source": "GAO",
       "title": "Priority Open Recommendations: Department of Education",
       "summary": "What GAO Found In May 2025, GAO identified eight priority recommendations for the Department of Education. Since then, Education has implemented one of those recommendations. In June 2026, GAO identified an additional three priority recommendations, bringing the total to 10. GAO is highlighting the following three areas that warrant timely and focused attention: Improving the federal student aid system, Protecting sensitive information, and Managing financial risks associated with charter school management organizations.",
       "link": "https://www.gao.gov/products/gao-26-108975",
-      "date": "2026-07-08"
+      "date": "2026-07-08",
+      "tier": "government"
     },
     {
       "source": "GAO",
       "title": "K–12 Education: How States and the U.S. Holocaust Museum Support Holocaust Education",
       "summary": "What GAO Found To support Holocaust education in K–12 public schools, the U.S. Holocaust Memorial Museum—the main federal provider of Holocaust education resources—provides professional development for teachers through its annual conference, fellowships, online videos, and webinars. The Museum offers educational materials, such as lesson plans and online lessons, based on its collection of artifacts. It also partners with state and local organizations and researches effective education strategies.",
       "link": "https://www.gao.gov/products/gao-26-108023",
-      "date": "2026-07-07"
+      "date": "2026-07-07",
+      "tier": "government"
     },
     {
       "source": "GAO",
       "title": "June 30, 2026 letter commenting on American Institute of Certified Public Accountants Auditing Standards Board's February 2026 Exposure Draft and March 2026 Exposure Draft on Attestation Engagements",
       "summary": "This letter provides GAO's comments on the American Institute of Certified Public Accountants (AICPA) Auditing Standards Board's (ASB) Proposed Statement on Standards for Attestation Engagements: Common Concepts, Examination Engagements, Review Engagements, and Engagements to Report on Sustainability Information and Proposed Statement on Standards for Attestation Engagements: Amendments to SSAE Nos. 18-19 and 21 to Reflect Proposed SSAE Common Concepts, Examination Engagements, Review Engagements, and Engagements to Report on Sustainability Information. GAO promulgates generally accepted…",
       "link": "https://www.gao.gov/products/e14645",
-      "date": "2026-07-02"
+      "date": "2026-07-02",
+      "tier": "government"
+    },
+    {
+      "source": "Politico",
+      "title": "Progressives think they've found a way around their old social media posts",
+      "summary": "Left-wing candidates are betting voters care more about economic populism than old posts calling to defund the police. Republicans are salivating.",
+      "link": "https://www.politico.com/news/2026/07/11/progressives-democrats-social-media-posts-00993111",
+      "date": null,
+      "tier": "press"
+    },
+    {
+      "source": "Politico",
+      "title": "Why the Olympics won’t have a Balogate",
+      "summary": "The International Olympic Committee has approached the Trump White House very differently than FIFA has.",
+      "link": "https://www.politico.com/live-updates/2026/07/10/world-cup-2026/no-olympic-peace-prize-ioc-fifa-balogate-00993493",
+      "date": null,
+      "tier": "press"
+    },
+    {
+      "source": "Politico",
+      "title": "Anti-discrimination reports sent to FIFA over Mexico games",
+      "summary": "The country has faced past scrutiny over a persistent anti-gay chant from its fans.",
+      "link": "https://www.politico.com/live-updates/2026/07/10/world-cup-2026/el-grito-fifa-anti-discrimination-reports-fare-anti-gay-chang-00993533",
+      "date": null,
+      "tier": "press"
+    },
+    {
+      "source": "Politico",
+      "title": "For Belgium's Beltway fans, a rout was the best revenge",
+      "summary": "The Balogun controversy is still alive in Brussels. In Washington, it's old news.",
+      "link": "https://www.politico.com/live-updates/2026/07/10/world-cup-2026/belgiums-beltway-buffs-beyond-balogun-00993584",
+      "date": null,
+      "tier": "press"
+    },
+    {
+      "source": "Politico",
+      "title": "Who will cheer for Palestine now?",
+      "summary": "The political cause without a World Cup team searches for a new champion.",
+      "link": "https://www.politico.com/live-updates/2026/07/10/world-cup-2026/palestine-seeks-champion-morocco-flag-keffiyeh-00993205",
+      "date": null,
+      "tier": "press"
+    },
+    {
+      "source": "Politico",
+      "title": "Spot the pol!",
+      "summary": "Spot the pol! Study the photograph carefully. Only the political figure is missing. Guess who it is.",
+      "link": "https://www.politico.com/live-updates/2026/07/10/world-cup-2026/spot-the-pol-00993330",
+      "date": null,
+      "tier": "press"
     }
   ]
 }

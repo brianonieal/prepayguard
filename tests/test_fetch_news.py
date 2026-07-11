@@ -72,6 +72,15 @@ def test_parse_json_federal_register_maps_results():
     assert items[0]["summary"] == "An abstract." and items[0]["date"] == "2026-07-11"
 
 
+def test_every_feed_has_a_valid_tier_and_both_sections_exist():
+    fn = _load()
+    assert all(f.get("tier") in ("government", "press") for f in fn.FEEDS)
+    assert {f["tier"] for f in fn.FEEDS} == {"government", "press"}  # both sections represented
+    # No paywalled / social sources slipped in.
+    urls = " ".join(f["url"] for f in fn.FEEDS).lower()
+    assert not any(x in urls for x in ("bloomberg", "wsj.com", "twitter", "x.com", "facebook"))
+
+
 def test_parse_skips_items_missing_title_or_link():
     fn = _load()
     rss = (b'<?xml version="1.0"?><rss version="2.0"><channel>'
