@@ -8,6 +8,7 @@ import Admin from "./screens/Admin.jsx";
 import Analytics from "./screens/Analytics.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 import Tour from "./screens/Tour.jsx";
+import Pitch from "./screens/Pitch.jsx";
 import SubmitModal from "./components/SubmitModal.jsx";
 import UserMenu from "./components/UserMenu.jsx";
 import { currentUser, logout, currentGroups, roleFromGroups } from "./lib/auth.js";
@@ -111,7 +112,8 @@ export default function App() {
         {isAdmin && (
           <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Admin</button>
         )}
-        {/* Tour removed from nav (still reachable via the dashboard card and the #/tour route). */}
+        {/* Pitch: open to any authenticated user (read-only, non-sensitive). Sits where Tour was. */}
+        <button className={route === "pitch" ? "on" : ""} onClick={() => nav("#/pitch")}>Pitch</button>
       </nav>
       <main className="content">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}
@@ -120,6 +122,7 @@ export default function App() {
         {route === "analytics" && canAnalytics && <Analytics />}
         {onAdmin && isAdmin && <Admin initial={route === "reference" ? "reference" : "feed"} />}
         {route === "tour" && <Tour onNav={nav} canReview={canReview} isAdmin={isAdmin} />}
+        {route === "pitch" && <Pitch />}
         {route === "profile" && <Profile email={emailLabel} role={role} />}
         {route === "settings" && <Settings settings={settings} onChange={setSettings} isAdmin={isAdmin} />}
       </main>

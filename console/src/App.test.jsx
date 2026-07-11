@@ -429,6 +429,19 @@ test("tour walks through the feature steps", async () => {
   expect(await screen.findByText("Your dashboard, at a glance")).toBeInTheDocument();
 });
 
+test("pitch tab is open to any authenticated user; renders verbatim with no em dashes", async () => {
+  currentGroups.mockResolvedValue(["reviewer"]); // non-admin
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Pitch" }));
+  expect(await screen.findByRole("heading", { name: "PrePayGuard", level: 1 })).toBeInTheDocument();
+  // section headers verbatim
+  ["The problem", "What I built", "The idea that makes it work", "What I found by attacking it", "The short version"]
+    .forEach((h) => expect(screen.getByText(h)).toBeInTheDocument());
+  // scope guard: no em dashes anywhere in the rendered pitch
+  expect(document.querySelector(".pitch").textContent).not.toMatch(/—/);
+});
+
 test("feed builder: Time Period preset and full country list work", async () => {
   render(<App />);
   await signIn();

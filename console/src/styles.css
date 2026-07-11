@@ -153,6 +153,24 @@ tbody tr:hover{background:#faf8f2}
 .stat .k{font:600 11px var(--mono);color:#6b6455;text-transform:uppercase;letter-spacing:.06em}
 .stat .v{font:700 26px/1.2 "Segoe UI",system-ui;margin-top:2px}
 .stat .d{font-size:12px;color:#6b6455}
+
+/* Pitch: read-only one-page pitch. Reuses existing tokens/card style; no new
+   design language. One centered ~700px reading column; visuals subordinate. */
+.pitch{padding-bottom:56px}
+.pitch-hero{max-width:700px;margin:6px auto 0;text-align:center}
+.pitch-hero h1{font:700 30px "Segoe UI",system-ui;color:var(--navy);letter-spacing:.01em}
+.pitch-tagline{font-size:15.5px;color:#6b6455;margin-top:5px}
+.pitch-stats{max-width:760px;margin:22px auto 30px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.pitch-stats .stat{border-top-color:var(--navy)}
+.pitch-section{max-width:700px;margin:0 auto 28px}
+.pitch-section h2{font:700 18px "Segoe UI",system-ui;color:var(--navy);margin:0 0 10px}
+.pitch-section p{font-size:15px;line-height:1.75;color:var(--ink);margin:0}
+.pitch-figure{max-width:720px;margin:18px auto 8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px;overflow-x:auto}
+.pitch-figure svg{display:block;width:100%;height:auto}
+.pitch-figure-sm{max-width:440px;margin-top:14px}
+.pitch-figure-sm svg{max-width:340px;margin:0 auto}
+.pitch-cap{font-size:12px;color:#8a8272;text-align:center;margin-top:12px;line-height:1.5}
+@media (max-width:680px){.pitch-stats{grid-template-columns:repeat(2,1fr)}}
 .dropzone{border:2px dashed var(--line);border-radius:8px;background:#fff;padding:26px;text-align:center;color:#6b6455;cursor:pointer;transition:border-color .15s,background .15s;max-width:640px}
 .dropzone:hover{border-color:var(--copper);background:#fbfaf6}
 .dropzone b{color:var(--navy)}
