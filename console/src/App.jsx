@@ -100,20 +100,21 @@ export default function App() {
           onSubmit={canSubmit ? () => setSubmitOpen(true) : undefined} />
       </header>
       <nav className="tabs">
+        {/* Nav order: Pitch, Dashboard, Admin, Audit log, Review Queue. Pitch (leftmost) is
+            open to any authenticated user; the rest keep their existing role gates and routes. */}
+        <button className={route === "pitch" ? "on" : ""} onClick={() => nav("#/pitch")}>Pitch</button>
         {canReview && (
           <button className={route === "dashboard" ? "on" : ""} onClick={() => nav("#/dashboard")}>Dashboard</button>
-        )}
-        {canReview && (
-          <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
-        )}
-        {canAnalytics && (
-          <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Audit log</button>
         )}
         {isAdmin && (
           <button className={onAdmin ? "on" : ""} onClick={() => nav("#/admin")}>Admin</button>
         )}
-        {/* Pitch: open to any authenticated user (read-only, non-sensitive). Sits where Tour was. */}
-        <button className={route === "pitch" ? "on" : ""} onClick={() => nav("#/pitch")}>Pitch</button>
+        {canAnalytics && (
+          <button className={route === "analytics" ? "on" : ""} onClick={() => nav("#/analytics")}>Audit log</button>
+        )}
+        {canReview && (
+          <button className={onReviews ? "on" : ""} onClick={() => nav("#/reviews")}>Review Queue</button>
+        )}
       </nav>
       <main className="content">
         {route === "dashboard" && canReview && <Dashboard onNav={nav} />}
