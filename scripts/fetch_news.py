@@ -42,8 +42,8 @@ FEEDS = [
     {"source": "Federal Register", "type": "json", "tier": "government",
      "url": "https://www.federalregister.gov/api/v1/documents.json?per_page=8&order=newest"
             "&fields[]=title&fields[]=abstract&fields[]=html_url&fields[]=publication_date"
-            "&conditions[agencies][]=treasury-department",
-     "note": "Treasury financial rules"},
+            "&conditions[agencies][]=treasury-department&conditions[publication_date][lte]={today}",
+     "note": "Treasury financial rules (published through today, no future-scheduled docs)"},
     {"source": "GAO", "type": "rss", "tier": "government", "url": "https://www.gao.gov/rss/reports.xml",
      "note": "improper payments / financial oversight"},
     # Omitted after checking (NOT fabricated): Treasury.gov exposes no clean press RSS (the
@@ -156,12 +156,21 @@ def parse_rss(data: bytes, source: str, per_source: int) -> list[dict]:
     return items
 
 
-def fetch_all(per_source: int) -> tuple[list[dict], list[str]]:
-    """Fetch every whitelisted feed; a failure on one is logged and skipped (the rest publish)."""
+def drop_future(items: list[dict], today: str) -> list[dict]:
+    """A news feed must not show articles dated after today. Federal Register schedules some
+    documents a couple days ahead (their publication_date is future); drop anything past
+    `today`. Undated items are kept (they sink to the bottom on sort)."""
+    return [it for it in items if not it.get("date") or it["date"] <= today]
+
+
+def fetch_all(per_source: int, today: str) -> tuple[list[dict], list[str]]:
+    """Fetch every whitelisted feed; a failure on one is logged and skipped (the rest publish).
+    `{today}` in a feed url is substituted so date-bounded queries (Federal Register) exclude
+    documents scheduled for future publication."""
     items, live, dead = [], [], []
     for f in FEEDS:
         try:
-            raw = _get(f["url"])
+            raw = _get(f["url"].replace("{today}", today))
             got = (parse_json_federal_register if f["type"] == "json" else parse_rss)(raw, f["source"], per_source)
             if got:
                 for it in got:
@@ -184,13 +193,17 @@ def main():
     ap.add_argument("--generated-at", default=None, help="ISO timestamp (default: now, UTC) for the 'last updated' stamp")
     args = ap.parse_args()
 
-    items, status = fetch_all(args.per_source)
+    now = datetime.datetime.now(datetime.UTC)
+    generated_at = args.generated_at or now.isoformat(timespec="seconds")
+    today = generated_at[:10]  # date part: bounds the Federal Register query + the future filter
+
+    items, status = fetch_all(args.per_source, today)
+    items = drop_future(items, today)  # never show an article dated after today
     # Sort newest-first (undated sink to the bottom), cap the total.
     items.sort(key=lambda x: x.get("date") or "", reverse=True)
     items = items[:args.max]
 
-    doc = {"generated_at": args.generated_at or datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
-           "items": items}
+    doc = {"generated_at": generated_at, "items": items}
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=2, ensure_ascii=False)
 

@@ -1,22 +1,6 @@
 {
-  "generated_at": "2026-07-11T18:31:04+00:00",
+  "generated_at": "2026-07-11T18:44:23+00:00",
   "items": [
-    {
-      "source": "Federal Register",
-      "title": "Agency Information Collection Activities; Comment Request on Forms 3520 and 3520-A",
-      "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
-      "link": "https://www.federalregister.gov/documents/2026/07/13/2026-14005/agency-information-collection-activities-comment-request-on-forms-3520-and-3520-a",
-      "date": "2026-07-13",
-      "tier": "government"
-    },
-    {
-      "source": "Federal Register",
-      "title": "Agency Information Collection Activities; Comment Request on U.S. Information Returns and Related Forms, Schedules, Attachments, and Published Guidance",
-      "summary": "In accordance with the Paperwork Reduction Act of 1995, the IRS is inviting comments on the information collection request outlined in this notice.",
-      "link": "https://www.federalregister.gov/documents/2026/07/13/2026-13997/agency-information-collection-activities-comment-request-on-us-information-returns-and-related-forms",
-      "date": "2026-07-13",
-      "tier": "government"
-    },
     {
       "source": "Federal Register",
       "title": "Agency Information Collection Activities; Comment Request on Revenue Procedure 2014-49",
@@ -150,6 +134,22 @@
       "title": "Prompt Payment Interest Rate; Contract Disputes Act",
       "summary": "For the period beginning July 1, 2026, and ending on December 31, 2026, the prompt payment interest rate is 4-3/4 per centum per annum.",
       "link": "https://www.federalregister.gov/documents/2026/07/09/2026-13903/prompt-payment-interest-rate-contract-disputes-act",
+      "date": "2026-07-09",
+      "tier": "government"
+    },
+    {
+      "source": "Federal Register",
+      "title": "Government Securities: Call for Large Position Reports",
+      "summary": "The U.S. Department of the Treasury (Treasury) called for the submission of Large Position Reports by entities whose positions in the Treasury Floating Rate Note due January 2026 equaled or exceeded $8.4 billion as of Friday, January 23, 2026 or Friday, January 30, 2026.",
+      "link": "https://www.federalregister.gov/documents/2026/07/09/2026-13862/government-securities-call-for-large-position-reports",
+      "date": "2026-07-09",
+      "tier": "government"
+    },
+    {
+      "source": "Federal Register",
+      "title": "Charitable Remainder Annuity Trust Listed Transaction",
+      "summary": "This document contains final regulations that identify certain charitable remainder annuity trust (CRAT) transactions and substantially similar transactions as listed transactions, a type of reportable transaction. Material advisors and certain participants in these listed transactions are required to file disclosures with the IRS and will be subject to penalties for failure to disclose. The final regulations affect participants in these transactions as well as material advisors but provide that certain organizations whose only role or interest in the transaction is as a charitable…",
+      "link": "https://www.federalregister.gov/documents/2026/07/09/2026-13851/charitable-remainder-annuity-trust-listed-transaction",
       "date": "2026-07-09",
       "tier": "government"
     },

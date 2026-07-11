@@ -81,6 +81,19 @@ def test_every_feed_has_a_valid_tier_and_both_sections_exist():
     assert not any(x in urls for x in ("bloomberg", "wsj.com", "twitter", "x.com", "facebook"))
 
 
+def test_drop_future_removes_articles_dated_after_today():
+    fn = _load()
+    items = [{"date": "2026-07-13"}, {"date": "2026-07-11"}, {"date": None}, {"date": "2026-07-10"}]
+    out = fn.drop_future(items, "2026-07-11")
+    assert [i["date"] for i in out] == ["2026-07-11", None, "2026-07-10"]  # future dropped, undated kept
+
+
+def test_federal_register_feed_is_bounded_to_today():
+    fn = _load()
+    fr = next(f for f in fn.FEEDS if f["source"] == "Federal Register")
+    assert "publication_date][lte]={today}" in fr["url"]  # no future-scheduled docs at the source
+
+
 def test_parse_skips_items_missing_title_or_link():
     fn = _load()
     rss = (b'<?xml version="1.0"?><rss version="2.0"><channel>'
