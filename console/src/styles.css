@@ -170,6 +170,18 @@ tbody tr:hover{background:#faf8f2}
 .pitch-figure-sm{max-width:440px;margin-top:14px}
 .pitch-figure-sm svg{max-width:340px;margin:0 auto}
 .pitch-cap{font-size:12px;color:#8a8272;text-align:center;margin-top:12px;line-height:1.5}
+/* injection before/after: model (amber, advisory) vs system (green, authoritative) */
+.pitch-figure-ba{max-width:560px}
+.pitch-ba{display:flex;gap:14px;align-items:stretch;justify-content:center}
+.pitch-ba-cell{flex:1;max-width:230px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 14px;text-align:center}
+.pitch-ba-model{border-top:3px solid var(--amber)}
+.pitch-ba-system{border-top:3px solid var(--green)}
+.pitch-ba-k{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:#8a8272;margin-bottom:8px}
+.pitch-ba-v{font:700 19px "Segoe UI",system-ui;line-height:1.2}
+.pitch-ba-model .pitch-ba-v{color:var(--amber)}
+.pitch-ba-system .pitch-ba-v{color:var(--green)}
+.pitch-ba-arrow{align-self:center;color:#a9a394;font-size:22px}
+@media (max-width:520px){.pitch-ba{flex-direction:column}.pitch-ba-arrow{transform:rotate(90deg)}}
 @media (max-width:680px){.pitch-stats{grid-template-columns:repeat(2,1fr)}}
 .dropzone{border:2px dashed var(--line);border-radius:8px;background:#fff;padding:26px;text-align:center;color:#6b6455;cursor:pointer;transition:border-color .15s,background .15s;max-width:640px}
 .dropzone:hover{border-color:var(--copper);background:#fbfaf6}

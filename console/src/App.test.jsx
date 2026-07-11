@@ -292,6 +292,9 @@ test("admin sees the Audit log tab (compliance detail)", async () => {
   expect(await screen.findByText("Audit log & compliance")).toBeInTheDocument();
   expect(screen.getByText("Disposition mix")).toBeInTheDocument();
   expect(screen.getByText("Reviewer productivity")).toBeInTheDocument();
+  // the audit-log list has no name; the Payee column fetches it from each record and
+  // renders it through the PII mask (this mock payee is a company -> shown in full)
+  expect(await screen.findByText("Umbrella Holdings Group")).toBeInTheDocument();
 });
 
 test("auditor role: audit log visible, review queue is read-only (no decide)", async () => {
@@ -419,6 +422,36 @@ test("admin can switch the feed to Sub-Awards", async () => {
   expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ subawards: true }));
 });
 
+test("feed award types are single-select (checking one unchecks the others; USAspending rejects mixed groups)", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
+  expect(await screen.findByLabelText("Contracts")).toBeChecked();
+  // checking Grants unchecks Contracts — only one group at a time
+  fireEvent.click(screen.getByLabelText("Grants"));
+  expect(screen.getByLabelText("Grants")).toBeChecked();
+  expect(screen.getByLabelText("Contracts")).not.toBeChecked();
+  // all boxes stay clickable (nothing greyed out / disabled)
+  expect(screen.getByLabelText("Contracts")).not.toBeDisabled();
+  expect(screen.getByLabelText("Loans")).not.toBeDisabled();
+  // the run sends codes from a single group only
+  fireEvent.click(screen.getByRole("button", { name: "Run now" }));
+  await screen.findByText(/Pulled now/);
+  expect(runFeed).toHaveBeenCalledWith(expect.objectContaining({ award_type_codes: ["02", "03", "04", "05"] }));
+});
+
+test("feed page uploads a raw award file, maps it, and screens it via the batch pipeline", async () => {
+  render(<App />);
+  await signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Admin" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Feed builder" }));
+  const csv = 'recipient_name,contract_award_unique_key,current_total_value_of_award\n"YATAI SMART INDUSTRIAL",CONT_AWD_1,500000';
+  const file = new File([csv], "All_Contracts_PrimeTransactions.csv", { type: "text/csv" });
+  fireEvent.change(await screen.findByTestId("feed-upload-input"), { target: { files: [file] } });
+  expect(await screen.findByText(/Screened .*award recipients/)).toBeInTheDocument();
+});
+
 test("tour walks through the feature steps", async () => {
   render(<App />);
   await signIn();
@@ -438,7 +471,12 @@ test("pitch tab is open to any authenticated user; renders verbatim with no em d
   // section headers verbatim
   ["The problem", "What I built", "The idea that makes it work", "What I found by attacking it", "The short version"]
     .forEach((h) => expect(screen.getByText(h)).toBeInTheDocument());
-  // scope guard: no em dashes anywhere in the rendered pitch
+  // injection before/after callout: model said APPROVE, system did REJECT (score 95)
+  expect(screen.getByText("The model said")).toBeInTheDocument();
+  expect(screen.getByText("APPROVE")).toBeInTheDocument();
+  expect(screen.getByText("The system did")).toBeInTheDocument();
+  expect(screen.getByText("REJECT (score 95)")).toBeInTheDocument();
+  // scope guard: no em dashes anywhere in the rendered pitch (incl. the new caption)
   expect(document.querySelector(".pitch").textContent).not.toMatch(/—/);
 });
 
