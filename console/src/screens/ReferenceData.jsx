@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getReference, putReference, listReferenceVersions, getReferenceVersion } from "../lib/api.js";
+import { useNameMasker } from "../lib/pii.js";
 
 const SEVERITIES = ["high", "medium", "low"];
 const BLANK = { name: "", tin: "", source: "", severity: "high" };
@@ -12,6 +13,7 @@ export default function ReferenceData() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const { mask, isIndividual } = useNameMasker();
 
   const load = () => {
     getReference().then((d) => { setDoc(d); setEntries(d.entries.map((e) => ({ ...e }))); })
@@ -62,15 +64,19 @@ export default function ReferenceData() {
       {msg && <div className="result-ok" style={{ marginTop: 0 }}>{msg}</div>}
       {err && <div className="verdict bad">{err}</div>}
 
-      <div className="detail-grid">
+      <div className="detail-grid ref-grid">
         <div className="panel">
           <h3>Entries (working copy)</h3>
-          <table>
+          <table className="reftable">
             <thead><tr><th>Name</th><th>TIN</th><th>Source</th><th>Severity</th><th></th></tr></thead>
             <tbody>
               {entries.map((e, i) => (
                 <tr key={i}>
-                  <td><input aria-label={`entry ${i} name`} value={e.name} onChange={set(i, "name")} /></td>
+                  <td>
+                    {isIndividual(e.name, e.classification)
+                      ? <span className="masked" title="Individual name masked on this surface (PII)">{mask(e.name, e.classification)}</span>
+                      : <input aria-label={`entry ${i} name`} title={e.name} value={e.name} onChange={set(i, "name")} />}
+                  </td>
                   <td><input aria-label={`entry ${i} tin`} className="mono" value={e.tin || ""} onChange={set(i, "tin")} style={{ maxWidth: 120 }} /></td>
                   <td><input aria-label={`entry ${i} source`} value={e.source} onChange={set(i, "source")} /></td>
                   <td>
@@ -112,11 +118,11 @@ export default function ReferenceData() {
               <div className="sub" style={{ marginBottom: 6 }}>
                 <b>v{viewing.version}</b> · {viewing.entries.length} entries · {viewing.updated_by}
               </div>
-              <table>
+              <table className="reftable reftable-ro">
                 <thead><tr><th>Name</th><th>TIN</th><th>Source</th><th>Sev</th></tr></thead>
                 <tbody>
                   {viewing.entries.map((e, i) => (
-                    <tr key={i}><td>{e.name}</td><td className="mono">{e.tin || "-"}</td><td>{e.source}</td><td>{e.severity}</td></tr>
+                    <tr key={i}><td>{mask(e.name, e.classification)}</td><td className="mono">{e.tin || "-"}</td><td>{e.source}</td><td>{e.severity}</td></tr>
                   ))}
                 </tbody>
               </table>

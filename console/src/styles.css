@@ -75,6 +75,43 @@ th{background:#efece4;text-align:left;font:600 12px var(--mono);text-transform:u
 td{padding:11px 14px;border-bottom:1px solid #eee9df;font-size:14px}
 tr:last-child td{border-bottom:0}
 .mono{font-family:var(--mono);font-size:12.5px}
+
+/* PII: masked individual name (display only; underlying data unchanged) */
+.masked{color:#4a4436;letter-spacing:.02em}
+
+/* Click-to-expand transaction detail (display-only; reads the audit record) */
+.rowexpand{cursor:pointer}
+.rowexpand:hover td{background:#f7f5ef}
+.caret{color:#8a8272;font-size:11px;display:inline-block;width:12px}
+.rowexpand-btn{background:none;border:0;padding:0;font:inherit;color:var(--navy);cursor:pointer;text-align:left}
+.rowexpand-btn:hover{text-decoration:underline}
+.detailrow td{background:#faf8f3;padding:0}
+.rd{padding:16px 18px}
+.rd-summary{font:600 13px var(--mono);color:#4a4436;background:#eef3f1;border-left:3px solid var(--copper);padding:8px 12px;border-radius:4px;margin-bottom:14px;overflow-wrap:anywhere}
+.rd-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 26px}
+@media (max-width:720px){.rd-cols{grid-template-columns:1fr}}
+.rd-dl{margin:0}
+.rd-dl dt{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:#8a8272;margin-top:10px}
+.rd-dl dd{margin:2px 0 0;font-size:13.5px;overflow-wrap:anywhere}
+.rd-reasons,.rd-matches{margin:0;padding:0}
+.rd-reasons{list-style:none}
+.rd-reasons li{font-size:13px;margin:2px 0}
+.rd-integrity{margin-top:14px}
+.rd-ilabel{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:#8a8272;margin-bottom:4px}
+.nr{color:#a29a88;font-style:italic}
+
+/* Reference-data table: the name is load-bearing and must not clip. Fixed layout
+   with explicit column widths so name/TIN/source/severity all render fully; give
+   the entries panel more room than the version sidebar. No color/theme change. */
+.ref-grid{grid-template-columns:1.85fr .75fr}
+.reftable{table-layout:fixed}
+.reftable th,.reftable td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.reftable th:nth-child(1),.reftable td:nth-child(1){width:42%}
+.reftable th:nth-child(2),.reftable td:nth-child(2){width:16%}
+.reftable th:nth-child(3),.reftable td:nth-child(3){width:24%}
+.reftable th:nth-child(4),.reftable td:nth-child(4){width:12%}
+.reftable input{width:100%;min-width:0}
+.reftable-ro td{font-size:13px}
 .pill{font:600 11px var(--mono);padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
 .p-pending{background:#f6e8cc;color:var(--amber)}
 .p-approved{background:#ddefdb;color:var(--green)}

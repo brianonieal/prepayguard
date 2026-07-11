@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { getAnalytics, getAuditLog } from "../lib/api.js";
+import RecordDetail from "./RecordDetail.jsx";
 
 const BAR = { approve: "var(--green)", review: "var(--amber)", reject: "var(--red)" };
 const PILL = { approve: "approved", review: "pending", reject: "rejected" };
@@ -8,6 +9,7 @@ export default function Analytics() {
   const [a, setA] = useState(null);
   const [log, setLog] = useState(null);
   const [dispFilter, setDispFilter] = useState("all");
+  const [expanded, setExpanded] = useState(null); // payment_id of the open detail row
   const [err, setErr] = useState("");
 
   useEffect(() => { getAnalytics().then(setA).catch((e) => setErr(String(e.message || e))); }, []);
@@ -100,15 +102,27 @@ export default function Analytics() {
         </div>
         {log?.truncated && <div className="note" style={{ marginTop: 6 }}>Showing the latest {log.count} records.</div>}
         <table style={{ marginTop: 10 }}>
-          <thead><tr><th>Payment</th><th>Disposition</th><th>Audited</th></tr></thead>
+          <thead><tr><th style={{ width: 28 }}></th><th>Payment</th><th>Disposition</th><th>Audited</th></tr></thead>
           <tbody>
-            {(log?.entries || []).map((e) => (
-              <tr key={`${e.payment_id}-${e.audited_at}`}>
-                <td className="mono">{e.payment_id}</td>
-                <td><span className={`pill p-${PILL[e.disposition] || "pending"}`}>{e.disposition}</span></td>
-                <td className="mono" style={{ fontSize: 12 }}>{String(e.audited_at || "").slice(0, 19)}</td>
-              </tr>
-            ))}
+            {(log?.entries || []).map((e) => {
+              const open = expanded === e.payment_id;
+              return (
+                <Fragment key={`${e.payment_id}-${e.audited_at}`}>
+                  <tr className="rowexpand" onClick={() => setExpanded(open ? null : e.payment_id)}
+                    aria-expanded={open} title="Show the recorded transaction detail">
+                    <td className="caret">{open ? "▾" : "▸"}</td>
+                    <td className="mono">{e.payment_id}</td>
+                    <td><span className={`pill p-${PILL[e.disposition] || "pending"}`}>{e.disposition}</span></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(e.audited_at || "").slice(0, 19)}</td>
+                  </tr>
+                  {open && (
+                    <tr className="detailrow">
+                      <td colSpan={4}><RecordDetail paymentId={e.payment_id} /></td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

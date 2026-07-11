@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { parseCsv, parseJsonPayments } from "../lib/csv.js";
 import { submitPayment, presignBatch, uploadFile, getBatch } from "../lib/api.js";
+import { useNameMasker } from "../lib/pii.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default function Submit() {
+  const { mask } = useNameMasker();
   const [form, setForm] = useState({ payment_id: "", payee: "", payee_tin: "", amount: "" });
   const [result, setResult] = useState(null);
   const [err, setErr] = useState("");
@@ -102,7 +104,7 @@ export default function Submit() {
               <tbody>
                 {batch.rows.slice(0, 100).map((r) => (
                   <tr key={r.payment_id}>
-                    <td className="mono">{r.payment_id}</td><td>{r.payee}</td>
+                    <td className="mono">{r.payment_id}</td><td>{mask(r.payee)}</td>
                     <td className="mono">{r.payee_tin || "-"}</td><td>${r.amount.toFixed(2)}</td>
                   </tr>
                 ))}

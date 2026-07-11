@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { listReviews, bulkDecide } from "../lib/api.js";
+import { useNameMasker } from "../lib/pii.js";
+import RecordDetail from "./RecordDetail.jsx";
 
 const AGE_H = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso)) / 3.6e6));
 const AGE = (iso) => {
@@ -8,6 +10,7 @@ const AGE = (iso) => {
 };
 
 export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDecide = true }) {
+  const { mask } = useNameMasker();
   const [status, setStatus] = useState(defaultFilter);
   const [items, setItems] = useState(null);
   const [cursor, setCursor] = useState(null);
@@ -17,6 +20,7 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
   const [selected, setSelected] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [actionErr, setActionErr] = useState("");
+  const [expanded, setExpanded] = useState(null); // payment_id of the open detail row
 
   const load = (reset) => {
     setLoading(true);
@@ -111,25 +115,40 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
             <th>Payment</th><th>Payee</th><th>Match</th><th>Score</th><th>Received</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.payment_id} className={selected.has(r.payment_id) ? "row-sel" : ""}>
-                <td>
-                  {canDecide && r.status === "pending" && (
-                    <input type="checkbox" checked={selected.has(r.payment_id)}
-                      onChange={() => toggle(r.payment_id)} aria-label={`Select ${r.payment_id}`} />
+            {rows.map((r) => {
+              const open = expanded === r.payment_id;
+              return (
+                <Fragment key={r.payment_id}>
+                  <tr className={selected.has(r.payment_id) ? "row-sel" : ""}>
+                    <td>
+                      {canDecide && r.status === "pending" && (
+                        <input type="checkbox" checked={selected.has(r.payment_id)}
+                          onChange={() => toggle(r.payment_id)} aria-label={`Select ${r.payment_id}`} />
+                      )}
+                    </td>
+                    <td className="mono">
+                      <button className="rowexpand-btn" aria-expanded={open} title="Show the recorded transaction detail"
+                        onClick={() => setExpanded(open ? null : r.payment_id)}>
+                        <span className="caret">{open ? "▾" : "▸"}</span> {r.payment_id}
+                      </button>
+                    </td>
+                    <td>{r.payee ? mask(r.payee) : "-"}</td>
+                    <td>{r.match || "-"}</td>
+                    <td><span className={`score ${Number(r.score) >= 80 ? "s-high" : Number(r.score) >= 30 ? "s-mid" : "s-low"}`}>{r.score}</span></td>
+                    <td>{AGE(r.received_at)}</td>
+                    <td><span className={`pill p-${r.status}`}>{r.status}</span></td>
+                    <td><button className="rowlink" onClick={() => onOpen(r.payment_id)}>
+                      {canDecide && r.status === "pending" ? "Review →" : "View →"}
+                    </button></td>
+                  </tr>
+                  {open && (
+                    <tr className="detailrow">
+                      <td colSpan={8}><RecordDetail paymentId={r.payment_id} /></td>
+                    </tr>
                   )}
-                </td>
-                <td className="mono">{r.payment_id}</td>
-                <td>{r.payee || "-"}</td>
-                <td>{r.match || "-"}</td>
-                <td><span className={`score ${Number(r.score) >= 80 ? "s-high" : Number(r.score) >= 30 ? "s-mid" : "s-low"}`}>{r.score}</span></td>
-                <td>{AGE(r.received_at)}</td>
-                <td><span className={`pill p-${r.status}`}>{r.status}</span></td>
-                <td><button className="rowlink" onClick={() => onOpen(r.payment_id)}>
-                  {canDecide && r.status === "pending" ? "Review →" : "View →"}
-                </button></td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       )}

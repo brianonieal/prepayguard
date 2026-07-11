@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { decide, getAudit, getBrief, listAttachments, listReviews, presignAttachment, uploadFile } from "../lib/api.js";
 import { hashRecord } from "../lib/integrity.js";
 import { explainScore } from "../lib/score.js";
+import { useNameMasker } from "../lib/pii.js";
 
 export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
+  const { mask, redact } = useNameMasker();
   const [record, setRecord] = useState(null);
   const [status, setStatus] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -63,7 +65,7 @@ export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
       <h2 className="mono" style={{ fontSize: 17, marginTop: 10 }}>
         {record.payment_id} <span className={`pill p-${status || "pending"}`} style={{ verticalAlign: 3 }}>{status || "…"}</span>
       </h2>
-      <div className="sub">{record.payment?.payee} · ${Number(record.payment?.amount ?? 0).toFixed(2)} · received {record.audited_at}</div>
+      <div className="sub">{mask(record.payment?.payee)} · ${Number(record.payment?.amount ?? 0).toFixed(2)} · received {record.audited_at}</div>
 
       <div className="detail-grid">
         <div>
@@ -108,7 +110,7 @@ export default function AuditDetail({ paymentId, onBack, canDecide = true }) {
             {briefErr && <div className="verdict bad" style={{ marginTop: 10 }}>{briefErr}</div>}
             {brief && (
               <div className="result-ok" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
-                {brief.brief}
+                {redact(brief.brief, record.payment?.payee)}
                 <div className="sub" style={{ marginTop: 8, fontSize: 11 }}>{brief.model} · {(brief.generated_at || "").slice(0, 19)}Z</div>
               </div>
             )}
