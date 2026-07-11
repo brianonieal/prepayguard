@@ -321,9 +321,6 @@ export default function Feed() {
           </div>
         </div>
 
-        </div>
-
-        <div className="feed-col">
         <div className="panel">
           <h3>Dates and size</h3>
           <div className="field">
@@ -381,7 +378,9 @@ export default function Feed() {
           </div>
           {lastRun && <div className="note" style={{ maxWidth: "none", marginTop: 12 }}>Last run: {lastRun.written ?? 0} written · source {lastRun.source || "usaspending"}.</div>}
         </div>
+        </div>
 
+        <div className="feed-col">
         <div className="panel dl-panel">
         <h3>Download the raw award file (optional)</h3>
         <div className="setdesc" style={{ marginBottom: 12 }}>
