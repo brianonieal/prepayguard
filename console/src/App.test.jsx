@@ -292,6 +292,9 @@ test("admin sees the Audit log tab (compliance detail)", async () => {
   expect(await screen.findByText("Audit log & compliance")).toBeInTheDocument();
   expect(screen.getByText("Disposition mix")).toBeInTheDocument();
   expect(screen.getByText("Reviewer productivity")).toBeInTheDocument();
+  // the audit-log list has no name; the Payee column fetches it from each record and
+  // renders it through the PII mask (this mock payee is a company -> shown in full)
+  expect(await screen.findByText("Umbrella Holdings Group")).toBeInTheDocument();
 });
 
 test("auditor role: audit log visible, review queue is read-only (no decide)", async () => {

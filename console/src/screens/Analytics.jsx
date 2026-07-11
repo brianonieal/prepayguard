@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
-import { getAnalytics, getAuditLog } from "../lib/api.js";
+import { getAnalytics, getAuditLog, getAudit } from "../lib/api.js";
 import RecordDetail from "./RecordDetail.jsx";
+import { useNameMasker } from "../lib/pii.js";
 
 const BAR = { approve: "var(--green)", review: "var(--amber)", reject: "var(--red)" };
 const PILL = { approve: "approved", review: "pending", reject: "rejected" };
@@ -10,10 +11,32 @@ export default function Analytics() {
   const [log, setLog] = useState(null);
   const [dispFilter, setDispFilter] = useState("all");
   const [expanded, setExpanded] = useState(null); // payment_id of the open detail row
+  const [payees, setPayees] = useState({});       // payment_id -> payee (the list has no name; it lives in each record)
   const [err, setErr] = useState("");
+  const { mask } = useNameMasker();
 
   useEffect(() => { getAnalytics().then(setA).catch((e) => setErr(String(e.message || e))); }, []);
   useEffect(() => { getAuditLog({ disposition: dispFilter, limit: 200 }).then(setLog).catch(() => {}); }, [dispFilter]);
+
+  // Recipient names are not in the audit-log list, so fetch them per row (from each
+  // record) in small concurrent batches and cache. Rendered through the PII mask.
+  useEffect(() => {
+    const todo = (log?.entries || []).filter((e) => !(e.payment_id in payees));
+    if (!todo.length) return;
+    let cancelled = false;
+    (async () => {
+      const CONC = 8;
+      for (let i = 0; i < todo.length && !cancelled; i += CONC) {
+        const got = await Promise.all(todo.slice(i, i + CONC).map((e) =>
+          getAudit(e.payment_id)
+            .then((d) => [e.payment_id, d.record?.payment?.payee ?? null])
+            .catch(() => [e.payment_id, null])));
+        if (cancelled) return;
+        setPayees((p) => { const n = { ...p }; for (const [id, v] of got) n[id] = v; return n; });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [log]); // eslint-disable-line
 
   if (err) return <div className="body"><div className="verdict bad">Failed to load analytics: {err}</div></div>;
   if (!a) return <div className="body"><div className="sub">Loading analytics…</div></div>;
@@ -24,8 +47,10 @@ export default function Analytics() {
   const maxDay = Math.max(1, ...throughput.map((t) => t.count));
 
   const exportCsv = () => {
-    const rows = [["payment_id", "disposition", "audited_at", "audit_key"],
-      ...(log?.entries || []).map((e) => [e.payment_id, e.disposition, e.audited_at, e.key])];
+    const rows = [["payment_id", "payee", "disposition", "audited_at", "audit_key"],
+      ...(log?.entries || []).map((e) => [e.payment_id,
+        (e.payment_id in payees && payees[e.payment_id]) ? mask(payees[e.payment_id]) : "",
+        e.disposition, e.audited_at, e.key])];
     const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const link = document.createElement("a");
@@ -102,7 +127,7 @@ export default function Analytics() {
         </div>
         {log?.truncated && <div className="note" style={{ marginTop: 6 }}>Showing the latest {log.count} records.</div>}
         <table style={{ marginTop: 10 }}>
-          <thead><tr><th style={{ width: 28 }}></th><th>Payment</th><th>Disposition</th><th>Audited</th></tr></thead>
+          <thead><tr><th style={{ width: 28 }}></th><th>Payment</th><th>Payee</th><th>Disposition</th><th>Audited</th></tr></thead>
           <tbody>
             {(log?.entries || []).map((e) => {
               const open = expanded === e.payment_id;
@@ -112,12 +137,13 @@ export default function Analytics() {
                     aria-expanded={open} title="Show the recorded transaction detail">
                     <td className="caret">{open ? "▾" : "▸"}</td>
                     <td className="mono">{e.payment_id}</td>
+                    <td>{e.payment_id in payees ? (payees[e.payment_id] ? mask(payees[e.payment_id]) : "—") : <span className="nr">…</span>}</td>
                     <td><span className={`pill p-${PILL[e.disposition] || "pending"}`}>{e.disposition}</span></td>
                     <td className="mono" style={{ fontSize: 12 }}>{String(e.audited_at || "").slice(0, 19)}</td>
                   </tr>
                   {open && (
                     <tr className="detailrow">
-                      <td colSpan={4}><RecordDetail paymentId={e.payment_id} /></td>
+                      <td colSpan={5}><RecordDetail paymentId={e.payment_id} /></td>
                     </tr>
                   )}
                 </Fragment>
