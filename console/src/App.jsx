@@ -19,6 +19,9 @@ export function nav(hash) {
   window.dispatchEvent(new Event("hashchange"));
 }
 
+const PREVIEW_ROLES = ["reviewer", "auditor", "submitter"];
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
 const DEFAULT_SETTINGS = { density: "comfortable", defaultFilter: "pending" };
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("tc.settings") || "{}") }; }
@@ -39,6 +42,12 @@ function useHashParts() {
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined=checking, null=out, obj=in
   const [role, setRole] = useState(null);      // null=unknown; submitter|reviewer|admin|auditor|none
+  // Admin-only role-preview simulation (rendering only). NEVER read by an API call or the
+  // Cognito session: `role` above is the sole signal that drives cognito:preferred_role and
+  // therefore real SigV4 authorization (lib/auth.js). previewRole only feeds the derived
+  // UI booleans below, so a previewed restriction is exactly that: hidden/disabled controls,
+  // not a real permission change. null = no preview (showing the real admin view).
+  const [previewRole, setPreviewRole] = useState(null); // null|"reviewer"|"auditor"|"submitter"
   const [settings, setSettingsState] = useState(loadSettings);
   const [submitOpen, setSubmitOpen] = useState(false);
   const parts = useHashParts();
@@ -54,14 +63,22 @@ export default function App() {
     if (user) currentGroups().then((g) => setRole(roleFromGroups(g))).catch(() => setRole("none"));
     else setRole(null);
   }, [user]);
+  // Safety net: a preview can only ever exist under a genuine admin session. If the real
+  // role is ever anything else (session change, role revoked), drop any active preview.
+  useEffect(() => { if (role !== "admin") setPreviewRole(null); }, [role]);
 
-  const canSubmit = ["submitter", "reviewer", "admin"].includes(role);
-  const canReview = ["reviewer", "admin", "auditor"].includes(role); // auditor views read-only
-  const canDecide = ["reviewer", "admin"].includes(role);
-  const canAnalytics = ["admin", "auditor"].includes(role);
-  const isAdmin = role === "admin";
+  // Every gating boolean below reads effectiveRole, never the real `role` directly, so
+  // toggling the preview dropdown changes exactly what renders and nothing else.
+  const effectiveRole = role === "admin" && previewRole ? previewRole : role;
+  const canSubmit = ["submitter", "reviewer", "admin"].includes(effectiveRole);
+  const canReview = ["reviewer", "admin", "auditor"].includes(effectiveRole); // auditor views read-only
+  const canDecide = ["reviewer", "admin"].includes(effectiveRole);
+  const canAnalytics = ["admin", "auditor"].includes(effectiveRole);
+  const isAdmin = effectiveRole === "admin";
   const landing = canReview ? "#/dashboard" : "#/tour";
-  // Role guards: bounce a user off any route their role can't see. Tour is open to all.
+  // Role guards: bounce a user off any route their (effective) role can't see. Tour is open
+  // to all. Depends on previewRole so switching the preview re-evaluates the current route
+  // exactly as it would for a real session in that role.
   useEffect(() => {
     if (!user || !role) return;
     const r = parts[0];
@@ -70,7 +87,7 @@ export default function App() {
         (r === "analytics" && !canAnalytics)) {
       nav(landing);
     }
-  }, [user, role, parts]); // eslint-disable-line
+  }, [user, role, previewRole, parts]); // eslint-disable-line
 
   if (user === undefined) {
     return <div className="login-page"><div className="login-wrap"><div className="sub">Loading…</div></div></div>;
@@ -95,11 +112,25 @@ export default function App() {
           <b>PrePayGuard</b>
           <span className="brand-sub">Treasury payment integrity console</span>
         </div>
-        {role && role !== "none" && <span className="rolechip" data-testid="role-chip">{role}</span>}
+        {role && role !== "none" && <span className="rolechip" data-testid="role-chip">{effectiveRole}</span>}
+        {role === "admin" && (
+          <select className="rolepreview" aria-label="Preview console as role" data-testid="role-preview-select"
+            value={previewRole || "admin"}
+            onChange={(e) => setPreviewRole(e.target.value === "admin" ? null : e.target.value)}>
+            <option value="admin">Admin (real)</option>
+            {PREVIEW_ROLES.map((r) => <option key={r} value={r}>Preview: {cap(r)}</option>)}
+          </select>
+        )}
         <div className="topbar-spacer" />
         <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut}
           onSubmit={canSubmit ? () => setSubmitOpen(true) : undefined} />
       </header>
+      {previewRole && (
+        <div className="preview-banner" role="status" data-testid="role-preview-banner">
+          Previewing as: <b>{cap(previewRole)}</b>. Your actual access remains Admin.
+          <button className="preview-exit" onClick={() => setPreviewRole(null)}>Exit preview</button>
+        </div>
+      )}
       <nav className="tabs">
         {/* Nav order: Pitch, Dashboard, Admin, Audit log, Review Queue, Treasury News (last).
             Pitch and Treasury News are open to any authenticated user; the rest keep their role
