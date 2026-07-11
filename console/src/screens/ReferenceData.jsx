@@ -5,6 +5,16 @@ import { useNameMasker } from "../lib/pii.js";
 const SEVERITIES = ["high", "medium", "low"];
 const BLANK = { name: "", tin: "", source: "", severity: "high" };
 
+// The reference sources: plain-English names + whether the data is REAL (public
+// government data) or a SYNTHETIC fixture (not publicly obtainable). Ordered real-first.
+const SOURCE_META = {
+  sam_exclusions: { label: "SAM.gov exclusions", sub: "GSA federal debarment list", real: true },
+  oig_leie: { label: "HHS-OIG LEIE", sub: "excluded health-care providers", real: true },
+  death_master_file: { label: "SSA Death Master File", sub: "not publicly obtainable", real: false },
+  treasury_offset: { label: "Treasury Offset Program", sub: "not publicly obtainable", real: false },
+};
+const SOURCE_ORDER = ["sam_exclusions", "oig_leie", "death_master_file", "treasury_offset"];
+
 export default function ReferenceData() {
   const [doc, setDoc] = useState(null);        // current published doc
   const [entries, setEntries] = useState([]);  // editable working copy
@@ -60,12 +70,33 @@ export default function ReferenceData() {
     }
   };
 
+  const sourceCounts = entries.reduce((m, e) => { const s = e.source || "(unset)"; m[s] = (m[s] || 0) + 1; return m; }, {});
+  const shownSources = [...SOURCE_ORDER.filter((s) => sourceCounts[s]),
+                        ...Object.keys(sourceCounts).filter((s) => !SOURCE_ORDER.includes(s))];
+
   return (
     <div className="body">
       <h2>Reference data</h2>
       <div className="sub">
         The Do Not Pay screening lists. Publishing creates an immutable new version;
         every screening decision cites the version it matched against.
+      </div>
+
+      <div className="ref-sources panel" aria-label="Data sources">
+        <h3>Data sources</h3>
+        <div className="ref-src-list">
+          {shownSources.map((s) => {
+            const m = SOURCE_META[s] || { label: s, sub: "", real: false };
+            return (
+              <div className="ref-src" key={s}>
+                <span className={`src-tag ${m.real ? "real" : "synth"}`}>{m.real ? "REAL" : "SYNTHETIC"}</span>
+                <span className="ref-src-name">{m.label}</span>
+                <span className="ref-src-count">{sourceCounts[s]}</span>
+                {m.sub && <span className="ref-src-sub">{m.sub}</span>}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="stats">
