@@ -95,12 +95,8 @@ export default function App() {
         </div>
         {role && role !== "none" && <span className="rolechip" data-testid="role-chip">{role}</span>}
         <div className="topbar-spacer" />
-        {canSubmit && (
-          <button className="btn btn-primary btn-sm" onClick={() => setSubmitOpen(true)}>
-            + Submit payment
-          </button>
-        )}
-        <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut} />
+        <UserMenu email={emailLabel} onNav={nav} onSignOut={signOut}
+          onSubmit={canSubmit ? () => setSubmitOpen(true) : undefined} />
       </header>
       <nav className="tabs">
         {canReview && (

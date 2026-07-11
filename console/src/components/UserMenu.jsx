@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function UserMenu({ email, onNav, onSignOut }) {
+export default function UserMenu({ email, onNav, onSignOut, onSubmit }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
 
@@ -19,6 +19,12 @@ export default function UserMenu({ email, onNav, onSignOut }) {
       </button>
       {open && (
         <div className="menu">
+          {onSubmit && (
+            <>
+              <button onClick={() => { setOpen(false); onSubmit(); }}>Submit payment</button>
+              <div className="menu-sep" />
+            </>
+          )}
           <button onClick={() => go("#/profile")}>Profile</button>
           <button onClick={() => go("#/settings")}>Settings</button>
           <div className="menu-sep" />

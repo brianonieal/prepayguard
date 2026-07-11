@@ -100,17 +100,24 @@ tr:last-child td{border-bottom:0}
 .rd-ilabel{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:#8a8272;margin-bottom:4px}
 .nr{color:#a29a88;font-style:italic}
 
-/* Reference-data table: the name is load-bearing and must not clip. Fixed layout
-   with explicit column widths so name/TIN/source/severity all render fully; give
-   the entries panel more room than the version sidebar. No color/theme change. */
-.ref-grid{grid-template-columns:1.85fr .75fr}
-.reftable{table-layout:fixed}
-.reftable th,.reftable td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
-.reftable th:nth-child(1),.reftable td:nth-child(1){width:42%}
-.reftable th:nth-child(2),.reftable td:nth-child(2){width:16%}
-.reftable th:nth-child(3),.reftable td:nth-child(3){width:24%}
-.reftable th:nth-child(4),.reftable td:nth-child(4){width:12%}
-.reftable input{width:100%;min-width:0}
+/* Reference-data table: full-width, fixed layout with column widths sized to fit
+   the content so nothing clips (TIN, source, severity, remove). Long entity names
+   in the editable name input scroll with a hover tooltip; read-only cells wrap. */
+.reftable-wrap{overflow-x:auto}
+.reftable{table-layout:fixed;width:100%}
+.reftable th,.reftable td{white-space:normal;overflow-wrap:break-word;vertical-align:middle}
+.reftable input,.reftable select{width:100%;min-width:0}
+.reftable .rowlink{white-space:nowrap}
+.reftable .c-sel{text-align:center;width:38px}
+.reftable .c-sel input{width:auto}
+/* editable entries table columns: [select] name tin source severity [remove] */
+.reftable-edit th:nth-child(2),.reftable-edit td:nth-child(2){width:34%}
+.reftable-edit th:nth-child(3),.reftable-edit td:nth-child(3){width:13%}
+.reftable-edit th:nth-child(4),.reftable-edit td:nth-child(4){width:22%}
+.reftable-edit th:nth-child(5),.reftable-edit td:nth-child(5){width:14%}
+.reftable-edit th:nth-child(6),.reftable-edit td:nth-child(6){width:92px}
+/* read-only version-history table columns: name tin source sev */
+.reftable-ro th:nth-child(1),.reftable-ro td:nth-child(1){width:40%}
 .reftable-ro td{font-size:13px}
 .pill{font:600 11px var(--mono);padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
 .p-pending{background:#f6e8cc;color:var(--amber)}
