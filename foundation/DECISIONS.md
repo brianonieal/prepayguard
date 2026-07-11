@@ -420,4 +420,21 @@ Section-level detail:
 
 ---
 
-# 29 decisions logged. 29 LOCKED, 0 OPEN.
+## DEC-30 - Wire a Second Real Reference Source: OIG LEIE (converts the synthetic oig_leie seeds)
+**Date:** 2026-07-11
+**Severity:** FULL
+**Decision:** Convert the two synthetic `oig_leie` seeds into REAL data from the public HHS-OIG LEIE (List of Excluded Individuals/Entities, `https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv`), ingested by `scripts/ingest_leie.py` **mirroring the SAM ingestion (DEC-22) exactly**: same reference schema, same versioned-store lifecycle (DEC-18), same publish-time Titan embedding (DEC-19). No new source type; the matcher, scoring, and disposition are untouched. `source = oig_leie`, `severity = high`. **Classification is derived AUTHORITATIVELY from the LEIE's own columns** — a row with LASTNAME/FIRSTNAME is an `Individual` (masked to "First L." on the public console, `console/src/lib/pii.js`), a row with BUSNAME is an `Entity` (shown full) — not a heuristic. The public file is ~83k rows (~80k individuals + ~3k entities); it is capped to a **deliberate ~500-entry demo slice** sampled as a **documented individual/entity mix** (450 individuals + 50 entities, strided across the file so it spans the alphabet, entities over-sampled vs their ~4% file share so both classes are visibly represented), sized for the DEC-19 in-store-cosine budget. Live result: reference **version 5 = 500 real LEIE + 90 real SAM + 4 synthetic restricted (DMF, TOP) = 594 entries**. **NPI is preserved** in each record; **TIN is left blank** (the LEIE carries no public TIN), so LEIE entries route to review, never auto-reject (F6). LEIE is a **healthcare-provider** list while the feed is **contractors**, so it is **not expected to produce live award-feed hits** — expected and honest.
+**Alternatives considered:**
+- **Keep LEIE synthetic** (the DEC-22 scoping choice) — reversed here: LEIE is the one restricted source that IS publicly obtainable, so wiring it is a real second end-to-end integration and a stronger evidence base than a second synthetic. DMF and TOP stay synthetic (not publicly obtainable).
+- **Fabricate a TIN (or reuse NPI as a TIN) so LEIE can auto-reject** (rejected: dishonest; the identity model requires a real TIN. TIN stays blank; the TIN-vs-NPI gap is documented as **F8**, with NPI-grade matching as follow-on).
+- **Ingest the full ~83k list with per-entry embeddings** (rejected: breaks the DEC-19 in-store-cosine cost/size assumption and would make tens of thousands of publish-time Titan calls; the documented ~500 cap is the messy-data-handling response, mirroring DEC-22's cap).
+- **First-N-rows sample** (rejected: the file is alphabetized and ~96% individuals, so file-order would skew to early-alphabet names and under-represent entities; a documented strided individual/entity mix is used instead).
+**Rationale:** a second real Do Not Pay source, integrated on the exact SAM pattern, with the hard PII gate (real individuals masked, authoritatively classified from the source) and honest identifier handling (NPI preserved, TIN blank). Surfaces a real messy-data finding (F8: identity matching is TIN-shaped, real lists key on NPI).
+**Risk acknowledged:** (1) **Real individual PII.** 450 real excluded individuals are published; they render **MASKED** on the public console via the `classification="Individual"` field (pinned in `console/src/lib/pii.test.js`, verified on real data at publish). The full unmasked file is never published; committed tests use synthetic names so no real name is leaked in source. (2) The ~500 cap means the live list is NOT the exhaustive LEIE; production needs the full file + a real vector index (DEC-19 swap). (3) NPI is carried but unmatched (F8); LEIE currently reaches only review, never reject (F6). (4) The refresher (Component G) re-pulls SAM only; it carries the real LEIE entries verbatim across refreshes (no re-pull), so the LEIE slice is static until re-ingested — acceptable (the LEIE changes slowly and a re-run republishes).
+**Confidence:** HIGH (mirrors DEC-22; matcher/scoring/disposition unchanged; deployed and verified). **Reversibility:** HIGH — re-running the ingest or restoring a prior `reference/versions/{N}.json` reverts; no data/IAM/infra migration.
+**Resolution:** PROCEED
+**Status:** LOCKED
+
+---
+
+# 30 decisions logged. 30 LOCKED, 0 OPEN.

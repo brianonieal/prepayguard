@@ -7,8 +7,8 @@ publishes a NEW versioned reference document through the existing versioned-stor
 lifecycle (DEC-18) - but ONLY when the SAM list actually changed, so an unchanged day
 does not churn the version or spend embedding cost.
 
-The synthetic restricted sources (SSA DMF, TOP, OIG LEIE) are carried verbatim with
-their existing embeddings; only the real SAM entries are refreshed. Matching logic
+The other sources - the real OIG LEIE (DEC-30) and the synthetic SSA DMF and TOP - are
+carried verbatim with their existing embeddings; only the real SAM entries are refreshed. Matching logic
 mirrors scripts/ingest_sam_exclusions.py (shared, test-pinned, like the DEC-16
 duplicated idempotency claim).
 """
@@ -129,7 +129,7 @@ def _build_doc(current: dict, real_entries: list[dict]) -> dict:
     return {
         "version": current.get("version", 0) + 1,
         "updated_at": datetime.datetime.now(datetime.UTC).isoformat(),
-        "updated_by": f"component_g_refresher (SAM auto-refresh; {len(embedded)} real, {len(kept)} synthetic)",
+        "updated_by": f"component_g_refresher (SAM auto-refresh; {len(embedded)} real SAM, {len(kept)} carried verbatim)",
         "sources": sources,
         "semantic_threshold": current.get("semantic_threshold", 0.72),
         "entries": kept + embedded,

@@ -98,17 +98,21 @@ for B/C/D (DEC-1), plus `api_intake_stage`, `batch_ingest_stage`, `scheduled_fee
 - **Versioned reference data (DEC-18):** admins publish new lists through the console;
   each screening cites the exact list version. Store: `reference/current.json` +
   immutable `reference/versions/{N}.json`.
-- **One real source, three synthetic (DEC-22), stated plainly:** only the **SAM.gov
-  exclusions** (federal debarment list) are real, ingested by `scripts/ingest_sam_exclusions.py`
-  and refreshed by Component G. The other three, **SSA Death Master File (DMF)**, **Treasury
-  Offset Program (TOP)**, and **OIG LEIE**, are **synthetic fixtures with fabricated entries**
-  (`src/component_b_enrichment/reference_data.json`, self-labeled). DMF and TOP are **not
-  publicly obtainable** (DMF access is restricted to certified users under the DPPA/NTIS
-  program; TOP is an internal Treasury offset system), which is precisely why they are
-  modeled rather than integrated. OIG LEIE **is** publicly downloadable; keeping it synthetic
-  here is a **deliberate scoping choice** (one real end-to-end integration — SAM — is enough to
-  demonstrate the ingest/refresh path; a second adds cost and PII surface without new evidence),
-  **not an oversight or a missed source.** See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
+- **Two real sources, two synthetic (DEC-22, DEC-30), stated plainly:** the **SAM.gov
+  exclusions** (federal debarment list, `scripts/ingest_sam_exclusions.py`, refreshed by
+  Component G) and the **OIG LEIE** (List of Excluded Individuals/Entities, the public
+  HHS-OIG exclusion list, `scripts/ingest_leie.py`, DEC-30) are **real**. The other two,
+  **SSA Death Master File (DMF)** and **Treasury Offset Program (TOP)**, remain **synthetic
+  fixtures with fabricated entries** (`src/component_b_enrichment/reference_data.json`,
+  self-labeled) because they are **not publicly obtainable** (DMF access is restricted to
+  certified users under the DPPA/NTIS program; TOP is an internal Treasury offset system) —
+  which is why they are modeled rather than integrated. LEIE is a **healthcare-provider**
+  list while the USASpending feed is **federal contractors**, so LEIE is **not expected to
+  produce live hits on the award feed** — that mismatch is expected and honest, not a matcher
+  failure. LEIE **individuals are real people** and render **masked** on the public console
+  (classification derived from the source columns, `console/src/lib/pii.js`); TIN is blank
+  (LEIE carries no public TIN), so LEIE entries route to review, never auto-reject (F6), and
+  the TIN-vs-NPI matching gap is documented as F8. See §8 and `docs/sme/REAL_SOURCE_INGEST.md`.
 - **LLM adjudication briefs (DEC-20):** on-demand Bedrock Nova Lite summary for reviewers,
   grounded only in the audit record, advisory, never written to the immutable record.
 
@@ -143,8 +147,9 @@ alias to the prior version (seconds, no rebuild). Reference-data rollback: repoi
 
 - Semantic layer accuracy on real/large lists (the §7 eval is on a small synthetic set;
   no adversarial name obfuscation).
-- Real-source fidelity: one real source (SAM) is capped to a demo-sized slice; three
-  remain synthetic (DEC-22).
+- Real-source fidelity: two real sources (SAM, LEIE) are each capped to a demo-sized
+  slice; two (DMF, TOP) remain synthetic because they are not publicly obtainable
+  (DEC-22, DEC-30).
 - Scaling under sustained load, cold-start latency: designed/configured, unmeasured
   under stress.
 - JS↔Python hash canonicalization for client-side integrity verify (demo uses integer
@@ -278,7 +283,7 @@ observability, and scope.
 | 1 | CloudWatch alarms (queue-depth, DLQ-not-empty) have no notification target (`alarm_actions` empty); an operator is not paged when a DLQ fills | Observability / B-C-D, review queue | **Medium** | Open (follow-on: wire an SNS topic). Partial backstop: the review queue's `ApproximateAgeOfOldestMessage` alarm covers the human-review path | `modules/queue_worker_stage/main.tf` (alarms), DEC-19 |
 | 2 | Console JS dependencies are not CVE-scanned in CI (`npm ci --no-audit`, no Dependabot); Python side is covered by `pip-audit --strict` | Supply chain / console | **Medium** | Open (follow-on: enable `npm audit` / Dependabot) | `.github/workflows/ci.yml` |
 | 3 | Local Terraform state; safe for one operator, unsafe for team/CI applies | Deployment / state | **Medium** | Accepted at course scope; remote state + OIDC plan role is the production upgrade | `environments/dev/backend.tf`, `plan.yml` |
-| 4 | One real screening source (SAM exclusions) capped to a demo-sized slice; three sources remain synthetic | Data fidelity / reference list | **Medium** | Accepted / documented; full extract + record linkage is follow-on | DEC-22, `docs/sme/REAL_SOURCE_INGEST.md` |
+| 4 | Two real screening sources (SAM exclusions, OIG LEIE) each capped to a demo-sized slice; two (DMF, TOP) remain synthetic (not publicly obtainable) | Data fidelity / reference list | **Medium** | Accepted / documented; full extract + record linkage is follow-on | DEC-22, DEC-30, `docs/sme/REAL_SOURCE_INGEST.md` |
 | 5 | Semantic matcher is defeated by name **dilution** (append ~5 distant tokens / a homoglyph): a listed Do Not Pay entity is auto-approved (F1). The 27-case eval's "recall 1.00" had no append cases; the 62-case set (append-inclusive) shows the append-positive and hard-negative cosine distributions overlap — **no threshold separates them**, and 0.72 already yields 7/16 hard-negative false positives | Model robustness / component B | **High** | **Partly remediated:** 2.1e input validation (DEC-29) narrows it (bounds the field, closes the transliteration class) but leaves 75/96 evadable; windowed matching is the recommended, un-built backstop | `docs/sme/INJECTION_THREAT_MODEL.md`, `docs/evidence/EVAL_REPORT.md`, `docs/sme/SEMANTIC_EVAL.md` §9 |
 | 6 | Bedrock is a soft dependency in B; an outage silently degrades the semantic net to rule-based screening | Availability / component B | **Low** | Mitigated: fails safe to deterministic rules (not blind); a Bedrock-availability alarm is follow-on | `src/component_b_enrichment/app.py` (semantic degrade) |
 | 7 | Single webhook notification path for review routing (DEC-7) | Review routing / component D | **Low** | Mitigated by the age-of-oldest-message alarm; a second path is follow-on | DEC-7, `modules/review_queue/main.tf` |
@@ -289,8 +294,9 @@ observability, and scope.
 | 12 | Every Lambda container image carries **2 HIGH + 1 MEDIUM + 1 LOW** OS-package CVEs from the shared amzn2023 base (`sqlite-libs` CVE-2026-11822/11824 HIGH, `libxml2` MEDIUM, `gnupg2` LOW), surfaced by ECR scan-on-push. Not the app's Python deps (pip-audit clean) | Supply chain / all images | **High** | Open (follow-on: rebuild on a patched base image / `dnf upgrade` in the Dockerfile; clears the two HIGH sqlite CVEs) | `docs/evidence/scans/ecr-image-scan-2026-07-09.txt` |
 | 13 | Matcher **false positives** on legitimate look-alike names (F5): 7/16 hard negatives score ≥0.72 on the eval; two (`Initech Solutions LLC`, `Globex Onshore Inc`) at 0.966 are FPs at every threshold below 0.966. Same whole-string defect as F1 (row 5), opposite direction | Model robustness / component B | **Medium** | Contained: `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW (reviewer load, not a wrong auto-reject); robust-matcher follow-on fixes F1 and F5 together | `docs/sme/INJECTION_THREAT_MODEL.md` F5, `docs/evidence/EVAL_REPORT.md` |
 | 14 | Input-validation cap (F1 remediation) makes 1/11 over-length listed entities unscreenable: name exceeds the 35-char field, exact+fuzzy fail, only the fragile semantic layer remains | Model robustness / remediation tradeoff | **Medium** | Open; the windowed-matcher follow-on that fixes F1 also fixes this | `docs/evidence/matcher_evasion_bounded.md` C4, §5.9 |
-| 15 | **`reject` is implemented and correct, but unexercisable on current data (F6).** By design the system never auto-rejects on a name alone: name matches cap at 60 → review (`component_c_risk_scoring/app.py:25,27,50`), and reject is reserved for TIN-level identity confirmation (conf 95 ≥ 80). Neither public source carries a TIN — the feeder maps name+amount only (`component_f_feeder/app.py:142,156`) and the keyless SAM export has none (only the 6 synthetic seeds carry TINs; the 90 real SAM entries do not). So current data can only produce `approve` or `review` | Design principle × data limitation / components C, F, B | **Medium** | Not a build gap and not a two-state classifier — reject is correctly built but the present data cannot trigger it. Ingest a real identifier (UEI/TIN) to exercise reject against real entries (follow-on §6) | `docs/sme/INJECTION_THREAT_MODEL.md` F6 |
+| 15 | **`reject` is implemented and correct, but unexercisable on current data (F6).** By design the system never auto-rejects on a name alone: name matches cap at 60 → review (`component_c_risk_scoring/app.py:25,27,50`), and reject is reserved for TIN-level identity confirmation (conf 95 ≥ 80). No public source carries a TIN — the feeder maps name+amount only (`component_f_feeder/app.py:142,156`), the keyless SAM export has none, and the real LEIE carries NPI but no public TIN (only the 4 synthetic seeds carry TINs; the 90 real SAM and 500 real LEIE entries do not). So current data can only produce `approve` or `review` | Design principle × data limitation / components C, F, B | **Medium** | Not a build gap and not a two-state classifier — reject is correctly built but the present data cannot trigger it. Ingest a real identifier (UEI/TIN/NPI-grade, F8) to exercise reject against real entries (follow-on §6) | `docs/sme/INJECTION_THREAT_MODEL.md` F6 |
 | 16 | **Feed sampling bias misses the at-risk population (F7).** The feeder sorts by award amount descending over ~500 pages (`component_f_feeder/app.py:117,40,58-60`); reach floor ~$13M (page 450). Debarred small vendors receiving small awards sit below it and are invisible to the feed. The one real SAM-excluded entity with real awards (`Hawwk LLC`, ~$86K) is never reachable by the default query, though the matcher catches it when fed directly (name_exact → review). 0/300 fed awards hit | Data path / component F | **Medium** | Sampling–mission misalignment, **not** a matcher failure. Fix: amount-independent/randomized or small-award-focused sampling (follow-on §6) | `docs/sme/INJECTION_THREAT_MODEL.md` F7 |
+| 17 | **Identity matching is TIN-shaped, but real exclusion lists key on NPI (F8).** The real LEIE carries an NPI for many providers (56/500 in the live slice) and no public TIN; Component B has a TIN-exact path (conf 95 → reject) but **no NPI path**, so an NPI-confirmed identity cannot drive a reject — real LEIE entries route to review on a name match only. NPI is **preserved** in the reference record (`scripts/ingest_leie.py`) but unused by the matcher. A real messy-data finding surfaced by wiring a real list, not a limitation to bury | Identity matching / component B, data | **Medium** | Honest (TIN left blank, never fabricated). NPI-grade matching (exact NPI → high-confidence identity) is recommended follow-on and would let LEIE exercise the reject path against real providers (relates to F6) | `docs/sme/INJECTION_THREAT_MODEL.md` F8 |
 
 Full raw scan output — checkov / ruff / pip-audit / tflint (static) **and** the ECR image-scan
 findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), summarized in
@@ -300,10 +306,11 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
 
 ## 5. Residual risks
 
-1. **Real-source scope + PII:** one real source (SAM exclusions) is live, capped to a
-   demo-sized slice, and contains real public debarment names (DEC-22); the other three
-   sources are synthetic. Not the exhaustive federal list; production needs the full
-   extract + a vector index.
+1. **Real-source scope + PII:** two real sources are live — SAM exclusions (DEC-22) and
+   OIG LEIE (DEC-30) — each capped to a demo-sized slice and containing real public names
+   (LEIE individuals render masked on the console); DMF and TOP remain synthetic because
+   they are not publicly obtainable. Neither is the exhaustive federal list; production
+   needs the full extracts + a vector index.
 2. **Matcher dilution / F1 (High, partly remediated):** the semantic + string matcher is
    defeated by appending ~5 distant tokens or a homoglyph to a listed name; the append-positive
    and hard-negative cosine distributions overlap, so no threshold fixes it (0.72 already gives
@@ -339,8 +346,9 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
    confirmation (conf 95 ≥ 80), which avoids wrongly rejecting legitimate look-alikes (the F5
    mode). That correct principle meets a data limitation: neither public source carries a TIN —
    USAspending keys on UEI so the feeder maps name+amount only (`component_f_feeder/app.py:142,156`),
-   and the keyless SAM export has none (only the 6 synthetic seeds carry TINs; the 90 real SAM
-   entries do not). Current data therefore yields only `approve` or `review`. This is **not** a
+   the keyless SAM export has none, and the LEIE carries NPI but no public TIN (only the 4
+   synthetic seeds carry TINs; the 90 real SAM and 500 real LEIE entries do not). Current data
+   therefore yields only `approve` or `review`. This is **not** a
    build gap and **not** a two-state classifier — the reject branch is correctly built but present
    data cannot trigger it, so it is unexercised by feed traffic and a demo cannot show an organic
    reject. Ingest a real identifier (UEI/TIN) to exercise reject against real entries (§4.1 row 15).
@@ -357,9 +365,11 @@ findings — is committed under **`docs/evidence/scans/`** (dated 2026-07-09), s
 
 ## 6. Recommended follow-on work
 
-1. **Full real-source integration:** the async SAM extract + a real vector index
-   (OpenSearch) for the complete list; integrate the three restricted sources (SSA DMF,
-   TOP, OIG LEIE) with proper record linkage.
+1. **Full real-source integration + NPI matching:** the async SAM extract and the full
+   OIG LEIE (both currently demo-capped) behind a real vector index (OpenSearch); **NPI-grade
+   identity matching** so the LEIE's preserved NPI can drive high-confidence identity and
+   exercise reject against real providers (F8); the two still-synthetic sources (SSA DMF,
+   TOP) integrated with proper record linkage if obtained through their restricted programs.
 2. **Remote Terraform state** + the OIDC plan role so `plan.yml` reflects real drift.
 3. **Bedrock-availability alarm** so a silent semantic-net degradation is observable.
 4. **Materialized analytics rollup** for production-scale aggregation.
@@ -408,8 +418,12 @@ exclusion-type variety mapped to severity, active-only filtering, dedupe, schema
 tolerance, and a deliberate **size cap** (fits the in-store-cosine budget and the source's
 rate limit). Two source paths: the authoritative GSA API (`--source gsa`, key-gated,
 10/day free tier) and a keyless bulk mirror (`--source opensanctions`, CC-BY-NC, used for
-the live publish). Live result: reference **version 4 = 90 real SAM exclusions + 6
-synthetic restricted entries**, verified end to end (§2.2).
+the live publish). A second real source, the **OIG LEIE**, is ingested the same way by
+`scripts/ingest_leie.py` (DEC-30): a deliberate ~500-entry sample (450 individuals + 50
+entities) of the ~83k-row public HHS-OIG list, classification derived from the source
+columns so individuals mask on the console, NPI preserved, TIN blank. Live result:
+reference **version 5 = 500 real LEIE + 90 real SAM + 4 synthetic restricted (DMF, TOP)
+= 594 entries**, verified end to end (§2.2).
 
 ---
 

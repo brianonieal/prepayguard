@@ -318,6 +318,24 @@ efficacy** of the detection mission. Fix direction (follow-on): amount-independe
 sampling across the full result set, or a small-award-focused pull (e.g. an amount ceiling, or
 ascending sort), so the feed can actually reach the at-risk population.
 
+### F8. Identity matching is TIN-shaped, but real exclusion lists key on NPI - MEDIUM (messy-data / matching gap)
+
+Wiring the real OIG LEIE (DEC-30) surfaced a real matching gap. The LEIE identifies providers by
+**NPI** (National Provider Identifier), not TIN: of the 500-entry live LEIE slice, **56 carry an NPI**
+and **none carry a public TIN** (the LEIE download exposes no SSN/TIN). Component B's strong,
+reject-driving identity path is **TIN-exact only** (conf 95 → `reject` in C); it has **no NPI path**.
+So although we **preserve the NPI** in every LEIE reference record (`scripts/ingest_leie.py`), an
+NPI-confirmed identity **cannot** drive a reject — a real excluded provider matched by name still caps
+at 60 → review (consistent with F6).
+
+This is a genuine messy-data finding, not a limitation to bury: real Do Not Pay sources use
+domain-specific identifiers (NPI for health providers, UEI for contractors, SSN for DMF), so a
+production matcher needs identifier-aware matching per source, not a single TIN assumption. We chose
+**honesty over fabrication** — the TIN stays blank rather than inventing one to force a reject. CI4A:
+**Integrity** of the identity-matching control. Fix direction (follow-on): an NPI-exact match path
+(exact NPI → high-confidence identity → reject band), which would also let the real LEIE finally
+exercise the reject path that F6 notes is unexercisable on current data.
+
 ## CI4A summary map
 
 | Finding | Confidentiality | Integrity | Authentication | Authorization | Availability | Accountability |
@@ -329,6 +347,7 @@ ascending sort), so the feed can actually reach the at-risk population.
 | F5 look-alike false positive | - | PRIMARY (clean payee flagged) | - | - | - | - |
 | F6 reject unexercisable on current data | - | design-correct (no name-only auto-reject) | - | - | - | assurance gap (reject unexercised) |
 | F7 feed sampling bias | - | PRIMARY (detection points away from target) | - | - | efficacy | - |
+| F8 identifier mismatch (TIN vs NPI) | - | design gap (identifier-blind reject path) | weak identity signal | - | - | - |
 
 ## Risk-rating table
 
@@ -341,6 +360,7 @@ ascending sort), so the feed can actually reach the at-risk population.
 | F5 | Look-alike false positives (whole-string cosine) | Unknown rate (synthetic set) | Medium | **MEDIUM** | `NAME_MATCH_CAP=60` caps a semantic hit to REVIEW, so a false positive is reviewer load, not a wrong auto-reject. | **7/16 hard negatives ≥0.72 on the eval; two at 0.966 unsheddable at any threshold** (`EVAL_REPORT.md`). Same whole-string defect as F1; robust-matcher follow-on fixes both. Open. |
 | F6 | `reject` implemented and correct, but unexercisable on current data (no-name-only-auto-reject principle meets TIN-less public sources) | Certain (structural) | Medium | **MEDIUM** | By design: name matches cap at 60 → review (`component_c_risk_scoring/app.py:27,50`); reject is reserved for TIN-level identity confirmation. Neither public source carries a TIN (feeder maps name+amount, `component_f_feeder/app.py:142,156`; keyless SAM export). | Not a build gap and not a two-state classifier — reject is correctly built but the present data cannot trigger it, so the branch is unexercised by feed traffic and a demo cannot show an organic reject. Ingest a real identifier (UEI/TIN) to exercise reject against real entries. Open. |
 | F7 | Feed samples the largest primes; blind to the small-vendor at-risk population | Certain (structural) | Medium | **MEDIUM** | None. Feeder sorts by amount desc over ~500 pages (`component_f_feeder/app.py:117,40,58-60`); reach floor ~$13M across pages 1→450. | 0/300 fed awards hit; the one real overlap (`Hawwk LLC`, ~$86K) is caught when fed but below the feed floor. Sampling–mission misalignment; matcher is not at fault. Fix: amount-independent/randomized or small-award-focused sampling. Open. |
+| F8 | Identity matching is TIN-shaped; real lists (LEIE) key on NPI, which the matcher cannot use | Certain (structural) | Medium | **MEDIUM** | NPI preserved in every LEIE record but unused by the matcher; TIN left blank (no fabrication), so LEIE routes to review, never a wrong auto-reject. | Real messy-data gap surfaced by wiring a real list (DEC-30). An NPI-exact match path (exact NPI → reject) is the follow-on; it would also give F6 its real-data reject. Open. |
 
 ## Root cause (state it plainly)
 
