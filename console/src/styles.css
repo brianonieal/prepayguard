@@ -2,9 +2,41 @@
   --navy:#0f2440; --navy-2:#16324f; --paper:#f7f5f0; --ink:#1c2530;
   --copper:#2e7d6b; --amber:#b7791f; --red:#b3403a; --green:#2f7d3b;
   --line:#d9d4c9; --mono:ui-monospace,Consolas,monospace;
+  /* --- refinement pass: design tokens (additive; semantic disposition colors above unchanged) --- */
+  /* three type roles: display face for headings, clean sans for body, mono for data primitives */
+  --display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  --sans:"Segoe UI",system-ui,sans-serif;
+  /* one deliberate type scale (11 caption · 12 · 14 · 16 body · 20 · 28 · 36 display) */
+  --fs-11:11px; --fs-12:12px; --fs-14:14px; --fs-16:16px; --fs-20:20px; --fs-28:28px; --fs-36:36px;
+  /* one spacing scale */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
+  /* one signature interactive accent = the brand navy, deepened for hover, + its focus ring */
+  --accent:var(--navy); --accent-deep:#0a1a30;
+  --ring:0 0 0 3px rgba(15,36,64,.28);
+  /* consistent radius, elevation, motion */
+  --radius:8px; --radius-sm:6px; --radius-pill:99px;
+  --shadow-sm:0 1px 2px rgba(15,36,64,.05);
+  --shadow-hover:0 6px 18px rgba(15,36,64,.10);
+  --motion:150ms; --ease:cubic-bezier(.2,.6,.2,1);
 }
 *{box-sizing:border-box;margin:0}
-body{font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+body{font:var(--fs-16)/1.5 var(--sans);background:var(--paper);color:var(--ink)}
+/* Visible, consistent focus ring on every interactive element (a11y + removes stray default
+   browser outlines / blues). Keyboard-only via :focus-visible so mouse clicks stay clean. */
+:focus{outline:none}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+[tabindex]:focus-visible,summary:focus-visible{outline:none;box-shadow:var(--ring);border-radius:var(--radius-sm)}
+/* Motion: subtle + purposeful, and fully neutralized under prefers-reduced-motion. */
+@keyframes fade-in-up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sk-shimmer{0%{background-position:-360px 0}100%{background-position:360px 0}}
+.fade-in{animation:fade-in-up var(--motion) var(--ease) both}
+.route-fade{animation:fade-in-up 170ms var(--ease) both}
+.stagger>*{animation:fade-in-up var(--motion) var(--ease) both}
+.stagger>*:nth-child(2){animation-delay:40ms}.stagger>*:nth-child(3){animation-delay:80ms}
+.stagger>*:nth-child(4){animation-delay:120ms}.stagger>*:nth-child(5){animation-delay:160ms}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
 /* full-height shell so short pages don't collapse into a void */
 .app{min-height:100vh;display:flex;flex-direction:column;background:var(--paper)}
 .app .content{flex:1}
@@ -344,7 +376,7 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .sc-algo-list li{margin-bottom:5px}
 
 /* v3.7.1: Feed builder layout (fixes checkbox/radio alignment + compactness) */
-/* Feed builder: two tidy columns — filters left, dates + a compact download box
+/* Feed builder: two tidy columns - filters left, dates + a compact download box
    stacked on the right so download sits next to Dates and size (half-width). */
 .feed-cols{display:flex;gap:16px;align-items:flex-start}
 .feed-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
@@ -454,3 +486,62 @@ select{padding:9px 11px;border:1px solid var(--line);border-radius:5px;font:inhe
 .feed .dl-summary{background:#faf9f5;border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:14px}
 .feed .dl-sum-h{font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:#5a5347;margin-bottom:8px}
 .feed .dl-summary dl{grid-template-columns:120px 1fr;gap:5px 12px;font-size:13px}
+
+/* ============================================================================
+   REFINEMENT PASS - additive polish over the existing design language. No layout
+   restructuring; these overrides sit last so they win on equal specificity.
+   Semantic disposition colors (approve/review/reject) are untouched.
+   ============================================================================ */
+
+/* 1. TYPE - a characterful-but-professional display face for headings; body stays
+      sans; data primitives stay mono. Heading sizes snap to the scale. */
+h2{font-family:var(--display);font-weight:700;font-size:var(--fs-20);letter-spacing:-.01em}
+.card h2{font-family:var(--display)}
+.pitch-hero h1{font-family:var(--display);font-size:var(--fs-28)}
+.pitch-section h2{font-family:var(--display);font-size:var(--fs-20)}
+.pitch-ba-v{font-family:var(--display)}
+.sc-hero h1{font-family:var(--display);font-size:var(--fs-36)}
+.sc-h2{font-family:var(--display);font-size:var(--fs-20)}
+.sc-hs-v,.sc-donut-num,.stat .v,.kpi-v{font-family:var(--display);font-size:var(--fs-28)}
+.tour-title{font-family:var(--display);font-size:var(--fs-20)}
+@media(max-width:720px){.sc-hero h1{font-size:var(--fs-28)}}
+
+/* 2. ACCENT - unify interactive elements on the one signature navy; deepen on hover. */
+.btn{transition:background var(--motion) var(--ease),transform var(--motion) var(--ease),box-shadow var(--motion) var(--ease)}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:none}
+.rowlink,.linkbtn,.news-link{transition:color var(--motion) var(--ease)}
+
+/* 3. RADIUS - consistent card radius (8) everywhere; small controls snap to --radius-sm (6). */
+.panel,.stat,.kpi,.card,.matchcard,.bulkbar,.note,.result-ok,.hero-flag,
+.sc-dcard,.sc-example,.sc-tcard,.sc-hs,.feed-src,table{border-radius:var(--radius)}
+.btn,input,textarea,select,.search{border-radius:var(--radius-sm)}
+
+/* 4. MOTION - gentle hover lift on content cards; rows already tint, add a soft accent edge. */
+.stat,.kpi,.news-card,.sc-dcard,.sc-example,.matchcard,.feed-src{transition:transform var(--motion) var(--ease),box-shadow var(--motion) var(--ease)}
+.stat:hover,.kpi:hover,.news-card:hover,.sc-dcard:hover,.sc-example:hover,.matchcard:hover,.feed-src:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+tbody tr{transition:background var(--motion) var(--ease),box-shadow var(--motion) var(--ease)}
+tbody tr:hover{box-shadow:inset 3px 0 0 var(--accent)}
+
+/* 5. SKELETON - shimmer placeholders replace spinner text while tables/cards load. */
+.skeleton{display:flex;flex-direction:column;gap:var(--sp-3)}
+.sk{background:linear-gradient(90deg,#efece4 25%,#f6f4ee 50%,#efece4 75%);background-size:720px 100%;
+    animation:sk-shimmer 1.2s linear infinite;border-radius:var(--radius-sm)}
+.sk-card{height:74px;border:1px solid var(--line)}
+.sk-line{height:14px} .sk-line.w-40{width:40%} .sk-line.w-60{width:60%} .sk-line.w-80{width:80%}
+.sk-row{height:46px}
+.sk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4)}
+@media(max-width:820px){.sk-kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* 6. EMPTY STATE - considered treatment: muted mark, one helpful line, centered, airy. */
+.empty{background:#fff;border:1px dashed var(--line);border-radius:var(--radius);padding:var(--sp-8) var(--sp-6);
+    display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);color:#8a8272;text-align:center}
+.empty-mark{width:44px;height:44px;border-radius:50%;background:#f3f1ea;border:1px solid var(--line);
+    display:grid;place-items:center;color:#b3ac9c;font-size:var(--fs-20)}
+.empty.compact{background:none;border:0;padding:var(--sp-6) var(--sp-4)}
+.empty-line{font-size:var(--fs-14);color:#6b6455}
+.empty-hint{font-size:var(--fs-12);color:#a29a88}
+
+/* 7. BADGES - one consistent pill treatment across pages (radius/family/weight). */
+.pill,.rowstate,.news-src,.src-tag,.rolechip,.rolebadge{border-radius:var(--radius-pill);font-family:var(--mono);font-weight:600}

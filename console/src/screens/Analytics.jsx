@@ -39,7 +39,16 @@ export default function Analytics() {
   }, [log]); // eslint-disable-line
 
   if (err) return <div className="body"><div className="verdict bad">Failed to load analytics: {err}</div></div>;
-  if (!a) return <div className="body"><div className="sub">Loading analytics…</div></div>;
+  if (!a) return (
+    <div className="body">
+      <h2>Audit log &amp; compliance</h2>
+      <div className="sub">The immutable audit log for auditor export, plus screening throughput and reviewer productivity.</div>
+      <div className="detail-grid" aria-hidden="true">
+        <div className="panel skeleton"><div className="sk sk-line w-40" /><div className="sk sk-card" style={{ height: 120 }} /></div>
+        <div className="panel skeleton"><div className="sk sk-line w-40" /><div className="sk sk-card" style={{ height: 120 }} /></div>
+      </div>
+    </div>
+  );
 
   const mix = a.disposition_mix || {};
   const total = a.total_screened || 0;
@@ -86,7 +95,9 @@ export default function Analytics() {
         </div>
         <div className="panel">
           <h3>Throughput (last 14 days)</h3>
-          {throughput.length === 0 ? <div className="sub" style={{ margin: 0 }}>No data yet.</div> : (
+          {throughput.length === 0 ? (
+            <div className="empty compact"><div className="empty-mark" aria-hidden="true">∅</div><div className="empty-line">No throughput yet.</div></div>
+          ) : (
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 96 }}>
               {throughput.map((t) => (
                 <div key={t.day} title={`${t.day}: ${t.count}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -101,7 +112,9 @@ export default function Analytics() {
 
       <div className="panel" style={{ marginTop: 14 }}>
         <h3>Reviewer productivity</h3>
-        {(a.reviewer_productivity || []).length === 0 ? <div className="sub" style={{ margin: 0 }}>No human decisions yet.</div> : (
+        {(a.reviewer_productivity || []).length === 0 ? (
+          <div className="empty compact"><div className="empty-mark" aria-hidden="true">✓</div><div className="empty-line">No human decisions yet.</div></div>
+        ) : (
           <table>
             <thead><tr><th>Reviewer (identity)</th><th>Decisions</th></tr></thead>
             <tbody>{a.reviewer_productivity.map((r, i) => (

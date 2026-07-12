@@ -37,7 +37,16 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
   useEffect(() => { setItems(null); setCursor(null); setSelected(new Set()); load(true); }, [status]); // eslint-disable-line
 
   if (err) return <div className="body"><div className="verdict bad">Failed to load reviews: {err}</div></div>;
-  if (items === null) return <div className="body"><div className="sub">Loading review queue…</div></div>;
+  if (items === null) return (
+    <div className="body">
+      <h2>Human review queue</h2>
+      <div className="sub">Payments the risk engine could not clear or reject with confidence.</div>
+      <div className="stats" aria-hidden="true">{[0, 1, 2].map((i) => <div key={i} className="sk sk-card" />)}</div>
+      <div className="skeleton" style={{ marginTop: 16 }} aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => <div key={i} className="sk sk-row" />)}
+      </div>
+    </div>
+  );
 
   const q = query.trim().toLowerCase();
   const rows = items.filter((r) => !q || `${r.payment_id} ${r.payee || ""}`.toLowerCase().includes(q));
@@ -103,7 +112,15 @@ export default function ReviewQueue({ onOpen, defaultFilter = "pending", canDeci
       {actionErr && <div className="verdict bad">{actionErr}</div>}
 
       {rows.length === 0 ? (
-        <div className="empty">{loading ? "Loading…" : "No payments match."}</div>
+        loading ? (
+          <div className="skeleton" aria-hidden="true">{[0, 1, 2, 3].map((i) => <div key={i} className="sk sk-row" />)}</div>
+        ) : (
+          <div className="empty">
+            <div className="empty-mark" aria-hidden="true">{q ? "∅" : "✓"}</div>
+            <div className="empty-line">{q ? "No payments match your search." : "No payments here yet."}</div>
+            {q && <div className="empty-hint">Try a different payment ID or payee.</div>}
+          </div>
+        )
       ) : (
         <table>
           <thead><tr>
