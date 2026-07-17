@@ -1,7 +1,7 @@
 # Test/dev dependencies (not shipped in any Lambda image).
 pytest>=9.1.1
 moto[dynamodb,sqs,s3,secretsmanager]>=5.2.2
-boto3>=1.43.45
+boto3>=1.43.50
 # Component E's Excel-ingest test (test_component_e.py) imports openpyxl; keep it
 # in step with src/component_e_batch_ingest/requirements.txt so CI exercises the
 # .xlsx path instead of erroring on a missing import.
