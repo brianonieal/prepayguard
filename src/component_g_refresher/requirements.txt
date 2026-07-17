@@ -2,4 +2,4 @@
 # boto3 ships in the AWS Lambda Python base image; pinned so the built image and
 # pip-audit (DEC-8) have a known version. The SAM source (OpenSanctions mirror) is
 # fetched with stdlib urllib and is public/keyless (no secret, cf DEC-7).
-boto3>=1.43.45,<2
+boto3>=1.43.50,<2
